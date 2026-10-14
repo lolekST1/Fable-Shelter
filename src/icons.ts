@@ -1,6 +1,6 @@
 /** Small hand-drawn canvas icons, so nothing in the game depends on text or emoji fonts. */
 
-export type Ailment = 'sparks' | 'snow' | 'bubbles';
+export type Ailment = 'snow' | 'smoke' | 'sparks' | 'spores' | 'feathers' | 'bubbles' | 'confetti' | 'stone';
 
 function star(g: CanvasRenderingContext2D, x: number, y: number, r: number, points: number, inner: number) {
   g.beginPath();
@@ -48,6 +48,83 @@ export function drawAilment(g: CanvasRenderingContext2D, kind: Ailment, x: numbe
         g.stroke();
       }
     }
+  } else if (kind === 'smoke') {
+    // a flame gone out: grey puffs above a little dark wick
+    g.fillStyle = '#9aa0a8';
+    for (const [dx, dy, s2] of [[-0.25, 0.1, 0.38], [0.2, -0.1, 0.42], [-0.05, -0.5, 0.32]]) {
+      g.beginPath();
+      g.arc(x + dx * r, y + dy * r, s2 * r, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.fillStyle = '#ff9a3d';
+    g.beginPath();
+    g.ellipse(x, y + r * 0.62, r * 0.14, r * 0.24, 0, 0, Math.PI * 2);
+    g.globalAlpha = 0.5;
+    g.fill();
+    g.globalAlpha = 1;
+  } else if (kind === 'spores') {
+    g.fillStyle = '#e8c84a';
+    for (let i = 0; i < 9; i++) {
+      const a = i * 2.4, rr = r * (0.2 + (i % 3) * 0.25);
+      g.beginPath();
+      g.arc(x + Math.cos(a) * rr, y + Math.sin(a) * rr, r * (0.12 + (i % 2) * 0.06), 0, Math.PI * 2);
+      g.fill();
+    }
+    g.fillStyle = '#c9a42a';
+    g.beginPath();
+    g.arc(x, y, r * 0.16, 0, Math.PI * 2);
+    g.fill();
+  } else if (kind === 'feathers') {
+    for (const [dx, a] of [[-0.3, -0.5], [0.3, 0.45]] as [number, number][]) {
+      g.save();
+      g.translate(x + dx * r, y);
+      g.rotate(a);
+      g.beginPath();
+      g.moveTo(0, r * 0.75);
+      g.quadraticCurveTo(r * 0.42, 0, 0, -r * 0.75);
+      g.quadraticCurveTo(-r * 0.42, 0, 0, r * 0.75);
+      g.fillStyle = '#ffffff';
+      g.fill();
+      g.lineWidth = r * 0.07;
+      g.strokeStyle = '#b9a58a';
+      g.stroke();
+      g.beginPath();
+      g.moveTo(0, r * 0.85);
+      g.lineTo(0, -r * 0.6);
+      g.stroke();
+      g.restore();
+    }
+  } else if (kind === 'confetti') {
+    const cols = ['#ff6f91', '#ffd34d', '#59c25a', '#4fb4ff', '#a99bf0'];
+    for (let i = 0; i < 5; i++) {
+      g.strokeStyle = cols[i];
+      g.lineWidth = r * 0.13;
+      g.beginPath();
+      g.arc(x, y + r * 0.45, r * (0.85 - i * 0.14), Math.PI, 0);
+      g.stroke();
+    }
+    for (let i = 0; i < 6; i++) {
+      g.fillStyle = cols[i % 5];
+      g.fillRect(x - r * 0.7 + i * r * 0.28, y + r * 0.55 + (i % 2) * r * 0.18, r * 0.14, r * 0.14);
+    }
+  } else if (kind === 'stone') {
+    g.fillStyle = '#9aa3ad';
+    g.beginPath();
+    g.moveTo(x - r * 0.75, y + r * 0.45);
+    g.lineTo(x - r * 0.55, y - r * 0.3);
+    g.lineTo(x - r * 0.05, y - r * 0.62);
+    g.lineTo(x + r * 0.6, y - r * 0.35);
+    g.lineTo(x + r * 0.78, y + r * 0.45);
+    g.closePath();
+    g.fill();
+    g.strokeStyle = '#6f7880';
+    g.lineWidth = r * 0.08;
+    g.stroke();
+    g.beginPath();
+    g.moveTo(x - r * 0.1, y - r * 0.3);
+    g.lineTo(x + r * 0.05, y + r * 0.05);
+    g.lineTo(x - r * 0.15, y + r * 0.3);
+    g.stroke();
   } else {
     // hiccup bubbles
     for (const [dx, dy, s] of [[-0.3, 0.3, 0.5], [0.42, -0.05, 0.36], [0.05, -0.62, 0.26]]) {
@@ -84,9 +161,82 @@ export function drawCoin(g: CanvasRenderingContext2D, x: number, y: number, r: n
   g.restore();
 }
 
-export type Medicine = 'pink' | 'blue' | 'green';
-/** which medicine cures which ailment: a warm brew for chills, spring water for fiery sneezes, herbs for hiccups */
-export const CURE: Record<Ailment, Medicine> = { snow: 'pink', sparks: 'blue', bubbles: 'green' };
+/** things the keeper can carry: three medicines and berries for the residents */
+export type Medicine = 'pink' | 'blue' | 'green' | 'berry';
+
+/** berries: food for the residents */
+export function drawBerry(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  for (const [dx, dy] of [[-0.28, 0.18], [0.28, 0.18], [0, -0.22]]) {
+    g.beginPath();
+    g.arc(x + dx * r, y + dy * r, r * 0.36, 0, Math.PI * 2);
+    g.fillStyle = '#e8435a';
+    g.fill();
+    g.beginPath();
+    g.arc(x + dx * r - r * 0.12, y + dy * r - r * 0.12, r * 0.09, 0, Math.PI * 2);
+    g.fillStyle = '#ffffff';
+    g.fill();
+  }
+  g.fillStyle = '#59c25a';
+  g.beginPath();
+  g.ellipse(x + r * 0.18, y - r * 0.62, r * 0.28, r * 0.12, -0.5, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+}
+
+/** a crescent moon with little z's: sleepy */
+export function drawMoon(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  g.beginPath();
+  g.arc(x - r * 0.1, y + r * 0.1, r * 0.62, 0, Math.PI * 2);
+  g.fillStyle = '#ffd34d';
+  g.fill();
+  g.globalCompositeOperation = 'destination-out';
+  g.beginPath();
+  g.arc(x + r * 0.18, y - r * 0.12, r * 0.52, 0, Math.PI * 2);
+  g.fill();
+  g.globalCompositeOperation = 'source-over';
+  g.strokeStyle = '#6f7bd8';
+  g.lineWidth = r * 0.1;
+  g.lineJoin = 'round';
+  for (const [zx, zy, zs] of [[0.45, -0.25, 0.3], [0.72, -0.72, 0.2]]) {
+    const s = zs * r, px = x + zx * r, py = y + zy * r;
+    g.beginPath();
+    g.moveTo(px - s, py - s);
+    g.lineTo(px + s, py - s);
+    g.lineTo(px - s, py + s);
+    g.lineTo(px + s, py + s);
+    g.stroke();
+  }
+  g.restore();
+}
+
+/** a round cushion bed */
+export function drawBed(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  g.fillStyle = '#c98fd6';
+  g.beginPath();
+  g.ellipse(x, y + r * 0.2, r * 0.9, r * 0.5, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#f3dcf7';
+  g.beginPath();
+  g.ellipse(x, y + r * 0.12, r * 0.62, r * 0.3, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#ffffff';
+  g.beginPath();
+  g.ellipse(x - r * 0.25, y - r * 0.05, r * 0.3, r * 0.16, -0.2, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+}
+
+export function drawHeart(g: CanvasRenderingContext2D, x: number, y: number, s: number, fill: string) {
+  g.beginPath();
+  g.moveTo(x, y + s);
+  g.bezierCurveTo(x - s * 1.6, y - s * 0.2, x - s * 0.6, y - s * 1.4, x, y - s * 0.5);
+  g.bezierCurveTo(x + s * 0.6, y - s * 1.4, x + s * 1.6, y - s * 0.2, x, y + s);
+  g.fillStyle = fill;
+  g.fill();
+}
 
 /** pink warm brew: round flask */
 export function drawVial(g: CanvasRenderingContext2D, x: number, y: number, r: number, color = '#ff5fa8') {
@@ -164,8 +314,10 @@ export function drawLeaf(g: CanvasRenderingContext2D, x: number, y: number, r: n
 export function drawMedicine(g: CanvasRenderingContext2D, m: Medicine, x: number, y: number, r: number) {
   if (m === 'pink') drawVial(g, x, y, r);
   else if (m === 'blue') drawDrop(g, x, y, r);
-  else drawLeaf(g, x, y, r);
+  else if (m === 'green') drawLeaf(g, x, y, r);
+  else drawBerry(g, x, y, r);
 }
+export const MED_COLOR: Record<Medicine, string> = { pink: '#ff5fa8', blue: '#4fb4ff', green: '#59c25a', berry: '#e8435a' };
 
 /** a cauldron silhouette, for the build spot that makes one */
 export function drawCauldron(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
@@ -310,35 +462,52 @@ export function drawHelper(g: CanvasRenderingContext2D, x: number, y: number, r:
   g.restore();
 }
 
-export type SpotIcon = 'cauldron' | 'spring' | 'herbs' | 'backpack' | 'shoes' | 'sign' | 'helper';
+export type SpotIcon = 'cauldron' | 'spring' | 'herbs' | 'backpack' | 'shoes' | 'sign' | 'helper' | 'bed' | 'berry';
 export function drawSpotIcon(g: CanvasRenderingContext2D, icon: SpotIcon, x: number, y: number, r: number) {
-  ({ cauldron: drawCauldron, spring: drawSpring, herbs: drawHerbs, backpack: drawBackpack, shoes: drawShoe, sign: drawSign, helper: drawHelper })[icon](g, x, y, r);
+  ({ cauldron: drawCauldron, spring: drawSpring, herbs: drawHerbs, backpack: drawBackpack, shoes: drawShoe, sign: drawSign, helper: drawHelper, bed: drawBed, berry: drawBerry })[icon](g, x, y, r);
 }
 
-/** speech bubble over a patient: what is wrong, and in a badge what will help */
-export function bubbleCanvas(kind: Ailment): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = 200;
-  c.height = 196;
-  const g = c.getContext('2d')!;
+function bubbleBase(g: CanvasRenderingContext2D) {
   g.fillStyle = '#ffffff';
-  g.strokeStyle = 'rgba(70,100,90,0.35)';
-  g.lineWidth = 5;
   g.beginPath();
   g.arc(90, 86, 72, 0, Math.PI * 2);
   g.moveTo(72, 150);
   g.lineTo(90, 188);
   g.lineTo(108, 150);
   g.fill();
+}
+
+/** speech bubble over a patient: what is wrong, and in a badge what will help */
+export function bubbleCanvas(kind: Ailment, cure: Medicine): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = 200;
+  c.height = 196;
+  const g = c.getContext('2d')!;
+  bubbleBase(g);
   drawAilment(g, kind, 84, 90, 48);
-  // badge with the medicine
   g.beginPath();
   g.arc(158, 46, 38, 0, Math.PI * 2);
   g.fillStyle = '#ffffff';
   g.fill();
   g.lineWidth = 5;
-  g.strokeStyle = CURE[kind] === 'pink' ? '#ff5fa8' : CURE[kind] === 'blue' ? '#4fb4ff' : '#59c25a';
+  g.strokeStyle = MED_COLOR[cure];
   g.stroke();
-  drawMedicine(g, CURE[kind], 158, 48, 28);
+  drawMedicine(g, cure, 158, 48, 28);
   return c;
+}
+
+/** bubble over a resident: what it needs now, with its heart progress below */
+export function needCanvas(c: HTMLCanvasElement, need: 'food' | 'sleep' | null, hearts: number, max: number) {
+  c.width = 200;
+  c.height = 240;
+  const g = c.getContext('2d')!;
+  g.clearRect(0, 0, 200, 240);
+  if (need) {
+    bubbleBase(g);
+    if (need === 'food') drawBerry(g, 90, 88, 52);
+    else drawMoon(g, 90, 90, 56);
+  }
+  // heart row
+  const w = 34, x0 = 100 - ((max - 1) * w) / 2;
+  for (let i = 0; i < max; i++) drawHeart(g, x0 + i * w, 216, 12, i < hearts ? '#ff5f86' : 'rgba(255,255,255,0.75)');
 }

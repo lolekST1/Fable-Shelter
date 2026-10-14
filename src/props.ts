@@ -51,6 +51,18 @@ export function medicineMesh(kind: Medicine): THREE.Group {
     const cork = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.025, 0.04, 10), mats.cork);
     cork.position.y = 0.235;
     g.add(fill, body, neck, cork);
+  } else if (kind === 'berry') {
+    // a little cluster of red berries with a leaf
+    const bm = new THREE.MeshStandardMaterial({ color: 0xe8435a, emissive: 0x7a1020, emissiveIntensity: 0.25, roughness: 0.35 });
+    for (const [x, y, z] of [[-0.05, 0.06, 0], [0.05, 0.06, 0.02], [0, 0.06, -0.06], [0, 0.14, -0.01]]) {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), bm);
+      b.position.set(x, y, z);
+      g.add(b);
+    }
+    const l = new THREE.Mesh(leafGeo, mats.leaf);
+    l.position.set(0.02, 0.16, 0);
+    l.rotation.z = -0.6;
+    g.add(l);
   } else {
     // a little bundle of fresh herbs tied with twine
     for (let i = 0; i < 5; i++) {
@@ -94,7 +106,8 @@ export class Station {
   constructor(public kind: Medicine, public pos: THREE.Vector3, public brewTime: number, shadowTex: THREE.Texture) {
     if (kind === 'pink') this.buildCauldron();
     else if (kind === 'blue') this.buildSpring();
-    else this.buildHerbs();
+    else if (kind === 'green') this.buildHerbs();
+    else this.buildBerryBush();
     const board = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.08, 0.46), mats.wood);
     board.position.set(0.82, 0.18, 0.05);
     board.castShadow = true;
@@ -196,6 +209,27 @@ export class Station {
     }
   }
 
+  private buildBerryBush() {
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x4f9e45, roughness: 0.9 });
+    const berryMat = new THREE.MeshStandardMaterial({ color: 0xe8435a, emissive: 0x7a1020, emissiveIntensity: 0.25, roughness: 0.35 });
+    const bush = new THREE.Group();
+    for (const [x, y, z, s] of [[0, 0.42, 0, 0.42], [-0.3, 0.3, 0.1, 0.3], [0.3, 0.32, -0.05, 0.32], [0.05, 0.3, 0.3, 0.28], [-0.05, 0.3, -0.3, 0.28]]) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(s, 14, 10), leafMat);
+      m.position.set(x, y, z);
+      m.castShadow = true;
+      bush.add(m);
+    }
+    for (let i = 0; i < 14; i++) {
+      const a = i * 2.39, h = 0.25 + (i % 5) * 0.11;
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), berryMat);
+      const rr = 0.44 - Math.abs(h - 0.45) * 0.5;
+      b.position.set(Math.cos(a) * rr, h, Math.sin(a) * rr);
+      bush.add(b);
+    }
+    this.group.add(bush);
+    this.anim.push((t) => { bush.scale.set(1 + Math.sin(t * 1.3) * 0.015, 1 - Math.sin(t * 1.3) * 0.015, 1); });
+  }
+
   private bubbles(y: number, color: number, emissive: number, spread: number) {
     for (let i = 0; i < 4; i++) {
       const b = new THREE.Mesh(new THREE.SphereGeometry(0.06 + Math.random() * 0.04, 10, 8), new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity: 0.4 }));
@@ -257,6 +291,25 @@ export function signpostMesh(): THREE.Group {
   return g;
 }
 
+/** a round cushion bed for a resident; `fluff` animates when the keeper plumps it up */
+export function bedMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const outer = new THREE.MeshStandardMaterial({ color: 0xc98fd6, roughness: 0.9 });
+  const inner = new THREE.MeshStandardMaterial({ color: 0xf3dcf7, roughness: 1 });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.13, 12, 28), outer);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.11;
+  ring.scale.set(1, 0.85, 0.75);
+  const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.42, 0.1, 26), inner);
+  pad.position.y = 0.06;
+  const pillow = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }));
+  pillow.scale.set(1.3, 0.45, 0.8);
+  pillow.position.set(0, 0.14, -0.2);
+  ring.castShadow = true;
+  g.add(ring, pad, pillow);
+  return g;
+}
+
 /** wicker basket by the pen: walk up to it to empty your arms */
 export function basketMesh(): THREE.Group {
   const g = new THREE.Group();
@@ -307,7 +360,7 @@ export function backpackMesh(): THREE.Group {
 // ---------------------------------------------------------------- particles
 
 interface Particle { m: THREE.Mesh; v: THREE.Vector3; life: number; max: number; g: number; spin: number; s: number }
-type Kind = 'spark' | 'flake' | 'bubble' | 'star' | 'dust';
+type Kind = 'spark' | 'flake' | 'bubble' | 'star' | 'dust' | 'smoke' | 'spore' | 'feather' | 'confetti' | 'pebble' | 'heart' | 'zzz';
 
 export class Fx {
   private list: Particle[] = [];
@@ -317,6 +370,13 @@ export class Fx {
     bubble: new THREE.SphereGeometry(0.06, 10, 8),
     star: new THREE.OctahedronGeometry(0.07),
     dust: new THREE.SphereGeometry(0.05, 8, 6),
+    smoke: new THREE.SphereGeometry(0.09, 10, 8),
+    spore: new THREE.SphereGeometry(0.035, 8, 6),
+    feather: (() => { const s = new THREE.Shape(); s.moveTo(0, -0.09); s.quadraticCurveTo(0.05, 0, 0, 0.09); s.quadraticCurveTo(-0.05, 0, 0, -0.09); return new THREE.ShapeGeometry(s, 5); })(),
+    confetti: new THREE.BoxGeometry(0.06, 0.06, 0.01),
+    pebble: new THREE.DodecahedronGeometry(0.05),
+    heart: (() => { const s = new THREE.Shape(); s.moveTo(0, -0.06); s.bezierCurveTo(-0.1, 0.01, -0.04, 0.08, 0, 0.03); s.bezierCurveTo(0.04, 0.08, 0.1, 0.01, 0, -0.06); return new THREE.ShapeGeometry(s, 6); })(),
+    zzz: new THREE.TorusGeometry(0.04, 0.012, 6, 12),
   };
   private mat: Record<Kind, THREE.Material[]> = {
     spark: [new THREE.MeshBasicMaterial({ color: 0xff8a3d }), new THREE.MeshBasicMaterial({ color: 0xffe066 })],
@@ -324,6 +384,13 @@ export class Fx {
     bubble: [new THREE.MeshBasicMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.6 })],
     star: [0xffe066, 0xff8fc8, 0xffffff, 0x9ff0b0].map((c) => new THREE.MeshBasicMaterial({ color: c })),
     dust: [new THREE.MeshBasicMaterial({ color: 0xfff6c8 }), new THREE.MeshBasicMaterial({ color: 0xbff0ff })],
+    smoke: [new THREE.MeshBasicMaterial({ color: 0x9aa0a8, transparent: true, opacity: 0.7 }), new THREE.MeshBasicMaterial({ color: 0xc2c7cd, transparent: true, opacity: 0.6 })],
+    spore: [new THREE.MeshBasicMaterial({ color: 0xe8c84a }), new THREE.MeshBasicMaterial({ color: 0xf5e08a })],
+    feather: [new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }), new THREE.MeshBasicMaterial({ color: 0xf3e6d2, side: THREE.DoubleSide })],
+    confetti: [0xff6f91, 0xffd34d, 0x59c25a, 0x4fb4ff, 0xa99bf0].map((c) => new THREE.MeshBasicMaterial({ color: c })),
+    pebble: [new THREE.MeshStandardMaterial({ color: 0x9aa3ad }), new THREE.MeshStandardMaterial({ color: 0x7d858e })],
+    heart: [new THREE.MeshBasicMaterial({ color: 0xff5f86, side: THREE.DoubleSide })],
+    zzz: [new THREE.MeshBasicMaterial({ color: 0x8f9bff })],
   };
   constructor(private scene: THREE.Scene) {}
   emit(kind: Kind, at: THREE.Vector3, n: number, opts: { speed?: number; up?: number; dir?: THREE.Vector3; spread?: number; g?: number; life?: number; size?: number }) {

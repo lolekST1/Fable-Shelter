@@ -1,10 +1,32 @@
 /** Tiny synthesized sounds, no audio files to download. */
 export class Sfx {
   private ctx: AudioContext | null = null;
+  private master: GainNode | null = null;
+  muted = false;
+
+  constructor() {
+    try { this.muted = localStorage.getItem('fable-shelter-muted') === '1'; } catch { /* ignore */ }
+  }
 
   unlock() {
-    if (!this.ctx) this.ctx = new AudioContext();
+    if (!this.ctx) {
+      this.ctx = new AudioContext();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = this.muted ? 0 : 1;
+      this.master.connect(this.ctx.destination);
+    }
     if (this.ctx.state === 'suspended') void this.ctx.resume();
+  }
+
+  setMuted(m: boolean) {
+    this.muted = m;
+    if (this.master) this.master.gain.value = m ? 0 : 1;
+    try { localStorage.setItem('fable-shelter-muted', m ? '1' : '0'); } catch { /* ignore */ }
+  }
+
+  /** everything plays through one master volume so muting is instant */
+  private get out(): AudioNode {
+    return this.master ?? this.ctx!.destination;
   }
 
   boing() {
@@ -20,7 +42,7 @@ export class Sfx {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
     g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-    o.connect(g).connect(c.destination);
+    o.connect(g).connect(this.out);
     o.start(t);
     o.stop(t + 0.4);
   }
@@ -40,7 +62,7 @@ export class Sfx {
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(0.06, t + 0.005);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
-      o.connect(g).connect(c.destination);
+      o.connect(g).connect(this.out);
       o.start(t);
       o.stop(t + 0.08);
     }
@@ -59,7 +81,7 @@ export class Sfx {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(c.destination);
+    o.connect(g).connect(this.out);
     o.start(t);
     o.stop(t + dur + 0.02);
   }

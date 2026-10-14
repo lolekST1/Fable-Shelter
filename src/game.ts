@@ -1,14 +1,16 @@
 import * as THREE from 'three';
 import type { Creature } from './creature';
 import type { Sfx } from './sfx';
-import { type Ailment, type Medicine, type SpotIcon, CURE, bubbleCanvas, drawAilment, drawCoin, drawSpotIcon } from './icons';
-import { Fx, Station, backpackMesh, basketMesh, coinGeo, coinMat, medicineMesh, signpostMesh } from './props';
+import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, drawAilment, drawBerry, drawCoin, drawMoon, drawSpotIcon, needCanvas } from './icons';
+import { Fx, Station, backpackMesh, basketMesh, bedMesh, coinGeo, coinMat, signpostMesh } from './props';
 
 /**
- * The shelter loop:
- *  stations brew medicine → the keeper picks it up (it piles in his arms)
- *  → sick creatures arrive, each needing the medicine that matches its ailment
- *  → the keeper (or a helper) brings it, they are cured and drop coins
+ * Fable Shelter loop:
+ *  sick creatures arrive, each species with its own silly ailment and a matching cure
+ *  → stations around the camp brew the cures, the keeper carries them over
+ *  → cured creatures move into the shelter while there is a free bed
+ *  → residents get hungry (berries) and sleepy (plump up their bed); each fulfilled need is a heart
+ *  → four hearts and they are adopted, leaving a big reward
  *  → coins pay for the next build spot in a long progression.
  * Everything is told with icons, numbers and motion; no words.
  */
@@ -19,24 +21,38 @@ export interface GameDeps {
   keeper: Creature;
   sfx: Sfx;
   shadowTex: THREE.Texture;
-  /** creature names that can come in as patients, with their heights */
-  patientKinds: [string, number][];
   spawnCreature: (name: string, height: number) => Promise<Creature>;
 }
 
-const TINT: Record<Ailment, number> = { sparks: 0xffd9cc, snow: 0xcfe0ff, bubbles: 0xdcffd8 };
-/** coins dropped per cure (each coin is worth 2): harder ailments pay a bit more */
-const REWARD: Record<Ailment, number> = { snow: 5, sparks: 6, bubbles: 7 };
-const AILMENT_OF: Record<Medicine, Ailment> = { pink: 'snow', blue: 'sparks', green: 'bubbles' };
+interface Species { height: number; ailment: Ailment; cure: Medicine; tint: number; coins: number }
+
+/** every species has its own ailment; the three medicines each cure a few of them */
+export const SPECIES: Record<string, Species> = {
+  chmurnik: { height: 1.05, ailment: 'snow', cure: 'pink', tint: 0xcfe0ff, coins: 5 },
+  feniks: { height: 1.0, ailment: 'smoke', cure: 'pink', tint: 0xd8d8d8, coins: 5 },
+  smok: { height: 1.25, ailment: 'sparks', cure: 'blue', tint: 0xffd9cc, coins: 6 },
+  gryf: { height: 1.25, ailment: 'feathers', cure: 'green', tint: 0xf0e6d8, coins: 7 },
+  grzybolak: { height: 1.15, ailment: 'spores', cure: 'blue', tint: 0xfff0b0, coins: 6 },
+  kraken: { height: 1.05, ailment: 'bubbles', cure: 'green', tint: 0xdcffd8, coins: 7 },
+  jednorozec: { height: 1.15, ailment: 'confetti', cure: 'pink', tint: 0xffe0f0, coins: 6 },
+  bazyliszek: { height: 1.0, ailment: 'stone', cure: 'green', tint: 0xbfc4c8, coins: 8 },
+};
+
 const PICK_R = 1.4;
 const GIVE_R = 1.45;
-const SAVE_KEY = 'fable-shelter-save-v1';
+const MAX_HEARTS = 4;
+const ADOPT_COINS = 15; // coins dropped on adoption (each worth 2)
+const SAVE_KEY = 'fable-shelter-save-v2';
+
+/** bed places inside the pen, in the order they are added */
+const BEDS: [number, number][] = [[-1.1, -2.1], [1.1, -2.1], [-2.4, -0.9], [2.4, -0.9], [-1.15, -0.35], [1.15, -0.35]];
 
 interface Flight { obj: THREE.Object3D; from: THREE.Vector3; to: () => THREE.Vector3; t: number; dur: number; arc: number; done: () => void }
 
 interface Patient {
+  name: string;
   c: Creature;
-  ailment: Ailment;
+  sp: Species;
   state: 'arriving' | 'waiting' | 'incoming' | 'cured' | 'leaving';
   seat: THREE.Vector3;
   exit: THREE.Vector3;
@@ -44,13 +60,32 @@ interface Patient {
   stateT: number;
   bubble: THREE.Sprite;
   edge: HTMLDivElement;
-  /** a helper already on its way with the cure */
   claimed: boolean;
+}
+
+interface Bed { pos: THREE.Vector3; mesh: THREE.Group; ring: THREE.Mesh; owner: Resident | null; fluff: number }
+
+interface Resident {
+  name: string;
+  c: Creature;
+  bed: Bed;
+  hearts: number;
+  need: 'food' | 'sleep' | null;
+  needT: number;
+  state: 'toBed' | 'idle' | 'eating' | 'toSleep' | 'sleeping' | 'leaving';
+  stateT: number;
+  target: THREE.Vector3;
+  wanderT: number;
+  canvas: HTMLCanvasElement;
+  tex: THREE.CanvasTexture;
+  bubble: THREE.Sprite;
+  edge: HTMLDivElement;
+  edgeIcon: HTMLCanvasElement;
+  fedIncoming: boolean;
 }
 
 interface Coin { m: THREE.Mesh; v: THREE.Vector3; t: number; magnet: boolean }
 
-/** one step of the progression */
 interface SpotDef {
   icon: SpotIcon;
   price: number;
@@ -60,13 +95,17 @@ interface SpotDef {
 }
 
 const SPOTS: SpotDef[] = [
-  { icon: 'cauldron', price: 50, at: [-4.6, 1.4], apply: (g, i) => { g.addStation('pink', -4.6, 1.4, i); g.maxPatients = 2; } },
-  { icon: 'backpack', price: 80, at: [0, 4.8], apply: (g, i) => g.giveBackpack(i) },
-  { icon: 'spring', price: 120, at: [2.9, 3.0], apply: (g, i) => g.addStation('blue', 2.9, 3.0, i) },
-  { icon: 'herbs', price: 180, at: [4.6, 1.4], apply: (g, i) => { g.addStation('green', 4.6, 1.4, i); g.maxPatients = 3; } },
-  { icon: 'shoes', price: 220, at: [-1.8, 5.5], apply: (g, i) => g.giveShoes(i) },
-  { icon: 'sign', price: 280, at: [-6.0, 3.6], apply: (g, i) => g.addSign(-6.0, 3.6, i) },
-  { icon: 'helper', price: 400, at: [1.8, 5.5], apply: (g, i) => void g.addHelper(i) },
+  { icon: 'bed', price: 30, at: BEDS[2], apply: (g, i) => g.addBed(i) },
+  { icon: 'cauldron', price: 60, at: [-5.6, 5.6], apply: (g, i) => { g.addStation('pink', -5.6, 5.6, i); g.maxPatients = 2; g.unlock('feniks'); } },
+  { icon: 'spring', price: 100, at: [5.8, 3.2], apply: (g, i) => { g.addStation('blue', 5.8, 3.2, i); g.unlock('smok'); } },
+  { icon: 'bed', price: 130, at: BEDS[3], apply: (g, i) => g.addBed(i) },
+  { icon: 'backpack', price: 160, at: [1.7, 4.4], apply: (g, i) => g.giveBackpack(i) },
+  { icon: 'herbs', price: 200, at: [0, 8.2], apply: (g, i) => { g.addStation('green', 0, 8.2, i); g.maxPatients = 3; g.unlock('gryf'); } },
+  { icon: 'bed', price: 240, at: BEDS[4], apply: (g, i) => g.addBed(i) },
+  { icon: 'shoes', price: 280, at: [-1.7, 5.4], apply: (g, i) => { g.giveShoes(i); g.unlock('grzybolak'); } },
+  { icon: 'sign', price: 330, at: [-3.9, 7.2], apply: (g, i) => { g.addSign(-3.9, 7.2, i); g.unlock('kraken'); g.unlock('jednorozec'); } },
+  { icon: 'bed', price: 380, at: BEDS[5], apply: (g, i) => g.addBed(i) },
+  { icon: 'helper', price: 460, at: [3.7, 6.6], apply: (g, i) => { void g.addHelper(i); g.unlock('bazyliszek'); } },
 ];
 
 interface ActiveSpot {
@@ -90,6 +129,8 @@ interface Helper {
   home: THREE.Vector3;
 }
 
+const EDGE_SVG = '<svg class="ar" viewBox="0 0 64 64"><path d="M60 32 L44 20 L44 44 Z" fill="#ff7a59" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg>';
+
 export class Game {
   coins = 0;
   carry: THREE.Group[] = [];
@@ -98,11 +139,15 @@ export class Game {
   speed = 1;
   stations: Station[] = [];
   patients: Patient[] = [];
-  /** called once when the player first picks up medicine (to hide the touch hint) */
+  residents: Resident[] = [];
+  beds: Bed[] = [];
+  /** species that can show up as patients */
+  species: string[] = ['chmurnik'];
+  /** called once when the player first picks up something (to hide the touch hint) */
   onFirstPickup?: () => void;
-  private bought = 0;
   /** true when a saved game was restored */
   restored = false;
+  private bought = 0;
   private fx: Fx;
   private flights: Flight[] = [];
   private ground: Coin[] = [];
@@ -120,7 +165,7 @@ export class Game {
   private guide: THREE.Group;
   private shoes = false;
   private dustT = 0;
-  /** tutorial: 0 take medicine, 1 cure a patient, 2 build, 3 done */
+  /** tutorial: 0 take medicine, 1 cure, 2 care for a resident, 3 build, 4 done */
   private step = 0;
   private t = 0;
   private saveT = 0;
@@ -128,7 +173,6 @@ export class Game {
 
   constructor(private d: GameDeps) {
     this.fx = new Fx(d.scene);
-    // the keeper holds what he carries in front of his chest, piling up like in an arcade shop
     for (let i = 0; i < 10; i++) {
       const s = new THREE.Object3D();
       s.position.set(0, 0.5 + i * 0.3, 0.4);
@@ -143,11 +187,16 @@ export class Game {
     this.guide.add(cone);
     d.scene.add(this.guide);
 
-    this.addStation('pink', -2.9, 3.0, true);
-    // a basket to empty your arms into, so a pile of the wrong medicine never leaves you stuck
+    // the starting camp: one cauldron to the west, a berry bush by the pen, two beds, and a basket
+    // well away from the medicine sources for emptying your arms
+    this.addStation('pink', -5.8, 3.2, true);
+    this.addStation('berry', 3.0, 1.7, true);
+    this.addBed(true);
+    this.addBed(true);
     this.basket = basketMesh();
-    this.basket.position.set(-1.15, 0, 3.85);
+    this.basket.position.set(-2.9, 0, 1.0);
     d.scene.add(this.basket);
+
     this.load();
     this.refreshSpots();
     window.addEventListener('pagehide', () => this.save());
@@ -157,7 +206,7 @@ export class Game {
   // ------------------------------------------------------------ save / load
 
   private load() {
-    let data: { coins?: number; bought?: number } | null = null;
+    let data: { coins?: number; bought?: number; residents?: { name: string; hearts: number }[] } | null = null;
     try {
       if (new URLSearchParams(location.search).has('reset')) localStorage.removeItem(SAVE_KEY);
       data = JSON.parse(localStorage.getItem(SAVE_KEY) ?? 'null');
@@ -167,13 +216,18 @@ export class Game {
     for (let i = 0; i < n; i++) SPOTS[i].apply(this, true);
     this.bought = n;
     this.setCoins(Math.max(0, data.coins ?? 0), false);
+    for (const r of data.residents ?? []) if (SPECIES[r.name]) void this.spawnResident(r.name, r.hearts);
     this.restored = true;
-    if (n > 0) this.step = 3;
+    if (n > 0) this.step = 4;
   }
 
   private save() {
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ coins: this.coins, bought: this.bought }));
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        coins: this.coins,
+        bought: this.bought,
+        residents: this.residents.filter((r) => r.state !== 'leaving').map((r) => ({ name: r.name, hearts: r.hearts })),
+      }));
     } catch { /* ignore */ }
   }
 
@@ -223,18 +277,43 @@ export class Game {
     const out: [number, number, number][] = [];
     for (const s of this.stations) out.push([s.pos.x, s.pos.z, 0.55], [s.pos.x + 0.82, s.pos.z + 0.05, 0.3]);
     for (const p of this.patients) out.push([p.c.root.position.x, p.c.root.position.z, 0.42]);
+    for (const r of this.residents) if (r.state !== 'sleeping' && r.state !== 'toSleep') out.push([r.c.root.position.x, r.c.root.position.z, 0.32]);
     for (const o of this.props) out.push([o.position.x, o.position.z, 0.25]);
     out.push([this.basket.position.x, this.basket.position.z, 0.42]);
     return out;
   }
 
+  /** creatures the player can tap to make them hop */
+  tappables(): Creature[] {
+    return [...this.patients.map((p) => p.c), ...this.residents.map((r) => r.c), ...this.helpers.map((h) => h.c)];
+  }
+
   // ------------------------------------------------------------ things the progression adds
 
+  unlock(name: string) {
+    if (!this.species.includes(name)) this.species.push(name);
+  }
+
   addStation(kind: Medicine, x: number, z: number, instant: boolean) {
-    const s = new Station(kind, new THREE.Vector3(x, 0, z), kind === 'pink' ? 2.6 : kind === 'blue' ? 3.0 : 3.4, this.d.shadowTex);
+    const brew = { pink: 2.6, blue: 3.0, green: 3.4, berry: 2.2 }[kind];
+    const s = new Station(kind, new THREE.Vector3(x, 0, z), brew, this.d.shadowTex);
     this.d.scene.add(s.group);
     this.stations.push(s);
     if (!instant) this.popIn(s.group);
+  }
+
+  addBed(instant: boolean) {
+    const [x, z] = BEDS[this.beds.length];
+    const mesh = bedMesh();
+    mesh.position.set(x, 0, z);
+    // pulsing ring around a bed that needs plumping up
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.74, 32), new THREE.MeshBasicMaterial({ color: 0x8f9bff, transparent: true, opacity: 0.8, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(x, 0.03, z);
+    ring.visible = false;
+    this.d.scene.add(mesh, ring);
+    this.beds.push({ pos: new THREE.Vector3(x, 0, z), mesh, ring, owner: null, fluff: 0 });
+    if (!instant) this.popIn(mesh);
   }
 
   addSign(x: number, z: number, instant: boolean) {
@@ -247,7 +326,6 @@ export class Game {
     if (!instant) this.popIn(g);
   }
 
-  /** carry upgrade: a backpack appears on the keeper and he can hold twice as much */
   giveBackpack(instant: boolean) {
     const b = backpackMesh();
     b.position.set(0, 0.62, -0.3);
@@ -256,16 +334,14 @@ export class Game {
     if (!instant) this.toKeeper();
   }
 
-  /** speed upgrade: swift shoes, with a sparkle trail while walking */
   giveShoes(instant: boolean) {
     this.shoes = true;
     this.speed = 1.35;
     if (!instant) this.toKeeper();
   }
 
-  /** a cured kraken stays on as a volunteer and carries medicine around by itself */
   async addHelper(instant: boolean) {
-    const home = new THREE.Vector3(1.8, 0, 5.5);
+    const home = new THREE.Vector3(3.7, 0, 6.6);
     const c = await this.d.spawnCreature('kraken', 0.95);
     c.root.position.copy(home);
     this.d.scene.add(c.root);
@@ -297,7 +373,6 @@ export class Game {
 
   // ------------------------------------------------------------ build spots
 
-  /** the next two purchases are on offer at any time */
   private refreshSpots() {
     for (let i = this.bought; i < Math.min(SPOTS.length, this.bought + 2); i++) {
       if (this.spots.some((s) => s.index === i)) continue;
@@ -363,7 +438,6 @@ export class Game {
     this.flights.push({ obj, from, to, t: 0, dur, arc, done });
   }
 
-  /** put every landed item into the slot matching its place in the pile */
   private restack() {
     this.carry.forEach((v, i) => {
       if (!v.userData.landed) return;
@@ -372,96 +446,151 @@ export class Game {
     });
   }
 
-  // ------------------------------------------------------------ patients
-
-  private unlockedAilments(): Ailment[] {
-    const kinds = new Set(this.stations.map((s) => s.kind));
-    return (['pink', 'blue', 'green'] as Medicine[]).filter((m) => kinds.has(m)).map((m) => AILMENT_OF[m]);
+  /** take the topmost item of a kind that is resting in the keeper's arms */
+  private takeFromArms(kind: Medicine): THREE.Group | null {
+    for (let j = this.carry.length - 1; j >= 0; j--) {
+      const v = this.carry[j];
+      if (v.userData.landed && v.userData.kind === kind) {
+        this.carry.splice(j, 1);
+        this.restack();
+        return v;
+      }
+    }
+    return null;
   }
+
+  private walk(c: Creature, target: THREE.Vector3, speed: number, dt: number): boolean {
+    const pos = c.root.position;
+    const dx = target.x - pos.x, dz = target.z - pos.z, dd = Math.hypot(dx, dz);
+    if (dd < 0.05) { c.walk = 0; return true; }
+    pos.x += (dx / dd) * Math.min(dd, speed * dt);
+    pos.z += (dz / dd) * Math.min(dd, speed * dt);
+    c.walk += (Math.min(1, dd / 0.5) - c.walk) * Math.min(1, dt * 8);
+    c.lookAt(target.x, target.z);
+    return false;
+  }
+
+  private makeEdge(icon: HTMLCanvasElement) {
+    const edge = document.createElement('div');
+    edge.className = 'edge';
+    edge.innerHTML = EDGE_SVG;
+    edge.appendChild(icon);
+    document.body.appendChild(edge);
+    return edge;
+  }
+
+  // ------------------------------------------------------------ patients
 
   private async spawnPatient() {
     this.spawning = true;
-    const [name, h] = this.d.patientKinds[Math.floor(Math.random() * this.d.patientKinds.length)];
-    const open = this.unlockedAilments();
-    // the newest ailment shows up a bit more often so a fresh station gets used
-    // usually ask for something the keeper already carries, so a full pile is rarely useless;
-    // otherwise favour the newest ailment so a fresh station gets used
-    const held = open.filter((a) => this.carry.some((v) => v.userData.kind === CURE[a]));
+    // usually someone the keeper already carries the cure for, so a full pile is rarely useless;
+    // otherwise favour the newest species so a fresh station gets used
+    const held = this.species.filter((n) => this.carry.some((v) => v.userData.kind === SPECIES[n].cure));
     const r = Math.random();
-    const ailment = held.length && r < 0.55 ? held[Math.floor(Math.random() * held.length)] : r < 0.75 ? open[open.length - 1] : open[Math.floor(Math.random() * open.length)];
+    const name = held.length && r < 0.5 ? held[Math.floor(Math.random() * held.length)] : r < 0.7 ? this.species[this.species.length - 1] : this.species[Math.floor(Math.random() * this.species.length)];
+    const sp = SPECIES[name];
     let seat = new THREE.Vector3();
     let theta = 0;
-    for (let tries = 0; tries < 30; tries++) {
-      theta = (Math.random() - 0.5) * 3.4;
-      const r = 5.6 + Math.random() * 2.4;
-      seat = new THREE.Vector3(Math.sin(theta) * r, 0, Math.cos(theta) * r);
+    for (let tries = 0; tries < 40; tries++) {
+      theta = (Math.random() - 0.5) * 3.6;
+      const rr = 5 + Math.random() * 4;
+      seat = new THREE.Vector3(Math.sin(theta) * rr, 0, Math.cos(theta) * rr);
       const clear =
-        this.stations.every((c) => c.pos.distanceTo(seat) > 1.9) &&
+        this.stations.every((c) => c.pos.distanceTo(seat) > 2) &&
         this.spots.every((s) => s.pos.distanceTo(seat) > 1.6) &&
         this.props.every((o) => o.position.distanceTo(seat) > 1.4) &&
+        this.basket.position.distanceTo(seat) > 1.4 &&
         this.patients.every((p) => p.seat.distanceTo(seat) > 1.8) &&
         seat.distanceTo(this.d.keeper.root.position) > 1.5;
       if (clear) break;
     }
     const exit = new THREE.Vector3(Math.sin(theta) * 13, 0, Math.cos(theta) * 13);
-    const c = await this.d.spawnCreature(name, h);
+    const c = await this.d.spawnCreature(name, sp.height);
     c.root.position.copy(exit);
-    c.setTint(TINT[ailment]);
+    c.setTint(sp.tint);
     c.lookAt(seat.x, seat.z);
     this.d.scene.add(c.root);
-    const bt = new THREE.CanvasTexture(bubbleCanvas(ailment));
+    const bt = new THREE.CanvasTexture(bubbleCanvas(sp.ailment, sp.cure));
     bt.colorSpace = THREE.SRGBColorSpace;
     const bubble = new THREE.Sprite(new THREE.SpriteMaterial({ map: bt, depthTest: false }));
     bubble.scale.set(0.78, 0.76, 1);
     bubble.renderOrder = 10;
     this.d.scene.add(bubble);
-    const edge = document.createElement('div');
-    edge.className = 'edge';
-    edge.innerHTML = '<svg class="ar" viewBox="0 0 64 64"><path d="M60 32 L44 20 L44 44 Z" fill="#ff7a59" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg>';
     const ic = document.createElement('canvas');
     ic.width = ic.height = 80;
-    drawAilment(ic.getContext('2d')!, ailment, 40, 40, 28);
-    edge.appendChild(ic);
-    document.body.appendChild(edge);
-    this.patients.push({ c, ailment, state: 'arriving', seat, exit, fxT: 1, stateT: 0, bubble, edge, claimed: false });
+    drawAilment(ic.getContext('2d')!, sp.ailment, 40, 40, 28);
+    const edge = this.makeEdge(ic);
+    this.patients.push({ name, c, sp, state: 'arriving', seat, exit, fxT: 1, stateT: 0, bubble, edge, claimed: false });
     this.spawning = false;
   }
 
+  /** the species' own silly symptom */
   private sickFx(p: Patient, dt: number) {
     p.fxT -= dt;
-    const head = this.tmp.copy(p.c.root.position).setY(p.c.height * 0.75);
-    if (p.ailment === 'snow') {
-      if (Math.random() < dt * 5) {
-        const at = head.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, p.c.height * 0.5, (Math.random() - 0.5) * 0.8));
-        this.fx.emit('flake', at, 1, { speed: 0.15, g: 0.35, life: 2.4 });
-      }
-      if (p.fxT <= 0) {
-        p.fxT = 2.6 + Math.random();
-        p.c.twitch(0.5);
-        if (this.onScreen(p)) this.d.sfx.shiver();
-      }
-    } else if (p.fxT <= 0) {
-      if (p.ailment === 'sparks') {
-        p.fxT = 2.2 + Math.random() * 1.2;
-        p.c.twitch(1.3);
-        const dir = new THREE.Vector3().subVectors(this.d.camera.position, p.c.root.position).setY(0).normalize();
-        this.fx.emit('spark', head.clone().addScaledVector(dir, 0.3), 16, { speed: 2.4, dir, spread: 0.35, up: 1, g: 3, life: 0.7 });
-        if (this.onScreen(p)) this.d.sfx.sneeze();
-      } else {
-        p.fxT = 1.7 + Math.random();
-        p.c.twitch(0.9);
-        this.fx.emit('bubble', head.clone().setY(p.c.height * 0.6), 3, { speed: 0.4, up: 0.8, g: -0.3, life: 1.8, size: 1.2 });
-        if (this.onScreen(p)) this.d.sfx.hiccup();
-      }
+    const c = p.c, h = c.height;
+    const head = this.tmp.copy(c.root.position).setY(h * 0.75);
+    const toCam = new THREE.Vector3().subVectors(this.d.camera.position, c.root.position).setY(0).normalize();
+    const loud = this.onScreen(c.root.position, h);
+    switch (p.sp.ailment) {
+      case 'snow':
+        // a little cloud that snows instead of raining
+        if (Math.random() < dt * 5) this.fx.emit('flake', head.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, h * 0.5, (Math.random() - 0.5) * 0.8)), 1, { speed: 0.15, g: 0.35, life: 2.4 });
+        if (p.fxT <= 0) { p.fxT = 2.6 + Math.random(); c.twitch(0.5); if (loud) this.d.sfx.shiver(); }
+        break;
+      case 'smoke':
+        // its flame went out: grey puffs where the fire should be
+        if (Math.random() < dt * 3) this.fx.emit('smoke', head.clone().setY(h * 1.0), 1, { speed: 0.2, up: 0.5, g: -0.4, life: 1.6, size: 1.2 });
+        if (p.fxT <= 0) { p.fxT = 3 + Math.random(); c.twitch(0.6); if (loud) this.d.sfx.shiver(); }
+        break;
+      case 'sparks':
+        if (p.fxT <= 0) {
+          p.fxT = 2.2 + Math.random() * 1.2;
+          c.twitch(1.3);
+          this.fx.emit('spark', head.clone().addScaledVector(toCam, 0.3), 16, { speed: 2.4, dir: toCam, spread: 0.35, up: 1, g: 3, life: 0.7 });
+          if (loud) this.d.sfx.sneeze();
+        }
+        break;
+      case 'spores':
+        if (p.fxT <= 0) {
+          p.fxT = 2.4 + Math.random();
+          c.twitch(1.1);
+          this.fx.emit('spore', head.clone().addScaledVector(toCam, 0.3), 22, { speed: 1.2, dir: toCam, spread: 0.6, up: 0.6, g: 0.3, life: 1.6 });
+          if (loud) this.d.sfx.sneeze();
+        }
+        break;
+      case 'feathers':
+        if (Math.random() < dt * 1.6) this.fx.emit('feather', head.clone().setY(h * 0.8), 1, { speed: 0.4, up: 0.4, g: 0.25, life: 2.8, size: 1.3 });
+        if (p.fxT <= 0) { p.fxT = 3 + Math.random(); c.twitch(0.8); this.fx.emit('feather', head.clone().setY(h * 0.7), 4, { speed: 0.8, up: 0.8, g: 0.3, life: 2.5, size: 1.3 }); }
+        break;
+      case 'bubbles':
+        if (p.fxT <= 0) {
+          p.fxT = 1.7 + Math.random();
+          c.twitch(0.9);
+          this.fx.emit('bubble', head.clone().setY(h * 0.6), 3, { speed: 0.4, up: 0.8, g: -0.3, life: 1.8, size: 1.2 });
+          if (loud) this.d.sfx.hiccup();
+        }
+        break;
+      case 'confetti':
+        if (p.fxT <= 0) {
+          p.fxT = 2.3 + Math.random();
+          c.twitch(1.2);
+          this.fx.emit('confetti', head.clone().addScaledVector(toCam, 0.3), 24, { speed: 2, dir: toCam, spread: 0.5, up: 1.4, g: 2, life: 1.4 });
+          if (loud) this.d.sfx.sneeze();
+        }
+        break;
+      case 'stone':
+        // slowly turning to stone: stiff, grey, crumbling pebbles
+        if (Math.random() < dt * 1.2) this.fx.emit('pebble', c.root.position.clone().setY(h * (0.3 + Math.random() * 0.5)), 1, { speed: 0.5, up: 0.3, g: 6, life: 1.2 });
+        if (p.fxT <= 0) { p.fxT = 3.5 + Math.random(); c.twitch(0.3); if (loud) this.d.sfx.shiver(); }
+        break;
     }
   }
 
-  private onScreen(p: Patient) {
-    const v = this.tmp.copy(p.c.root.position).setY(p.c.height * 0.6).project(this.d.camera);
+  private onScreen(pos: THREE.Vector3, h: number) {
+    const v = this.tmp.copy(pos).setY(h * 0.6).project(this.d.camera);
     return v.z < 1 && Math.abs(v.x) < 0.95 && Math.abs(v.y) < 0.95;
   }
 
-  /** send a medicine item flying from wherever it is to the patient, and cure on arrival */
   private deliver(v: THREE.Group, p: Patient) {
     p.state = 'incoming';
     p.c.walk = 0;
@@ -469,6 +598,18 @@ export class Game {
       this.d.scene.remove(v);
       this.cure(p);
     });
+  }
+
+  private dropCoins(at: THREE.Vector3, n: number) {
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(coinGeo, coinMat);
+      m.castShadow = true;
+      m.position.copy(at);
+      const a = Math.random() * Math.PI * 2;
+      const v = new THREE.Vector3(Math.cos(a) * (0.5 + Math.random() * 0.6), 3.5 + Math.random() * 1.5, Math.sin(a) * (0.5 + Math.random() * 0.6));
+      this.d.scene.add(m);
+      this.ground.push({ m, v, t: 0, magnet: false });
+    }
   }
 
   private cure(p: Patient) {
@@ -481,16 +622,179 @@ export class Game {
     this.d.sfx.heal();
     const at = p.c.root.position.clone().setY(p.c.height * 0.7);
     this.fx.emit('star', at, 26, { speed: 2.6, up: 2.2, life: 1.1 });
-    for (let i = 0; i < REWARD[p.ailment]; i++) {
-      const m = new THREE.Mesh(coinGeo, coinMat);
-      m.castShadow = true;
-      m.position.copy(at);
-      const a = Math.random() * Math.PI * 2;
-      const v = new THREE.Vector3(Math.cos(a) * (0.5 + Math.random() * 0.6), 3.5 + Math.random() * 1.5, Math.sin(a) * (0.5 + Math.random() * 0.6));
-      this.d.scene.add(m);
-      this.ground.push({ m, v, t: 0, magnet: false });
-    }
+    this.dropCoins(at, p.sp.coins);
     if (this.step === 1) this.step = 2;
+  }
+
+  // ------------------------------------------------------------ residents
+
+  private freeBed(): Bed | undefined {
+    return this.beds.find((b) => !b.owner);
+  }
+
+  /** a cured patient moves into the shelter: hand its creature over to a resident record */
+  private admit(p: Patient, bed: Bed) {
+    const r = this.makeResident(p.name, p.c, bed, 0);
+    r.state = 'toBed';
+    this.residents.push(r);
+  }
+
+  private async spawnResident(name: string, hearts: number) {
+    const bed = this.freeBed();
+    if (!bed) return;
+    bed.owner = {} as Resident; // reserve while loading
+    const c = await this.d.spawnCreature(name, SPECIES[name].height);
+    c.root.position.copy(bed.pos).add(new THREE.Vector3(0, 0, 0.75));
+    this.d.scene.add(c.root);
+    const r = this.makeResident(name, c, bed, Math.min(MAX_HEARTS - 1, hearts));
+    r.state = 'idle';
+    this.residents.push(r);
+  }
+
+  private makeResident(name: string, c: Creature, bed: Bed, hearts: number): Resident {
+    const canvas = document.createElement('canvas');
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const bubble = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
+    bubble.scale.set(0.78, 0.94, 1);
+    bubble.renderOrder = 10;
+    this.d.scene.add(bubble);
+    const edgeIcon = document.createElement('canvas');
+    edgeIcon.width = edgeIcon.height = 80;
+    const edge = this.makeEdge(edgeIcon);
+    const r: Resident = {
+      name, c, bed, hearts, need: null, needT: 4 + Math.random() * 4, state: 'idle', stateT: 0,
+      target: bed.pos.clone().add(new THREE.Vector3(0, 0, 0.75)), wanderT: 2, canvas, tex, bubble, edge, edgeIcon, fedIncoming: false,
+    };
+    bed.owner = r;
+    this.drawNeed(r);
+    return r;
+  }
+
+  private drawNeed(r: Resident) {
+    needCanvas(r.canvas, r.need, r.hearts, MAX_HEARTS);
+    r.tex.needsUpdate = true;
+    const g = r.edgeIcon.getContext('2d')!;
+    g.clearRect(0, 0, 80, 80);
+    if (r.need === 'food') drawBerry(g, 40, 42, 26);
+    else if (r.need === 'sleep') drawMoon(g, 40, 42, 28);
+  }
+
+  private addHeart(r: Resident) {
+    r.hearts++;
+    r.need = null;
+    r.needT = 6 + Math.random() * 5;
+    this.fx.emit('heart', r.c.root.position.clone().setY(r.c.height + 0.2), 8, { speed: 0.8, up: 1.2, g: -0.2, life: 1.4, size: 1.6 });
+    this.d.sfx.pop(6);
+    if (this.step === 2) this.step = 3;
+    if (r.hearts >= MAX_HEARTS) this.adopt(r);
+    this.drawNeed(r);
+  }
+
+  private adopt(r: Resident) {
+    r.state = 'leaving';
+    r.need = null;
+    r.bed.owner = null;
+    r.bed.ring.visible = false;
+    r.c.eyesShut = undefined;
+    r.c.hop();
+    this.d.sfx.heal();
+    this.d.sfx.build();
+    const at = r.c.root.position.clone().setY(r.c.height * 0.7);
+    this.fx.emit('heart', at, 30, { speed: 2.2, up: 2.5, g: 1, life: 1.6, size: 1.8 });
+    this.fx.emit('star', at, 20, { speed: 2.4, up: 2, life: 1.1 });
+    this.dropCoins(at, ADOPT_COINS);
+    // off to a new home, down the path toward the edge of the meadow
+    r.target = new THREE.Vector3((Math.random() - 0.5) * 4, 0, 13);
+    this.save();
+  }
+
+  private updateResidents(dt: number) {
+    const k = this.d.keeper.root.position;
+    for (let i = this.residents.length - 1; i >= 0; i--) {
+      const r = this.residents[i];
+      const c = r.c, pos = c.root.position;
+      c.update(dt);
+      r.stateT += dt;
+      const nearBed = r.bed.pos.clone().add(new THREE.Vector3(0, 0, 0.75));
+      if (r.state === 'toBed') {
+        if (this.walk(c, nearBed, 1.6, dt)) { r.state = 'idle'; c.hop(); }
+      } else if (r.state === 'idle') {
+        // potter about next to its bed until it needs something
+        r.wanderT -= dt;
+        if (r.wanderT <= 0) {
+          r.wanderT = 2.5 + Math.random() * 3;
+          r.target = nearBed.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1, 0, (Math.random() - 0.5) * 0.6));
+        }
+        if (!this.walk(c, r.target, 0.6, dt)) { /* strolling */ } else if (pos.distanceTo(k) < 3) c.lookAt(k.x, k.z);
+        if (!r.need) {
+          r.needT -= dt;
+          if (r.needT <= 0) {
+            r.need = Math.random() < 0.5 ? 'food' : 'sleep';
+            c.twitch(0.6);
+            this.drawNeed(r);
+          }
+        }
+        // feeding: berries fly over when the keeper comes close
+        if (r.need === 'food' && !r.fedIncoming && pos.distanceTo(k) < GIVE_R) {
+          const v = this.takeFromArms('berry');
+          if (v) {
+            r.fedIncoming = true;
+            this.fly(v, () => c.root.position.clone().setY(c.height * 0.6), 0.35, 0.8, () => {
+              this.d.scene.remove(v);
+              r.fedIncoming = false;
+              r.state = 'eating';
+              r.stateT = 0;
+            });
+          }
+        }
+        // sleepy: stand on its bed for a moment to plump it up, then it goes to sleep
+        if (r.need === 'sleep') {
+          const on = Math.hypot(k.x - r.bed.pos.x, k.z - r.bed.pos.z) < 0.6;
+          r.bed.fluff = on ? r.bed.fluff + dt : Math.max(0, r.bed.fluff - dt * 2);
+          r.bed.mesh.scale.set(1 + Math.sin(this.t * 20) * 0.04 * (on ? 1 : 0), 1, 1);
+          if (r.bed.fluff >= 1) {
+            r.bed.fluff = 0;
+            r.bed.mesh.scale.set(1, 1, 1);
+            r.bed.ring.visible = false;
+            this.fx.emit('dust', r.bed.pos.clone().setY(0.25), 12, { speed: 1, up: 1, g: 2, life: 0.6 });
+            this.d.sfx.pop(2);
+            r.state = 'toSleep';
+            r.need = null;
+            this.drawNeed(r);
+          }
+        }
+      } else if (r.state === 'eating') {
+        if (Math.floor(r.stateT * 5) !== Math.floor((r.stateT - dt) * 5)) {
+          c.twitch(0.5);
+          this.fx.emit('dust', pos.clone().setY(c.height * 0.5), 2, { speed: 0.6, up: 0.4, g: 4, life: 0.4, size: 0.6 });
+        }
+        if (r.stateT > 1.6) { r.state = 'idle'; this.addHeart(r); }
+      } else if (r.state === 'toSleep') {
+        if (this.walk(c, r.bed.pos, 1.2, dt)) { r.state = 'sleeping'; r.stateT = 0; c.eyesShut = 1; }
+      } else if (r.state === 'sleeping') {
+        if (Math.random() < dt * 1.2) this.fx.emit('zzz', pos.clone().setY(c.height + 0.1), 1, { speed: 0.2, up: 0.5, g: -0.1, life: 1.8, size: 1.6 });
+        if (r.stateT > 5) { r.state = 'idle'; c.eyesShut = undefined; c.hop(); this.addHeart(r); }
+      } else if (r.state === 'leaving') {
+        if (Math.random() < dt * 4) this.fx.emit('heart', pos.clone().setY(c.height * 0.8), 1, { speed: 0.3, up: 0.6, g: -0.2, life: 1.2, size: 1.3 });
+        if (this.walk(c, r.target, 2.0, dt)) {
+          this.d.scene.remove(c.root, r.bubble);
+          r.edge.remove();
+          this.residents.splice(i, 1);
+          continue;
+        }
+      }
+      r.bed.ring.visible = r.need === 'sleep';
+      if (r.bed.ring.visible) {
+        (r.bed.ring.material as THREE.MeshBasicMaterial).opacity = 0.5 + Math.sin(this.t * 5) * 0.3;
+        r.bed.ring.scale.setScalar(1 + r.bed.fluff * 0.3);
+      }
+      r.bubble.visible = r.state !== 'leaving';
+      const bubbleH = r.need ? 0.6 : 0.2;
+      r.bubble.position.set(pos.x, c.height + bubbleH + Math.sin(this.t * 3 + i) * 0.04, pos.z);
+      if (r.need) this.placeEdge(pos, c.height, r.edge);
+      else r.edge.classList.remove('on');
+    }
   }
 
   // ------------------------------------------------------------ frame
@@ -508,7 +812,6 @@ export class Game {
       if (e >= 1) { o.scale.setScalar(1); delete o.userData.pop; }
     }
 
-    // swift shoes leave a little sparkle trail
     if (this.shoes && keeper.walk > 0.3) {
       this.dustT -= dt;
       if (this.dustT <= 0) {
@@ -517,7 +820,7 @@ export class Game {
       }
     }
 
-    // pick up medicine from any station in reach, one at a time
+    // pick up from any station in reach, one at a time
     this.pickT -= dt;
     if (this.pickT <= 0 && this.carry.length < this.capacity) {
       for (const s of this.stations) {
@@ -555,48 +858,41 @@ export class Game {
       p.stateT += dt;
       p.c.update(dt);
       if (p.state === 'arriving' || p.state === 'leaving') {
-        const target = p.state === 'arriving' ? p.seat : p.exit;
-        const dx = target.x - pos.x, dz = target.z - pos.z, dd = Math.hypot(dx, dz);
-        const sp = p.state === 'arriving' ? 1.7 : 2.2;
-        if (dd < 0.05) {
-          p.c.walk = 0;
+        if (this.walk(p.c, p.state === 'arriving' ? p.seat : p.exit, p.state === 'arriving' ? 1.7 : 2.2, dt)) {
           if (p.state === 'leaving') {
             this.d.scene.remove(p.c.root);
             this.patients.splice(i, 1);
             continue;
           }
           p.state = 'waiting';
-        } else {
-          pos.x += (dx / dd) * Math.min(dd, sp * dt);
-          pos.z += (dz / dd) * Math.min(dd, sp * dt);
-          p.c.walk += (Math.min(1, dd / 0.5) - p.c.walk) * Math.min(1, dt * 8);
-          p.c.lookAt(target.x, target.z);
         }
       }
       if (p.state === 'waiting' && pos.distanceTo(k) < 4) p.c.lookAt(k.x, k.z);
-      // the keeper hands over the matching medicine when he comes close (also while the patient walks in);
-      // only items already resting in his arms can go, never one still flying in
       if ((p.state === 'waiting' || p.state === 'arriving') && pos.distanceTo(k) < GIVE_R) {
-        const need = CURE[p.ailment];
-        let idx = -1;
-        for (let j = this.carry.length - 1; j >= 0; j--) if (this.carry[j].userData.landed && this.carry[j].userData.kind === need) { idx = j; break; }
-        if (idx >= 0) {
-          const [v] = this.carry.splice(idx, 1);
-          this.restack();
-          this.deliver(v, p);
-        }
+        const v = this.takeFromArms(p.sp.cure);
+        if (v) this.deliver(v, p);
       }
       if (p.state === 'arriving' || p.state === 'waiting' || p.state === 'incoming') {
         this.sickFx(p, dt);
         p.bubble.position.set(pos.x, p.c.height + 0.55 + Math.sin(this.t * 3 + i) * 0.05, pos.z);
-        this.placeEdge(p);
+        this.placeEdge(pos, p.c.height, p.edge);
       }
       if (p.state === 'cured') {
         if (p.stateT > 0.9 && p.stateT - dt <= 0.9) p.c.hop();
-        if (p.stateT > 2) p.state = 'leaving';
+        if (p.stateT > 1.6) {
+          // move into the shelter if there is a free bed, otherwise head home
+          const bed = this.freeBed();
+          if (bed) {
+            this.patients.splice(i, 1);
+            this.admit(p, bed);
+            continue;
+          }
+          p.state = 'leaving';
+        }
       }
     }
 
+    this.updateResidents(dt);
     this.updateHelpers(dt);
 
     // basket: standing next to it tips the pile in, top item first
@@ -615,7 +911,7 @@ export class Game {
       }
     }
 
-    // coins: pop out, bounce, then get pulled to the keeper when he is close
+    // coins
     for (let i = this.ground.length - 1; i >= 0; i--) {
       const c = this.ground[i];
       c.t += dt;
@@ -642,15 +938,13 @@ export class Game {
       }
     }
 
-    // build spots: stand on one to pour coins into it
+    // build spots
     for (let i = this.spots.length - 1; i >= 0; i--) {
       const s = this.spots[i];
       (s.mesh.material as THREE.MeshBasicMaterial).opacity = 0.75 + Math.sin(this.t * 3) * 0.2;
       const on = Math.hypot(k.x - s.pos.x, k.z - s.pos.z) < 0.9;
       s.payT -= dt;
-      // spots must be bought in order: the second one on offer waits for the first
       const next = s.index === this.bought;
-      // pour at a rate that empties any price in about 1.5 s, independent of frame rate
       if (on && next && this.coins > 0 && s.paid < s.def.price) s.payAcc += dt * Math.max(12, s.def.price / 1.5);
       else s.payAcc = 0;
       const chunk = Math.min(this.coins, s.def.price - s.paid, Math.floor(s.payAcc));
@@ -658,11 +952,10 @@ export class Game {
         s.payAcc -= chunk;
         this.setCoins(this.coins - chunk);
         s.paid += chunk;
-        const m = new THREE.Mesh(coinGeo, coinMat);
-        m.position.copy(k).setY(1);
         if (s.payT <= 0) {
-          // one flying coin and one clink every few hundredths of a second, not one per coin
           s.payT = 0.06;
+          const m = new THREE.Mesh(coinGeo, coinMat);
+          m.position.copy(k).setY(1);
           this.fly(m, () => s.pos.clone().setY(0.1), 0.25, 0.5, () => this.d.scene.remove(m));
           this.d.sfx.pay();
         }
@@ -674,7 +967,7 @@ export class Game {
           s.def.apply(this, false);
           this.refreshSpots();
           this.save();
-          if (this.step === 2) this.step = 3;
+          if (this.step === 3) this.step = 4;
         }
       }
       (s.mesh.material as THREE.MeshBasicMaterial).opacity *= next ? 1 : 0.45;
@@ -701,41 +994,30 @@ export class Game {
     }
   }
 
-  /** volunteer helpers: pick a patient nobody is serving, fetch the right medicine, bring it */
   private updateHelpers(dt: number) {
     for (const h of this.helpers) {
       h.c.update(dt);
       const pos = h.c.root.position;
-      const goTo = (x: number, z: number, speed: number) => {
-        const dx = x - pos.x, dz = z - pos.z, dd = Math.hypot(dx, dz);
-        if (dd < 0.05) { h.c.walk = 0; return true; }
-        pos.x += (dx / dd) * Math.min(dd, speed * dt);
-        pos.z += (dz / dd) * Math.min(dd, speed * dt);
-        h.c.walk += (Math.min(1, dd / 0.5) - h.c.walk) * Math.min(1, dt * 8);
-        h.c.lookAt(x, z);
-        return false;
-      };
+      const done = (p: Patient | null) => !p || p.state === 'cured' || p.state === 'leaving' || p.state === 'incoming';
       if (h.state === 'idle' && h.item) {
-        // still holding medicine from an errand someone else finished: find another patient who needs it
         const kind = h.item.userData.kind as Medicine;
-        const p = this.patients.find((p) => (p.state === 'waiting' || p.state === 'arriving') && !p.claimed && CURE[p.ailment] === kind);
+        const p = this.patients.find((p) => (p.state === 'waiting' || p.state === 'arriving') && !p.claimed && p.sp.cure === kind);
         if (p) { p.claimed = true; h.patient = p; h.state = 'toPatient'; }
-        else goTo(h.home.x, h.home.z, 1.4);
+        else this.walk(h.c, h.home, 1.4, dt);
       } else if (h.state === 'idle') {
-        const p = this.patients.find((p) => (p.state === 'waiting' || p.state === 'arriving') && !p.claimed && this.stations.some((s) => s.kind === CURE[p.ailment] && s.tray.length));
+        const p = this.patients.find((p) => (p.state === 'waiting' || p.state === 'arriving') && !p.claimed && this.stations.some((s) => s.kind === p.sp.cure && s.tray.length));
         if (p) {
-          const need = CURE[p.ailment];
-          const st = this.stations.filter((s) => s.kind === need && s.tray.length).sort((a, b) => a.pos.distanceTo(pos) - b.pos.distanceTo(pos))[0];
+          const st = this.stations.filter((s) => s.kind === p.sp.cure && s.tray.length).sort((a, b) => a.pos.distanceTo(pos) - b.pos.distanceTo(pos))[0];
           p.claimed = true;
           h.patient = p;
           h.station = st;
           h.state = 'toStation';
-        } else goTo(h.home.x, h.home.z, 1.4);
+        } else this.walk(h.c, h.home, 1.4, dt);
       } else if (h.state === 'toStation' && h.station) {
         const st = h.station;
         const p = h.patient!;
-        if (p.state === 'cured' || p.state === 'leaving' || p.state === 'incoming') { p.claimed = false; h.state = 'idle'; continue; }
-        if (goTo(st.pos.x - 0.1, st.pos.z + 0.75, 2.0) || pos.distanceTo(st.pos) < 1.0) {
+        if (done(p)) { p.claimed = false; h.state = 'idle'; continue; }
+        if (this.walk(h.c, new THREE.Vector3(st.pos.x - 0.1, 0, st.pos.z + 0.75), 2.0, dt) || pos.distanceTo(st.pos) < 1.0) {
           if (!st.tray.length) { p.claimed = false; h.state = 'idle'; continue; }
           const v = st.tray.pop()!;
           const slot = h.c.root.userData.slot as THREE.Object3D;
@@ -750,14 +1032,9 @@ export class Game {
         }
       } else if (h.state === 'toPatient' && h.patient && h.item) {
         const p = h.patient;
-        if (p.state === 'cured' || p.state === 'leaving' || p.state === 'incoming') {
-          // someone was quicker; keep the medicine for the next patient who needs it
-          h.patient = null;
-          h.state = 'idle';
-          continue;
-        }
+        if (done(p)) { h.patient = null; h.state = 'idle'; continue; }
         const pp = p.c.root.position;
-        if (goTo(pp.x, pp.z, 2.0) || pos.distanceTo(pp) < 1.1) {
+        if (this.walk(h.c, pp, 2.0, dt) || pos.distanceTo(pp) < 1.1) {
           const v = h.item;
           h.item = null;
           h.state = 'idle';
@@ -770,13 +1047,19 @@ export class Game {
 
   private updateGuide() {
     let target: THREE.Vector3 | null = null;
-    if (this.step === 0) {
-      target = this.stations[0].pos.clone().setY(1.5);
-    } else if (this.step === 1) {
+    const first = this.stations[0];
+    if (this.step === 0) target = first.pos.clone().setY(1.5);
+    else if (this.step === 1) {
       const p = this.patients.find((p) => p.state === 'waiting' || p.state === 'arriving');
-      if (p && this.carry.length) target = p.c.root.position.clone().setY(p.c.height + 1.3);
-      else if (!this.carry.length) target = this.stations[0].pos.clone().setY(1.5);
+      if (p && this.carry.some((v) => v.userData.kind === p.sp.cure)) target = p.c.root.position.clone().setY(p.c.height + 1.3);
+      else target = first.pos.clone().setY(1.5);
     } else if (this.step === 2) {
+      const r = this.residents.find((r) => r.need);
+      if (r?.need === 'food') {
+        const berries = this.stations.find((s) => s.kind === 'berry')!;
+        target = this.carry.some((v) => v.userData.kind === 'berry') ? r.c.root.position.clone().setY(r.c.height + 1.3) : berries.pos.clone().setY(1.4);
+      } else if (r?.need === 'sleep') target = r.bed.pos.clone().setY(0.9);
+    } else if (this.step === 3) {
       const s = this.spots.find((s) => s.index === this.bought);
       if (!this.ground.length && s && this.coins >= s.def.price) target = s.pos.clone().setY(1);
     }
@@ -787,12 +1070,12 @@ export class Game {
     }
   }
 
-  /** pin an arrow to the screen edge pointing at a patient that is out of view */
-  private placeEdge(p: Patient) {
-    const v = this.tmp.copy(p.c.root.position).setY(p.c.height * 0.6).project(this.d.camera);
+  /** pin an arrow to the screen edge pointing at something that needs the keeper and is out of view */
+  private placeEdge(pos: THREE.Vector3, h: number, el: HTMLDivElement) {
+    const v = this.tmp.copy(pos).setY(h * 0.6).project(this.d.camera);
     const behind = v.z > 1;
     if (!behind && Math.abs(v.x) < 0.9 && Math.abs(v.y) < 0.88) {
-      p.edge.classList.remove('on');
+      el.classList.remove('on');
       return;
     }
     let dx = v.x, dy = -v.y;
@@ -800,9 +1083,9 @@ export class Game {
     const W = window.innerWidth / 2, H = window.innerHeight / 2, m = 44;
     const sx = dx * W, sy = dy * H;
     const t = Math.min((W - m) / Math.max(1e-3, Math.abs(sx)), (H - m) / Math.max(1e-3, Math.abs(sy)));
-    p.edge.style.left = `${W + sx * t}px`;
-    p.edge.style.top = `${H + sy * t}px`;
-    (p.edge.firstChild as SVGElement).style.transform = `rotate(${Math.atan2(sy, sx)}rad)`;
-    p.edge.classList.add('on');
+    el.style.left = `${W + sx * t}px`;
+    el.style.top = `${H + sy * t}px`;
+    (el.firstChild as SVGElement).style.transform = `rotate(${Math.atan2(sy, sx)}rad)`;
+    el.classList.add('on');
   }
 }

@@ -179,6 +179,8 @@ function makeLid(d: LidData): PaintedLid {
 export class Creature {
   /** debug: hold every painted eyelid at a fixed closure (?eyes=closed / ?eyes=half) */
   static forceShut: number | undefined;
+  /** hold this creature's painted eyelids at a closure (sleeping); undefined = normal blinking */
+  eyesShut: number | undefined;
   root = new THREE.Group();
   private body = new THREE.Group();
   private lids: THREE.Object3D[] = [];
@@ -373,7 +375,7 @@ export class Creature {
     }
     for (const l of this.lids) l.scale.y = lid;
     // painted eyes: the lid covers the eye as much as the 3D eyes would squash
-    const shut = Creature.forceShut ?? Math.min(1, (1 - lid) / 0.92);
+    const shut = Creature.forceShut ?? this.eyesShut ?? Math.min(1, (1 - lid) / 0.92);
     for (const l of this.paintedLids) {
       l.mesh.visible = shut > 0.02;
       l.shut.value = shut;

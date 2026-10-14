@@ -70,18 +70,8 @@ const dataFiles = import.meta.glob('./cast/*.json', { eager: true, import: 'defa
 const castData: Record<string, CreatureData> = { chmurnik: chmurnikData as CreatureData };
 for (const [path, d] of Object.entries(dataFiles)) castData[path.split('/').pop()!.replace('.json', '')] = d;
 
-// where everyone stands in the pen: name, x, z, height
-const CAST: [string, number, number, number][] = [
-  ['grzybolak', -1.4, -2.7, 1.15],
-  ['bazyliszek', 0, -2.9, 1.0],
-  ['feniks', 1.4, -2.7, 1.0],
-  ['smok', -1.5, -1.0, 1.25],
-  ['jednorozec', 0, -1.15, 1.15],
-  ['gryf', 1.55, -1.0, 1.25],
-  ['kraken', -1.45, 0.8, 1.05],
-  ['chmurnik', 0, 0.9, 1.05],
-  ['opiekun', 0, 2.4, 1.4],
-];
+// the shelter starts empty: only the keeper; creatures arrive as patients over time
+const CAST: [string, number, number, number][] = [['opiekun', 0, 2.4, 1.4]];
 
 // models generated with their own textures (Hunyuan3D 3.0)
 const TEXTURED = new Set(['feniks', 'bazyliszek', 'gryf', 'grzybolak', 'jednorozec', 'smok', 'opiekun', 'kraken', 'chmurnik']);
@@ -122,13 +112,6 @@ Promise.all(
     scene.add(c.root);
     creatures.push(c);
     if (name === 'opiekun') keeper = c;
-    if (name === 'chmurnik') {
-      sheep = c;
-      c.onHopPeak = () => {
-        rain.trigger(new THREE.Vector3(x, 1.8, z));
-        sfx.drizzle();
-      };
-    }
   }),
 ).then(() => {
   // compile every shader up front (including the hidden rain cloud) so the first tap does not stall
@@ -138,7 +121,6 @@ Promise.all(
   if (keeper)
     game = new Game({
       scene, camera, keeper, sfx, shadowTex, spawnCreature,
-      patientKinds: CAST.filter(([n]) => n !== 'opiekun').map(([n, , , h]) => [n, h] as [string, number]),
     });
   if (game) game.onFirstPickup = () => hint.classList.add('hidden');
   if (game?.restored) hint.classList.add('hidden');
@@ -152,6 +134,28 @@ const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const joy = new Joystick(renderer.domElement);
 let walkTo: THREE.Vector3 | null = null;
 renderer.domElement.addEventListener('pointerdown', () => sfx.unlock());
+
+// sound on/off, remembered between visits
+const muteBtn = document.createElement('button');
+muteBtn.id = 'mute';
+const speakerSvg = (on: boolean) =>
+  `<svg viewBox="0 0 48 48" width="30" height="30"><path d="M8 18h8l10-8v28l-10-8H8z" fill="#5b7f73"/>` +
+  (on
+    ? `<path d="M32 17c3 2 3 12 0 14M36 13c6 4 6 18 0 22" stroke="#5b7f73" stroke-width="3.5" fill="none" stroke-linecap="round"/>`
+    : `<path d="M32 18l10 12M42 18L32 30" stroke="#e86a5a" stroke-width="4" stroke-linecap="round"/>`) +
+  `</svg>`;
+const muteCss = document.createElement('style');
+muteCss.textContent = `#mute { position: fixed; right: calc(14px + env(safe-area-inset-right)); top: calc(14px + env(safe-area-inset-top)); width: 48px; height: 48px;
+  border: 0; border-radius: 50%; background: rgba(255,255,255,.85); box-shadow: 0 3px 10px rgba(40,70,60,.2); display: grid; place-items: center; padding: 0; }`;
+document.head.appendChild(muteCss);
+muteBtn.innerHTML = speakerSvg(!sfx.muted);
+muteBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+muteBtn.addEventListener('click', () => {
+  sfx.unlock();
+  sfx.setMuted(!sfx.muted);
+  muteBtn.innerHTML = speakerSvg(!sfx.muted);
+});
+document.body.appendChild(muteBtn);
 joy.onStart = () => {
   walkTo = null;
   hint.classList.add('hidden');
@@ -160,8 +164,9 @@ joy.onTap = (cx, cy) => {
   if (!creatures.length) return;
   ndc.set((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
   ray.setFromCamera(ndc, camera);
-  const hits = ray.intersectObjects(creatures.map((c) => c.root), true);
-  const hitRoot = hits.length ? creatures.find((c) => { let o: THREE.Object3D | null = hits[0].object; while (o) { if (o === c.root) return true; o = o.parent; } return false; }) : undefined;
+  const all = [...creatures, ...(game?.tappables() ?? [])];
+  const hits = ray.intersectObjects(all.map((c) => c.root), true);
+  const hitRoot = hits.length ? all.find((c) => { let o: THREE.Object3D | null = hits[0].object; while (o) { if (o === c.root) return true; o = o.parent; } return false; }) : undefined;
   if (hitRoot) {
     hitRoot.hop();
     sfx.boing();
@@ -175,7 +180,7 @@ joy.onTap = (cx, cy) => {
 // debug hook for automated checks
 (window as unknown as { __keeper: () => number[] | null }).__keeper = () => (keeper ? [keeper.root.position.x, keeper.root.position.z] : null);
 (window as unknown as { __game: () => unknown }).__game = () =>
-  game && { coins: game.coins, carry: game.carry.length, patients: game.patients.map((p) => [p.state, +p.c.root.position.x.toFixed(2), +p.c.root.position.z.toFixed(2)]), tray: game.stations.map((c) => c.kind + c.tray.length), carryKinds: game.carry.map((v) => v.userData.kind) };
+  game && { coins: game.coins, carry: game.carry.length, patients: game.patients.map((p) => [p.state, +p.c.root.position.x.toFixed(2), +p.c.root.position.z.toFixed(2)]), tray: game.stations.map((c) => c.kind + c.tray.length), residents: game.residents.map((r) => [r.name, r.state, r.need, r.hearts, +r.c.root.position.x.toFixed(2), +r.c.root.position.z.toFixed(2), +r.bed.pos.x.toFixed(2), +r.bed.pos.z.toFixed(2)]), carryKinds: game.carry.map((v) => v.userData.kind) };
 (window as unknown as { __coins: (n: number) => void }).__coins = (n) => { if (game) (game as unknown as { setCoins: (n: number) => void }).setCoins(n); };
 (window as unknown as { __walk: (x: number, z: number) => void }).__walk = (x, z) => { walkTo = new THREE.Vector3(x, 0, z); };
 
