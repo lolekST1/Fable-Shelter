@@ -141,6 +141,7 @@ Promise.all(
       patientKinds: CAST.filter(([n]) => n !== 'opiekun').map(([n, , , h]) => [n, h] as [string, number]),
     });
   if (game) game.onFirstPickup = () => hint.classList.add('hidden');
+  if (game?.restored) hint.classList.add('hidden');
 });
 
 // input: drag anywhere to walk the keeper (floating joystick); tap a creature to make it hop,
@@ -174,8 +175,11 @@ joy.onTap = (cx, cy) => {
 // debug hook for automated checks
 (window as unknown as { __keeper: () => number[] | null }).__keeper = () => (keeper ? [keeper.root.position.x, keeper.root.position.z] : null);
 (window as unknown as { __game: () => unknown }).__game = () =>
-  game && { coins: game.coins, carry: game.carry.length, patients: game.patients.map((p) => [p.state, +p.c.root.position.x.toFixed(2), +p.c.root.position.z.toFixed(2)]), tray: game.cauldrons.map((c) => c.tray.length) };
+  game && { coins: game.coins, carry: game.carry.length, patients: game.patients.map((p) => [p.state, +p.c.root.position.x.toFixed(2), +p.c.root.position.z.toFixed(2)]), tray: game.stations.map((c) => c.kind + c.tray.length), carryKinds: game.carry.map((v) => v.userData.kind) };
+(window as unknown as { __coins: (n: number) => void }).__coins = (n) => { if (game) (game as unknown as { setCoins: (n: number) => void }).setCoins(n); };
 (window as unknown as { __walk: (x: number, z: number) => void }).__walk = (x, z) => { walkTo = new THREE.Vector3(x, 0, z); };
+
+(window as unknown as { __coins: (n: number) => void }).__coins = (n) => game?.addCoins(n);
 
 const SPEED = 2.6;
 const KEEPER_R = 0.32;
@@ -195,8 +199,9 @@ function moveKeeper(dt: number) {
   const amount = Math.min(1, move.length());
   keeper.walk += (amount - keeper.walk) * Math.min(1, dt * 10);
   if (amount < 0.02) return;
-  k.x += move.x * SPEED * dt;
-  k.z += move.z * SPEED * dt;
+  const sp = SPEED * (game?.speed ?? 1);
+  k.x += move.x * sp * dt;
+  k.z += move.z * sp * dt;
   keeper.lookAt(k.x + move.x, k.z + move.z);
   // collisions: creatures and bushes are circles, the fence is an arc, the meadow has an edge
   const push = (cx: number, cz: number, r: number) => {
