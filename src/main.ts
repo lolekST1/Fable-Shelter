@@ -68,9 +68,16 @@ let creature: Creature | null = null;
 const hint = document.getElementById('hint')!;
 
 const texLoader = new THREE.TextureLoader();
-const concept = texLoader.load('/textures/chmurnik.jpg');
+const concept = texLoader.load('textures/chmurnik.jpg');
 concept.colorSpace = THREE.SRGBColorSpace;
-new GLTFLoader().load('/models/chmurnik.glb', (gltf) => {
+async function loadModel(name: string) {
+  // models ship as base64 text so the page can be served from any static host
+  const res = await fetch(`models/${name}.glb.txt`);
+  const bin = Uint8Array.from(atob((await res.text()).trim()), (c) => c.charCodeAt(0));
+  return new GLTFLoader().parseAsync(bin.buffer, '');
+}
+
+loadModel('chmurnik').then((gltf) => {
   creature = new Creature(gltf, concept, chmurnikData as CreatureData, 1.1, shadowTex);
   scene.add(creature.root);
   creature.onHopPeak = () => {
