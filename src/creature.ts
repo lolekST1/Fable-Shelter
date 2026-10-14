@@ -17,7 +17,7 @@ export interface CreatureData {
  * from the concept image onto front-facing surfaces, white wool elsewhere,
  * skin colour on the legs. Lighting stays fully dynamic.
  */
-function plushMaterial(tex: THREE.Texture, d: CreatureData): THREE.MeshPhysicalMaterial {
+function plushMaterial(tex: THREE.Texture, back: THREE.Texture | null, d: CreatureData): THREE.MeshPhysicalMaterial {
   const [cx, cy, k] = d.proj;
   const mat = new THREE.MeshPhysicalMaterial({
     color: 0xffffff,
@@ -28,6 +28,8 @@ function plushMaterial(tex: THREE.Texture, d: CreatureData): THREE.MeshPhysicalM
   });
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uConcept = { value: tex };
+    shader.uniforms.uBack = { value: back ?? tex };
+    shader.uniforms.uHasBack = { value: back ? 1 : 0 };
     shader.uniforms.uProj = { value: new THREE.Vector3(cx, cy, k) };
     const ear = d.ear ?? [0, -99, 0, 0.01, 0.01, 0.01];
     shader.uniforms.uEar = { value: new THREE.Vector3(ear[0], ear[1], ear[2]) };
@@ -42,7 +44,7 @@ function plushMaterial(tex: THREE.Texture, d: CreatureData): THREE.MeshPhysicalM
       .replace(
         '#include <common>',
         `#include <common>
-uniform sampler2D uConcept; uniform vec3 uProj; uniform float uLegY; uniform vec3 uEar; uniform vec3 uEarR;
+uniform sampler2D uConcept; uniform sampler2D uBack; uniform float uHasBack; uniform vec3 uProj; uniform float uLegY; uniform vec3 uEar; uniform vec3 uEarR;
 uniform vec3 uWool; uniform vec3 uSkin;
 varying vec3 vObjPos; varying vec3 vObjNrm;`,
       )
@@ -54,7 +56,9 @@ varying vec3 vObjPos; varying vec3 vObjNrm;`,
   vec2 uv = vec2((vObjPos.x - uProj.x) * uProj.z + 0.5, (vObjPos.y - uProj.y) * uProj.z + 0.5);
   vec3 proj = texture2D(uConcept, uv).rgb;
   float front = smoothstep(-0.05, 0.3, normalize(vObjNrm).z);
-  vec3 col = mix(uWool, proj, front);
+  // sides and back take the body colours with the face detail washed out
+  vec3 rear = uHasBack > 0.5 ? texture2D(uBack, uv).rgb : uWool;
+  vec3 col = mix(rear, proj, front);
   col = mix(col, uSkin, smoothstep(uLegY + 0.03, uLegY - 0.03, vObjPos.y));
   // ear flaps: a soft ellipsoid on each side of the head
   vec3 e = (vec3(abs(vObjPos.x), vObjPos.y, vObjPos.z) - uEar) / uEarR;
@@ -103,10 +107,10 @@ export class Creature {
   onHopPeak?: () => void;
   private peaked = false;
 
-  constructor(gltf: GLTF, tex: THREE.Texture, d: CreatureData, height: number, shadowTex: THREE.Texture) {
+  constructor(gltf: GLTF, tex: THREE.Texture, back: THREE.Texture | null, d: CreatureData, height: number, shadowTex: THREE.Texture) {
     const mesh = gltf.scene.getObjectByProperty('type', 'Mesh') as THREE.Mesh;
     mesh.geometry.computeVertexNormals();
-    mesh.material = plushMaterial(tex, d);
+    mesh.material = plushMaterial(tex, back, d);
     mesh.castShadow = true;
 
     const [[, y0], [, y1]] = d.bounds;

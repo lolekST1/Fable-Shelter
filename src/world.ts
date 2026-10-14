@@ -226,7 +226,7 @@ export class RainPuff {
     dropGeo.scale(1, 1.8, 1);
     this.drops = new THREE.InstancedMesh(
       dropGeo,
-      new THREE.MeshPhysicalMaterial({ color: 0x8fd0ff, roughness: 0.1, transmission: 0.2, transparent: true, opacity: 0.9 }),
+      new THREE.MeshStandardMaterial({ color: 0x8fd0ff, roughness: 0.15, metalness: 0, transparent: true, opacity: 0.9 }),
       14,
     );
     for (let i = 0; i < 14; i++) this.dropState.push({ y: -Math.random(), x: 0, z: 0, v: 0 });
