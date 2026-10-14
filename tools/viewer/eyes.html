@@ -1,0 +1,96 @@
+<!doctype html><html><body style="margin:0;background:#fff">
+<canvas id="c" width="512" height="512"></canvas><canvas id="d" width="512" height="512"></canvas>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+const q = new URLSearchParams(location.search);
+const file = q.get('m'), T = +(q.get('t') || 70), YMAX = +(q.get('y') || 512), FILL = +(q.get('f') || 0.45);
+const N = 512;
+const r = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), preserveDrawingBuffer: true });
+r.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xffffff);
+const g = await new GLTFLoader().loadAsync('/'+file);
+const mesh = g.scene.getObjectByProperty('type', 'Mesh');
+g.scene.updateMatrixWorld(true);
+mesh.geometry.applyMatrix4(mesh.matrixWorld);
+const m2 = new THREE.Mesh(mesh.geometry, new THREE.MeshBasicMaterial({ map: mesh.material.map }));
+scene.add(m2);
+mesh.geometry.computeBoundingBox();
+const bb = mesh.geometry.boundingBox, c = bb.getCenter(new THREE.Vector3()), sz = bb.getSize(new THREE.Vector3());
+const half = Math.max(sz.x, sz.y) * 0.55;
+const cam = new THREE.OrthographicCamera(-half, half, half, -half, 0.01, 100);
+cam.position.set(c.x, c.y, bb.max.z + 5); cam.lookAt(c.x, c.y, 0);
+r.render(scene, cam);
+const gl = r.getContext(); const px = new Uint8Array(N * N * 4);
+gl.readPixels(0, 0, N, N, gl.RGBA, gl.UNSIGNED_BYTE, px);
+// flip to top-down
+const P = (x, y) => ((N - 1 - y) * N + x) * 4;
+const lum = (i) => 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+const lab = new Int32Array(N * N).fill(-1); const comps = [];
+for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+  const k = y * N + x; if (lab[k] >= 0 || lum(P(x, y)) > T) continue;
+  const st = [k]; lab[k] = comps.length; let a = 0, sx = 0, sy = 0, x0 = x, x1 = x, y0 = y, y1 = y;
+  while (st.length) { const v = st.pop(); const vx = v % N, vy = (v / N) | 0; a++; sx += vx; sy += vy;
+    x0 = Math.min(x0, vx); x1 = Math.max(x1, vx); y0 = Math.min(y0, vy); y1 = Math.max(y1, vy);
+    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) { const nx = vx + dx, ny = vy + dy; if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+      const nk = ny * N + nx; if (lab[nk] < 0 && lum(P(nx, ny)) <= T) { lab[nk] = comps.length; st.push(nk); } } }
+  comps.push({ a, cx: sx / a, cy: sy / a, w: x1 - x0 + 1, h: y1 - y0 + 1 });
+}
+const cand = comps.filter(o => o.a > 15 && o.a < 4000 && o.a / (o.w * o.h) > FILL && o.cy < YMAX && o.w / o.h > 0.5 && o.w / o.h < 2);
+// best symmetric pair around the model centre
+const mx = N / 2; let best = null;
+for (let i = 0; i < cand.length; i++) for (let j = i + 1; j < cand.length; j++) {
+  const A = cand[i], B = cand[j]; const size = Math.max(A.a, B.a) / Math.min(A.a, B.a);
+  const dy = Math.abs(A.cy - B.cy), sym = Math.abs((A.cx + B.cx) / 2 - mx), sep = Math.abs(A.cx - B.cx);
+  if (size > 2 || dy > 15 || sep < 15) continue;
+  const score = sym + dy * 2 + (size - 1) * 30 - Math.sqrt(A.a + B.a) * 0.5;
+  if (!best || score < best.score) best = { score, A, B };
+}
+const out = { file, eyes: [] };
+const ray = new THREE.Raycaster(); const wpp = (2 * half) / N;
+const d = document.getElementById('d').getContext('2d');
+const img = d.createImageData(N, N); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const i = P(x, y), o = (y * N + x) * 4; img.data.set([px[i], px[i+1], px[i+2], 255], o); }
+d.putImageData(img, 0, 0);
+if (best) for (const E of [best.A, best.B].sort((a, b) => a.cx - b.cx)) {
+  const rp = Math.sqrt(Math.max(E.w, E.h) ** 2) / 2;
+  ray.setFromCamera(new THREE.Vector2((E.cx + 0.5) / N * 2 - 1, -((E.cy + 0.5) / N * 2 - 1)), cam);
+  const hit = ray.intersectObject(m2)[0]; if (!hit) continue;
+  // skin colour: median of light pixels in a ring around the eye
+  const ring = [];
+  for (let t = 0; t < 64; t++) for (const f of [1.7, 2.0, 2.3]) { const x = Math.round(E.cx + Math.cos(t / 64 * 6.283) * rp * f), y = Math.round(E.cy + Math.sin(t / 64 * 6.283) * rp * f);
+    if (x < 0 || y < 0 || x >= N || y >= N) continue; const i = P(x, y); if (lum(i) > T + 40) ring.push([px[i], px[i+1], px[i+2]]); }
+  ring.sort((a, b) => (a[0]+a[1]+a[2]) - (b[0]+b[1]+b[2])); const sk = ring[(ring.length / 2) | 0] || [240, 220, 210];
+  const n = hit.face.normal.clone().normalize();
+  out.eyes.push({ px: [E.cx, E.cy, rp], pos: hit.point.toArray().map(v => +v.toFixed(4)), normal: n.toArray().map(v => +v.toFixed(3)), r: +(rp * wpp).toFixed(4), skin: sk });
+  d.strokeStyle = '#f0f'; d.lineWidth = 2; d.beginPath(); d.arc(E.cx, E.cy, rp * 1.15, 0, 7); d.stroke();
+}
+// lid shell: sample the face around each eye so the closed lid lies on the head instead of floating as a disc
+const LS = +(q.get('s') || 1.22), G = 12;
+const rc = new THREE.Raycaster();
+for (const e of out.eyes) {
+  const p = new THREE.Vector3(...e.pos), R = e.r * LS;
+  // average surface normal over the eye area (single faces are noisy)
+  const nAvg = new THREE.Vector3();
+  for (let k = 0; k < 25; k++) {
+    const a = k / 25 * 6.283, rr = (k % 5) / 4 * R;
+    rc.set(new THREE.Vector3(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, bb.max.z + 1), new THREE.Vector3(0, 0, -1));
+    const h = rc.intersectObject(m2)[0]; if (h) nAvg.add(h.face.normal);
+  }
+  const n = nAvg.normalize();
+  const right = new THREE.Vector3(0, 1, 0).cross(n).normalize(), up = n.clone().cross(right).normalize();
+  const pts = [];
+  for (let j = 0; j <= G; j++) for (let i = 0; i <= G; i++) {
+    const x = i / G * 2 - 1, y = j / G * 2 - 1;
+    const base = p.clone().addScaledVector(right, x * R).addScaledVector(up, y * R);
+    rc.set(base.clone().addScaledVector(n, R * 3), n.clone().negate());
+    const hits = rc.intersectObject(m2);
+    // the face hit closest to the eye plane (skips beaks or horns in front of the ray)
+    let best = null; for (const h of hits) { const dh = Math.abs(h.point.clone().sub(base).dot(n)); if (!best || dh < best.dh) best = { dh, h }; }
+    const q2 = best && best.dh < R * 1.5 ? best.h.point : base;
+    pts.push(+q2.x.toFixed(4), +q2.y.toFixed(4), +q2.z.toFixed(4));
+  }
+  e.lid = { grid: G, R: +R.toFixed(4), n: n.toArray().map(v => +v.toFixed(3)), right: right.toArray().map(v => +v.toFixed(3)), up: up.toArray().map(v => +v.toFixed(3)), pts };
+}
+out.bb=[bb.min.toArray(),bb.max.toArray()]; out.cam=[cam.top,cam.bottom]; window.RESULT = out; document.title = 'done';
+</script></body></html>
