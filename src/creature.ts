@@ -191,6 +191,9 @@ export class Creature {
   private yaw = 0;
   private targetYaw = 0;
   onHopPeak?: () => void;
+  /** walking speed as a fraction of full speed (0 = standing); drives the waddle */
+  walk = 0;
+  private stepPhase = 0;
   private peaked = false;
 
   constructor(gltf: GLTF, tex: THREE.Texture | null, back: THREE.Texture | null, d: CreatureData | null, height: number, shadowTex: THREE.Texture, lidData: LidData[] = []) {
@@ -302,6 +305,13 @@ export class Creature {
         this.hopT = -1;
       }
     }
+    // waddle: little bounces with a side-to-side rock while walking
+    if (this.walk > 0.01) {
+      this.stepPhase += dt * (6 + 6 * this.walk);
+      lift += Math.abs(Math.sin(this.stepPhase)) * 0.07 * this.walk;
+      this.body.rotation.z += Math.sin(this.stepPhase) * 0.1 * this.walk;
+      sy *= 1 - Math.abs(Math.cos(this.stepPhase)) * 0.03 * this.walk;
+    } else this.stepPhase = 0;
     this.body.scale.set(sxz, sy, sxz);
     this.body.position.y = lift;
     const sh = 1 - lift * 0.6;
@@ -311,7 +321,7 @@ export class Creature {
     // turn toward the point of interest
     let diff = this.targetYaw - this.yaw;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-    this.yaw += diff * Math.min(1, dt * 4);
+    this.yaw += diff * Math.min(1, dt * (this.walk > 0.05 ? 12 : 4));
     this.body.rotation.y = this.yaw;
 
     // blinking

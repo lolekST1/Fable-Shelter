@@ -64,7 +64,13 @@ export function buildSky(scene: THREE.Scene) {
   return clouds;
 }
 
-export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture) {
+/** things the keeper bumps into: round bushes and the fence arc behind the pen */
+export interface Obstacles {
+  circles: [number, number, number][];
+  fence: { radius: number; halfAngle: number };
+}
+
+export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture): Obstacles {
   // meadow disc with vertex-coloured patches
   const geo = new THREE.CircleGeometry(30, 96, 0, Math.PI * 2);
   geo.rotateX(-Math.PI / 2);
@@ -200,6 +206,10 @@ export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture) {
     }
   }
   scene.add(fence);
+  return {
+    circles: bushes.map(([x, z, s]) => [x, z, 0.75 * s] as [number, number, number]),
+    fence: { radius: 3.6, halfAngle: Math.PI * 0.32 },
+  };
 }
 
 /** A little rain cloud that appears over the creature, drizzles and fades. */
