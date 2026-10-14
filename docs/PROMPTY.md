@@ -1,0 +1,89 @@
+# Fable Shelter – prompty do grafik
+
+Wszystkie prompty w jednym miejscu. Model: Z-Image Turbo (bez LoRA), 8 kroków.
+Kolejność dla każdej postaci: **przód** (Z-Image Turbo) → **tył** i **bok** (edycja obrazu z przodem jako referencją) → 3D (Hunyuan 3.0 z trzema widokami albo Pixal3D z przodem, DecimateMesh 25000).
+
+## Stały styl (ostatni akapit każdego promptu przodu)
+
+```
+stylized 3D render, plush toy look, soft fuzzy fabric texture, pastel colors, big round glossy eyes, cozy storybook mood, single character, full body, front view, facing the camera, symmetrical pose, standing, centered, plain light grey background, soft even studio lighting, game asset, no effects, no props
+```
+
+## Tył i bok (edycja obrazu, referencja = wybrany przód)
+
+Tył:
+```
+the same character seen from directly behind, back view, same proportions, same colors and materials, same lighting, plain light grey background, full body
+```
+
+Bok:
+```
+the same character seen from the left side, side view profile, same proportions, same colors and materials, same lighting, plain light grey background, full body
+```
+
+---
+
+## Teren 2: Staw pod wierzbami
+
+### Żabi książę (`zabiksiaze`)
+Choroba w grze: kicha złotymi iskierkami i na moment rośnie mu korona.
+```
+cute baby frog prince creature, bright leaf green fur, pale yellow belly, tiny golden crown tilted on its head, wide happy mouth, little pink cheeks, chubby round body, short legs, standing straight, arms at sides,
+stylized 3D render, plush toy look, soft fuzzy fabric texture, pastel colors, big round glossy eyes, cozy storybook mood, single character, full body, front view, facing the camera, symmetrical pose, standing, centered, plain light grey background, soft even studio lighting, game asset, no effects, no props
+```
+
+### Mała Nessie (`nessie`)
+Choroba w grze: czkawka fontanną wody.
+```
+cute baby loch ness monster creature, soft teal fur, light aqua belly, long gentle neck curving up, small round head with two tiny nubs, four little flippers, short tail, chubby body, sweet smile, standing straight,
+stylized 3D render, plush toy look, soft fuzzy fabric texture, pastel colors, big round glossy eyes, cozy storybook mood, single character, full body, front view, facing the camera, symmetrical pose, standing, centered, plain light grey background, soft even studio lighting, game asset, no effects, no props
+```
+
+### Wodnik (`wodnik`)
+Choroba w grze: ciągle cieknie mu z kapelusza.
+```
+cute little water sprite creature, pale blue fur, wide brimmed hat made of a big green lily pad, tiny webbed hands, droplet shaped tuft of hair under the hat, round chubby body, curious happy face, standing straight, arms at sides,
+stylized 3D render, plush toy look, soft fuzzy fabric texture, pastel colors, big round glossy eyes, cozy storybook mood, single character, full body, front view, facing the camera, symmetrical pose, standing, centered, plain light grey background, soft even studio lighting, game asset, no effects, no props
+```
+
+### Świetlik (`swietlik`)
+Choroba w grze: jego światełko migocze jak zepsuta żarówka.
+```
+cute baby firefly creature, soft lavender fur, round glowing pale yellow belly like a lantern, two small translucent wings on its back, two curly antennae with little balls, chubby round body, sleepy happy face, standing straight, arms at sides,
+stylized 3D render, plush toy look, soft fuzzy fabric texture, pastel colors, big round glossy eyes, cozy storybook mood, single character, full body, front view, facing the camera, symmetrical pose, standing, centered, plain light grey background, soft even studio lighting, game asset, no effects, no props
+```
+
+### Rekwizyty stawu
+Dla rekwizytów zamień ostatnie zdanie stylu na: `single object, three quarter view from slightly above, centered, plain light grey background, soft even studio lighting, game asset, no characters`.
+
+Kwiat lilii z nektarem (stacja z fioletowym lekarstwem):
+```
+a big magical water lily flower floating on a round lily pad, soft violet petals, glowing purple nectar in the middle with a few bubbles, chunky cute shapes,
+stylized 3D render, plush toy look, soft fuzzy fabric texture, pastel colors, cozy storybook mood, single object, three quarter view from slightly above, centered, plain light grey background, soft even studio lighting, game asset, no characters
+```
+
+Legowisko na liściu lilii:
+```
+a round cozy bed made of a big green lily pad with soft raised edges and a small white pillow, chunky cute shapes,
+stylized 3D render, plush toy look, soft fuzzy fabric texture, pastel colors, cozy storybook mood, single object, three quarter view from slightly above, centered, plain light grey background, soft even studio lighting, game asset, no characters
+```
+
+Drewniany mostek:
+```
+a small arched wooden footbridge with rope railings, chunky rounded planks, cute storybook shapes,
+stylized 3D render, plush toy look, soft fuzzy fabric texture, pastel colors, cozy storybook mood, single object, three quarter view from slightly above, centered, plain light grey background, soft even studio lighting, game asset, no characters
+```
+
+---
+
+## Rekwizyty obozu (na później, gdy zechcesz podmienić proste kształty)
+
+Kociołek: `a round chubby iron cauldron on three short legs, bubbling pink potion inside, chunky cute shapes,` + styl rekwizytów
+Źródełko: `a small stone spring with a ring of round pebbles, clear blue water pool and a little stone spout, chunky cute shapes,` + styl rekwizytów
+Grządka ziół: `a wooden planter box full of fresh green herb sprouts, chunky cute shapes,` + styl rekwizytów
+Krzak jagód: `a round bush full of shiny red berries, chunky cute shapes,` + styl rekwizytów
+Legowisko: `a round plush pet bed in soft lilac with a small white pillow, chunky cute shapes,` + styl rekwizytów
+Kosz: `a woven wicker basket with a round rim, chunky cute shapes,` + styl rekwizytów
+
+## Nazwy plików
+Zapisuj wybrane do `D:\ComfyUI-Shared\output\FS` jak dotąd, np. `Nessie-image-turbo_00003.png`, `nessie_tył_00001.png`, `nessie_lewy_00001.png`, a modele `nessie.glb`. Resztę przejrzę, wybiorę i oznaczę `WYBRANY`.

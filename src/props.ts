@@ -7,6 +7,7 @@ const mats = {
   glass: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.1, transparent: true, opacity: 0.55, clearcoat: 1 }),
   cork: new THREE.MeshStandardMaterial({ color: 0xb07a4a, roughness: 0.9 }),
   pink: new THREE.MeshStandardMaterial({ color: 0xff4f9e, emissive: 0xff2f7e, emissiveIntensity: 0.35, roughness: 0.3 }),
+  purple: new THREE.MeshStandardMaterial({ color: 0xa46cff, emissive: 0x7a3fe0, emissiveIntensity: 0.45, roughness: 0.3 }),
   blue: new THREE.MeshStandardMaterial({ color: 0x4fb4ff, emissive: 0x1f7fd0, emissiveIntensity: 0.35, roughness: 0.15 }),
   leaf: new THREE.MeshStandardMaterial({ color: 0x59c25a, emissive: 0x1f6a2a, emissiveIntensity: 0.2, roughness: 0.6, side: THREE.DoubleSide }),
   twine: new THREE.MeshStandardMaterial({ color: 0xd9b07a, roughness: 0.9 }),
@@ -29,11 +30,11 @@ const leafGeo = (() => {
 /** one portion of medicine, ~0.25 tall, standing on its own origin */
 export function medicineMesh(kind: Medicine): THREE.Group {
   const g = new THREE.Group();
-  if (kind === 'pink') {
-    // warm brew in a round flask
+  if (kind === 'pink' || kind === 'purple') {
+    // warm brew (pink) or lily nectar (purple) in a round flask
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 12), mats.glass);
     bulb.position.y = 0.075;
-    const fill = new THREE.Mesh(new THREE.SphereGeometry(0.063, 16, 12), mats.pink);
+    const fill = new THREE.Mesh(new THREE.SphereGeometry(0.063, 16, 12), kind === 'pink' ? mats.pink : mats.purple);
     fill.position.y = 0.072;
     const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.08, 12), mats.glass);
     neck.position.y = 0.17;
@@ -109,6 +110,7 @@ export class Station {
     if (kind === 'pink') this.buildCauldron();
     else if (kind === 'blue') this.buildSpring();
     else if (kind === 'green') this.buildHerbs();
+    else if (kind === 'purple') this.buildLily();
     else this.buildBerryBush();
     const board = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.08, 0.46), mats.wood);
     board.position.set(0.82, 0.18, 0.05);
@@ -211,6 +213,36 @@ export class Station {
     }
   }
 
+  private buildLily() {
+    // a big water lily on a pad in a small pool, nectar glowing in its heart
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(0.62, 28), new THREE.MeshStandardMaterial({ color: 0x5fb8e6, emissive: 0x1f6fa0, emissiveIntensity: 0.3, roughness: 0.1 }));
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.y = 0.02;
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 26, 1, false, 0.3, Math.PI * 2 - 0.6), mats.leaf);
+    pad.position.y = 0.05;
+    const petalMat = new THREE.MeshStandardMaterial({ color: 0xd4b2ff, roughness: 0.6 });
+    const flower = new THREE.Group();
+    for (let ring = 0; ring < 2; ring++) {
+      for (let i = 0; i < 7; i++) {
+        const pe = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), petalMat);
+        pe.scale.set(0.55, 0.35, 1.3);
+        const a = (i / 7) * Math.PI * 2 + ring * 0.45;
+        const rr = 0.13 + ring * -0.04;
+        pe.position.set(Math.cos(a) * rr, 0.14 + ring * 0.06, Math.sin(a) * rr);
+        pe.rotation.y = -a + Math.PI / 2;
+        pe.rotation.x = -0.5 - ring * 0.4;
+        pe.castShadow = true;
+        flower.add(pe);
+      }
+    }
+    const nectar = new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 10), mats.purple);
+    nectar.position.y = 0.2;
+    flower.add(nectar);
+    this.group.add(pool, pad, flower);
+    this.bubbles(0.22, 0xe0ccff, 0xa46cff, 0.15);
+    this.anim.push((t) => { flower.rotation.y = Math.sin(t * 0.7) * 0.15; pad.rotation.y = Math.sin(t * 0.5) * 0.08; });
+  }
+
   private buildBerryBush() {
     const leafMat = new THREE.MeshStandardMaterial({ color: 0x4f9e45, roughness: 0.9 });
     const berryMat = new THREE.MeshStandardMaterial({ color: 0xe8435a, emissive: 0x7a1020, emissiveIntensity: 0.25, roughness: 0.35 });
@@ -310,6 +342,111 @@ export function bedMesh(): THREE.Group {
   pillow.position.set(0, 0.14, -0.2);
   ring.castShadow = true;
   g.add(ring, pad, pillow);
+  return g;
+}
+
+/** a lily-pad bed for the pond residents */
+export function lilyBedMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.52, 0.08, 28, 1, false, 0.25, Math.PI * 2 - 0.5), mats.leaf);
+  pad.position.y = 0.05;
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.06, 8, 28, Math.PI * 2 - 0.5), mats.leaf);
+  rim.rotation.set(Math.PI / 2, 0, 0.25);
+  rim.position.y = 0.1;
+  const pillow = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }));
+  pillow.scale.set(1.3, 0.45, 0.8);
+  pillow.position.set(0, 0.15, -0.22);
+  pad.castShadow = true;
+  g.add(pad, rim, pillow);
+  return g;
+}
+
+/** an arched wooden footbridge over the brook, spanning along z */
+export function bridgeMesh(): THREE.Group {
+  const g = new THREE.Group();
+  for (let i = 0; i < 9; i++) {
+    const t = i / 8 - 0.5;
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.07, 0.22), i % 2 ? mats.wood : mats.darkWood);
+    plank.position.set(0, 0.12 + (0.25 - t * t) * 0.9, t * 2.2);
+    plank.rotation.x = -t * 0.8;
+    plank.castShadow = true;
+    g.add(plank);
+  }
+  for (const side of [-0.62, 0.62]) {
+    for (let i = 0; i < 4; i++) {
+      const t = i / 3 - 0.5;
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.5, 8), mats.darkWood);
+      post.position.set(side, 0.35 + (0.25 - t * t) * 0.9, t * 2.0);
+      g.add(post);
+    }
+    const rope = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.025, 6, 20, Math.PI * 0.62), mats.twine);
+    rope.rotation.set(0, Math.PI / 2, 0);
+    rope.position.set(side, -0.35, 0);
+    rope.rotation.z = Math.PI * 0.19;
+    g.add(rope);
+  }
+  return g;
+}
+
+/** a little lantern on a post that glows: more patients find their way to the pond */
+export function lanternMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 1.2, 8), mats.darkWood);
+  post.position.y = 0.6;
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 10), new THREE.MeshStandardMaterial({ color: 0xfff3b0, emissive: 0xffd34d, emissiveIntensity: 1.2 }));
+  lamp.position.y = 1.3;
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.14, 8), mats.darkWood);
+  cap.position.y = 1.48;
+  post.castShadow = true;
+  g.add(post, lamp, cap);
+  return g;
+}
+
+/** the brook along the north of the camp and the pond beyond it, with reeds and lily pads */
+export function pondScenery(): THREE.Group {
+  const g = new THREE.Group();
+  const water = new THREE.MeshStandardMaterial({ color: 0x7cc8f0, emissive: 0x2a7fb8, emissiveIntensity: 0.25, roughness: 0.1, transparent: true, opacity: 0.92 });
+  const brook = new THREE.Mesh(new THREE.PlaneGeometry(60, 1.4, 1, 1), water);
+  brook.rotation.x = -Math.PI / 2;
+  brook.position.set(0, 0.015, -9);
+  const pond = new THREE.Mesh(new THREE.CircleGeometry(2.6, 40), water);
+  pond.rotation.x = -Math.PI / 2;
+  pond.position.set(0.6, 0.016, -14.6);
+  g.add(brook, pond);
+  const stone = new THREE.MeshStandardMaterial({ color: 0xa3abb5, roughness: 0.8 });
+  for (let i = 0; i < 60; i++) {
+    const x = -24 + i * 0.8 + Math.sin(i * 7.3) * 0.3;
+    if (Math.abs(x) < 1) continue;
+    for (const z of [-8.25, -9.75]) {
+      if ((i * 13 + (z > -9 ? 1 : 0)) % 3 === 0) continue;
+      const s = new THREE.Mesh(new THREE.SphereGeometry(0.12 + ((i * 5) % 4) * 0.03, 8, 6), stone);
+      s.position.set(x, 0.05, z + Math.sin(i * 3.1) * 0.1);
+      s.scale.y = 0.6;
+      g.add(s);
+    }
+  }
+  const padMat = mats.leaf;
+  for (let i = 0; i < 9; i++) {
+    const a = i * 2.1, r = 0.6 + (i % 4) * 0.45;
+    const lp = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.02, 14, 1, false, 0.3, Math.PI * 2 - 0.6), padMat);
+    lp.position.set(0.6 + Math.cos(a) * r, 0.03, -14.6 + Math.sin(a) * r);
+    lp.rotation.y = a;
+    g.add(lp);
+  }
+  const reedMat = new THREE.MeshStandardMaterial({ color: 0x5f9e45, roughness: 0.9 });
+  const catMat = new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.9 });
+  for (let i = 0; i < 26; i++) {
+    const a = i * 0.9 + 0.3, r = 2.75 + (i % 3) * 0.12;
+    const x = 0.6 + Math.cos(a) * r, z = -14.6 + Math.sin(a) * r;
+    if (z > -12.4 && Math.abs(x) < 2) continue; // keep the path from the bridge open
+    const h = 0.5 + (i % 4) * 0.12;
+    const reed = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, h, 5), reedMat);
+    reed.position.set(x, h / 2, z);
+    reed.rotation.z = Math.sin(i) * 0.12;
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.14, 6), catMat);
+    top.position.set(x, h, z);
+    g.add(reed, top);
+  }
   return g;
 }
 

@@ -182,10 +182,12 @@ joy.onTap = (cx, cy) => {
 (window as unknown as { __game: () => unknown }).__game = () =>
   game && { coins: game.coins, carry: game.carry.length, patients: game.patients.map((p) => [p.state, +p.c.root.position.x.toFixed(2), +p.c.root.position.z.toFixed(2)]), tray: game.stations.map((c) => c.kind + c.tray.length), residents: game.residents.map((r) => [r.name, r.state, r.need, r.hearts, +r.c.root.position.x.toFixed(2), +r.c.root.position.z.toFixed(2), +r.bed.pos.x.toFixed(2), +r.bed.pos.z.toFixed(2)]), carryKinds: game.carry.map((v) => v.userData.kind) };
 (window as unknown as { __strays: () => string[] }).__strays = () => game?.strays() ?? [];
+(window as unknown as { __hearts: (n: number) => void }).__hearts = (n) => game?.addHearts(n);
 (window as unknown as { __coins: (n: number) => void }).__coins = (n) => { if (game) (game as unknown as { setCoins: (n: number) => void }).setCoins(n); };
 (window as unknown as { __walk: (x: number, z: number) => void }).__walk = (x, z) => { walkTo = new THREE.Vector3(x, 0, z); };
 
 (window as unknown as { __strays: () => string[] }).__strays = () => game?.strays() ?? [];
+(window as unknown as { __hearts: (n: number) => void }).__hearts = (n) => game?.addHearts(n);
 (window as unknown as { __coins: (n: number) => void }).__coins = (n) => game?.addCoins(n);
 
 const SPEED = 2.6;
@@ -219,13 +221,18 @@ function moveKeeper(dt: number) {
   for (const [x, z, r] of obstacles.circles) push(x, z, r);
   if (game) for (const [x, z, r] of game.circles()) push(x, z, r);
   const fr = Math.hypot(k.x, k.z), fa = Math.atan2(k.x, -k.z);
-  if (Math.abs(fa) < obstacles.fence.halfAngle + 0.03 && Math.abs(fr - obstacles.fence.radius) < KEEPER_R + 0.08) {
+  const af = Math.abs(fa);
+  if (af > obstacles.fence.inner - 0.03 && af < obstacles.fence.halfAngle + 0.03 && Math.abs(fr - obstacles.fence.radius) < KEEPER_R + 0.08) {
     const side = fr < obstacles.fence.radius ? -1 : 1;
     const nr = obstacles.fence.radius + side * (KEEPER_R + 0.08);
     k.x *= nr / fr; k.z *= nr / fr;
   }
-  const wr = Math.hypot(k.x, k.z);
-  if (wr > WORLD_R) { k.x *= WORLD_R / wr; k.z *= WORLD_R / wr; }
+  // the meadow edge, the brook and (once the bridge is up) the pond area
+  if (game) game.bound(k);
+  else {
+    const wr = Math.hypot(k.x, k.z);
+    if (wr > WORLD_R) { k.x *= WORLD_R / wr; k.z *= WORLD_R / wr; }
+  }
   // nearby creatures turn to watch the keeper go by
   for (const c of creatures) {
     if (c === keeper) continue;

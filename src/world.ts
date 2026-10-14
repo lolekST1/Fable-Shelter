@@ -67,7 +67,8 @@ export function buildSky(scene: THREE.Scene) {
 /** things the keeper bumps into: round bushes and the fence arc behind the pen */
 export interface Obstacles {
   circles: [number, number, number][];
-  fence: { radius: number; halfAngle: number };
+  /** fence arcs between `inner` and `halfAngle` (angle from straight north), gates in the gaps */
+  fence: { radius: number; halfAngle: number; inner: number };
 }
 
 export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture): Obstacles {
@@ -159,7 +160,7 @@ export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture): Obsta
 
   // round bushes
   const bushMat = new THREE.MeshLambertMaterial({ color: 0x5fa64f });
-  const bushes: [number, number, number][] = [[-4.2, -3.5, 1.1], [4.6, -4.2, 1.3], [-6.5, 1.5, 0.9], [6.8, 0.8, 1], [-2.6, -6.5, 0.8], [2.4, -7.2, 1.2]];
+  const bushes: [number, number, number][] = [[-4.2, -3.5, 1.1], [4.6, -4.2, 1.3], [-6.5, 1.5, 0.9], [6.8, 0.8, 1], [-3.4, -6.4, 0.8], [3.6, -6.6, 1.1]];
   for (const [x, z, s] of bushes) {
     const g = new THREE.Group();
     for (let k = 0; k < 4; k++) {
@@ -180,36 +181,39 @@ export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture): Obsta
     scene.add(g);
   }
 
-  // a wooden fence all round the pen, with a gate gap facing the camp
+  // a wooden fence all round the pen, with a front gate to the camp and a back gate to the north
   const woodMat = new THREE.MeshLambertMaterial({ color: 0xc89a6a });
   const fence = new THREE.Group();
-  const n = 23;
   const HALF = Math.PI * 0.86;
-  for (let i = 0; i < n; i++) {
-    const ang = -HALF + (i / (n - 1)) * HALF * 2;
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.8, 8), woodMat);
-    post.position.set(Math.sin(ang) * 3.6, 0.4, -Math.cos(ang) * 3.6);
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), woodMat);
-    cap.position.y = 0.42;
-    post.add(cap);
-    fence.add(post);
-    if (i < n - 1) {
-      const ang2 = -HALF + ((i + 1) / (n - 1)) * HALF * 2;
-      const a3 = new THREE.Vector3(Math.sin(ang) * 3.6, 0, -Math.cos(ang) * 3.6);
-      const b3 = new THREE.Vector3(Math.sin(ang2) * 3.6, 0, -Math.cos(ang2) * 3.6);
-      for (const y of [0.3, 0.6]) {
-        const len = a3.distanceTo(b3);
-        const rail = new THREE.Mesh(new THREE.BoxGeometry(len, 0.07, 0.05), woodMat);
-        rail.position.copy(a3).lerp(b3, 0.5).setY(y);
-        rail.rotation.y = -Math.atan2(b3.z - a3.z, b3.x - a3.x);
-        fence.add(rail);
+  const INNER = Math.PI * 0.14;
+  for (const side of [-1, 1]) {
+    const n = 11;
+    for (let i = 0; i < n; i++) {
+      const ang = side * (INNER + (i / (n - 1)) * (HALF - INNER));
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.8, 8), woodMat);
+      post.position.set(Math.sin(ang) * 3.6, 0.4, -Math.cos(ang) * 3.6);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), woodMat);
+      cap.position.y = 0.42;
+      post.add(cap);
+      fence.add(post);
+      if (i < n - 1) {
+        const ang2 = side * (INNER + ((i + 1) / (n - 1)) * (HALF - INNER));
+        const a3 = new THREE.Vector3(Math.sin(ang) * 3.6, 0, -Math.cos(ang) * 3.6);
+        const b3 = new THREE.Vector3(Math.sin(ang2) * 3.6, 0, -Math.cos(ang2) * 3.6);
+        for (const y of [0.3, 0.6]) {
+          const len = a3.distanceTo(b3);
+          const rail = new THREE.Mesh(new THREE.BoxGeometry(len, 0.07, 0.05), woodMat);
+          rail.position.copy(a3).lerp(b3, 0.5).setY(y);
+          rail.rotation.y = -Math.atan2(b3.z - a3.z, b3.x - a3.x);
+          fence.add(rail);
+        }
       }
     }
   }
   scene.add(fence);
   return {
     circles: bushes.map(([x, z, s]) => [x, z, 0.75 * s] as [number, number, number]),
-    fence: { radius: 3.6, halfAngle: HALF },
+    fence: { radius: 3.6, halfAngle: HALF, inner: INNER },
   };
 }
 
