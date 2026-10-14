@@ -174,7 +174,7 @@ joy.onTap = (cx, cy) => {
 // debug hook for automated checks
 (window as unknown as { __keeper: () => number[] | null }).__keeper = () => (keeper ? [keeper.root.position.x, keeper.root.position.z] : null);
 (window as unknown as { __game: () => unknown }).__game = () =>
-  game && { coins: game.coins, carry: game.carry.length, patients: game.patients.map((p) => [p.state, +p.seat.x.toFixed(2), +p.seat.z.toFixed(2)]), tray: game.cauldrons.map((c) => c.tray.length) };
+  game && { coins: game.coins, carry: game.carry.length, patients: game.patients.map((p) => [p.state, +p.c.root.position.x.toFixed(2), +p.c.root.position.z.toFixed(2)]), tray: game.cauldrons.map((c) => c.tray.length) };
 (window as unknown as { __walk: (x: number, z: number) => void }).__walk = (x, z) => { walkTo = new THREE.Vector3(x, 0, z); };
 
 const SPEED = 2.6;

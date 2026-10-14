@@ -25,7 +25,7 @@ export interface GameDeps {
 const AILMENTS: Ailment[] = ['sparks', 'snow', 'bubbles'];
 const TINT: Record<Ailment, number> = { sparks: 0xffd9cc, snow: 0xcfe0ff, bubbles: 0xdcffd8 };
 const PICK_R = 1.4; // how close the keeper must be to a cauldron to take potions
-const GIVE_R = 1.3; // ... and to a patient to hand one over
+const GIVE_R = 1.45; // ... and to a patient to hand one over
 const TRAY_MAX = 6;
 
 // ---------------------------------------------------------------- props
@@ -523,7 +523,9 @@ export class Game {
         const slot = this.slots[this.carry.length];
         this.carry.push(v);
         const n = this.carry.length;
+        v.userData.landed = false;
         this.fly(v, () => slot.getWorldPosition(new THREE.Vector3()), 0.28, 0.6, () => {
+          v.userData.landed = true;
           slot.add(v);
           v.position.set(0, 0, 0);
           v.rotation.set(0, 0, 0);
@@ -570,12 +572,15 @@ export class Game {
           p.c.lookAt(target.x, target.z);
         }
       }
-      if (p.state === 'waiting') {
-        if (pos.distanceTo(k) < 4) p.c.lookAt(k.x, k.z);
-        // hand over a potion when the keeper comes close
-        if (pos.distanceTo(k) < GIVE_R && this.carry.length) {
+      if (p.state === 'waiting' && pos.distanceTo(k) < 4) p.c.lookAt(k.x, k.z);
+      // hand over a potion when the keeper comes close, even while the patient is still walking in;
+      // only potions already resting in the keeper's arms can go (one still flying in would be sent twice)
+      const top = this.carry[this.carry.length - 1];
+      if ((p.state === 'waiting' || p.state === 'arriving') && top?.userData.landed && pos.distanceTo(k) < GIVE_R) {
+        {
           const v = this.carry.pop()!;
           p.state = 'incoming';
+          p.c.walk = 0;
           this.fly(v, () => p.c.root.position.clone().setY(p.c.height * 0.8), 0.38, 0.9, () => {
             this.d.scene.remove(v);
             this.cure(p);
