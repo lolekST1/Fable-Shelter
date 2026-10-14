@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { Creature } from './creature';
 import type { Sfx } from './sfx';
 import { type Ailment, type Medicine, type SpotIcon, CURE, bubbleCanvas, drawAilment, drawCoin, drawSpotIcon } from './icons';
-import { Fx, Station, backpackMesh, coinGeo, coinMat, medicineMesh, signpostMesh } from './props';
+import { Fx, Station, backpackMesh, basketMesh, coinGeo, coinMat, medicineMesh, signpostMesh } from './props';
 
 /**
  * The shelter loop:
@@ -109,6 +109,8 @@ export class Game {
   private spots: ActiveSpot[] = [];
   private slots: THREE.Object3D[] = [];
   private props: THREE.Object3D[] = [];
+  private basket: THREE.Group;
+  private dropT = 0;
   private helpers: Helper[] = [];
   private pickT = 0;
   private spawnT = 1.5;
@@ -142,6 +144,10 @@ export class Game {
     d.scene.add(this.guide);
 
     this.addStation('pink', -2.9, 3.0, true);
+    // a basket to empty your arms into, so a pile of the wrong medicine never leaves you stuck
+    this.basket = basketMesh();
+    this.basket.position.set(-1.15, 0, 3.85);
+    d.scene.add(this.basket);
     this.load();
     this.refreshSpots();
     window.addEventListener('pagehide', () => this.save());
@@ -218,6 +224,7 @@ export class Game {
     for (const s of this.stations) out.push([s.pos.x, s.pos.z, 0.55], [s.pos.x + 0.82, s.pos.z + 0.05, 0.3]);
     for (const p of this.patients) out.push([p.c.root.position.x, p.c.root.position.z, 0.42]);
     for (const o of this.props) out.push([o.position.x, o.position.z, 0.25]);
+    out.push([this.basket.position.x, this.basket.position.z, 0.42]);
     return out;
   }
 
@@ -377,7 +384,11 @@ export class Game {
     const [name, h] = this.d.patientKinds[Math.floor(Math.random() * this.d.patientKinds.length)];
     const open = this.unlockedAilments();
     // the newest ailment shows up a bit more often so a fresh station gets used
-    const ailment = Math.random() < 0.4 ? open[open.length - 1] : open[Math.floor(Math.random() * open.length)];
+    // usually ask for something the keeper already carries, so a full pile is rarely useless;
+    // otherwise favour the newest ailment so a fresh station gets used
+    const held = open.filter((a) => this.carry.some((v) => v.userData.kind === CURE[a]));
+    const r = Math.random();
+    const ailment = held.length && r < 0.55 ? held[Math.floor(Math.random() * held.length)] : r < 0.75 ? open[open.length - 1] : open[Math.floor(Math.random() * open.length)];
     let seat = new THREE.Vector3();
     let theta = 0;
     for (let tries = 0; tries < 30; tries++) {
@@ -587,6 +598,22 @@ export class Game {
     }
 
     this.updateHelpers(dt);
+
+    // basket: standing next to it tips the pile in, top item first
+    const b = this.basket.position;
+    this.dropT -= dt;
+    if (this.carry.length && Math.hypot(k.x - b.x, k.z - b.z) < 0.95 && this.dropT <= 0) {
+      const v = this.carry[this.carry.length - 1];
+      if (v.userData.landed) {
+        this.carry.pop();
+        this.dropT = 0.1;
+        this.fly(v, () => b.clone().setY(0.35), 0.25, 0.6, () => {
+          this.d.scene.remove(v);
+          this.fx.emit('dust', b.clone().setY(0.5), 5, { speed: 0.8, up: 1, g: 2, life: 0.5 });
+        });
+        this.d.sfx.pop(-4);
+      }
+    }
 
     // coins: pop out, bounce, then get pulled to the keeper when he is close
     for (let i = this.ground.length - 1; i >= 0; i--) {

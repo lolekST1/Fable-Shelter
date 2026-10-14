@@ -257,6 +257,34 @@ export function signpostMesh(): THREE.Group {
   return g;
 }
 
+/** wicker basket by the pen: walk up to it to empty your arms */
+export function basketMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const wicker = new THREE.MeshStandardMaterial({ color: 0xd9a35f, roughness: 0.9 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0xb07a3a, roughness: 0.9 });
+  const pts: THREE.Vector2[] = [];
+  for (let i = 0; i <= 8; i++) pts.push(new THREE.Vector2(0.3 + i * 0.012 + Math.sin(i * 0.4) * 0.02, i * 0.06));
+  const body = new THREE.Mesh(new THREE.LatheGeometry(pts, 22), wicker);
+  body.material = wicker.clone();
+  (body.material as THREE.MeshStandardMaterial).side = THREE.DoubleSide;
+  body.castShadow = true;
+  // woven bands
+  for (let i = 0; i < 4; i++) {
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.31 + i * 0.022, 0.018, 6, 26), dark);
+    band.rotation.x = Math.PI / 2;
+    band.position.y = 0.06 + i * 0.13;
+    g.add(band);
+  }
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.41, 0.035, 8, 28), dark);
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = 0.48;
+  const bottom = new THREE.Mesh(new THREE.CircleGeometry(0.3, 20), dark);
+  bottom.rotation.x = -Math.PI / 2;
+  bottom.position.y = 0.02;
+  g.add(body, rim, bottom);
+  return g;
+}
+
 /** backpack the keeper wears after the carry upgrade */
 export function backpackMesh(): THREE.Group {
   const g = new THREE.Group();
