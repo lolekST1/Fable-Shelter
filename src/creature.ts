@@ -107,18 +107,36 @@ export class Creature {
   onHopPeak?: () => void;
   private peaked = false;
 
-  constructor(gltf: GLTF, tex: THREE.Texture, back: THREE.Texture | null, d: CreatureData, height: number, shadowTex: THREE.Texture) {
+  constructor(gltf: GLTF, tex: THREE.Texture | null, back: THREE.Texture | null, d: CreatureData | null, height: number, shadowTex: THREE.Texture) {
     const mesh = gltf.scene.getObjectByProperty('type', 'Mesh') as THREE.Mesh;
-    mesh.geometry.computeVertexNormals();
-    mesh.material = plushMaterial(tex, back, d);
+    if (tex && d) {
+      mesh.geometry.computeVertexNormals();
+      mesh.material = plushMaterial(tex, back, d);
+    } else {
+      // model arrived with its own painted texture: keep it, add a soft fabric sheen
+      const m = mesh.material as THREE.MeshStandardMaterial;
+      const plush = new THREE.MeshPhysicalMaterial({
+        map: m.map, normalMap: m.normalMap, roughnessMap: m.roughnessMap,
+        roughness: 0.85, metalness: 0, sheen: 0.6, sheenRoughness: 0.5, sheenColor: new THREE.Color(0xffffff),
+      });
+      mesh.material = plush;
+      // bake the node transforms from the file into the geometry so size and floor line are right
+      gltf.scene.updateMatrixWorld(true);
+      mesh.geometry.applyMatrix4(mesh.matrixWorld);
+      mesh.position.set(0, 0, 0);
+      mesh.rotation.set(0, 0, 0);
+      mesh.scale.set(1, 1, 1);
+    }
     mesh.castShadow = true;
-
-    const [[, y0], [, y1]] = d.bounds;
+    mesh.geometry.computeBoundingBox();
+    const bb = mesh.geometry.boundingBox!;
+    const y0 = d ? d.bounds[0][1] : bb.min.y;
+    const y1 = d ? d.bounds[1][1] : bb.max.y;
     const scale = height / (y1 - y0);
     const model = new THREE.Group();
     model.add(mesh);
-    for (const e of d.eyes) {
-      const { group, lid } = makeEye(d.eyeRadius * 0.82);
+    for (const e of d?.eyes ?? []) {
+      const { group, lid } = makeEye(d!.eyeRadius * 0.82);
       const p = new THREE.Vector3(...(e.pos as [number, number, number]));
       const n = new THREE.Vector3(...(e.normal as [number, number, number]))
         .lerp(new THREE.Vector3(0, 0, 1), 1)

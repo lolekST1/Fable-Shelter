@@ -83,6 +83,9 @@ const CAST: [string, number, number, number][] = [
   ['opiekun', 1.45, 0.9, 1.4],
 ];
 
+// models generated with their own textures (Hunyuan3D 3.0)
+const TEXTURED = new Set(['feniks', 'bazyliszek']);
+
 const texLoader = new THREE.TextureLoader();
 function tex(url: string) {
   const t = texLoader.load(url);
@@ -100,11 +103,12 @@ const creatures: Creature[] = [];
 let sheep: Creature | null = null;
 Promise.all(
   CAST.map(async ([name, x, z, h]) => {
-    const d = castData[name];
-    if (!d) return;
+    const painted = TEXTURED.has(name);
+    const d = painted ? null : castData[name];
+    if (!painted && !d) return;
     const gltf = await loadModel(name);
-    const front = name === 'chmurnik' ? tex('textures/chmurnik.jpg') : tex(`textures/${name}_front.jpg`);
-    const back = name === 'chmurnik' ? null : tex(`textures/${name}_back.jpg`);
+    const front = painted ? null : name === 'chmurnik' ? tex('textures/chmurnik.jpg') : tex(`textures/${name}_front.jpg`);
+    const back = painted || name === 'chmurnik' ? null : tex(`textures/${name}_back.jpg`);
     const c = new Creature(gltf, front, back, d, h, shadowTex);
     c.root.position.set(x, 0, z);
     c.lookAt(camera.position.x, camera.position.z);
