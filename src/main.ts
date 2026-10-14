@@ -9,6 +9,7 @@ if (eyesParam) Creature.forceShut = eyesParam === 'half' ? 0.5 : 1;
 import { blobShadowTexture, buildGround, buildSky, RainPuff } from './world';
 import { Sfx } from './sfx';
 import { Joystick } from './joystick';
+import { Game } from './game';
 import chmurnikData from './chmurnik.json';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -47,13 +48,13 @@ const sun = new THREE.DirectionalLight(0xfff1dc, 2.2);
 sun.position.set(3.5, 7, 4);
 sun.castShadow = true;
 sun.shadow.mapSize.set(1024, 1024);
-sun.shadow.camera.left = -4;
-sun.shadow.camera.right = 4;
-sun.shadow.camera.top = 4;
-sun.shadow.camera.bottom = -4;
+sun.shadow.camera.left = -6;
+sun.shadow.camera.right = 6;
+sun.shadow.camera.top = 6;
+sun.shadow.camera.bottom = -6;
 sun.shadow.radius = 4;
 sun.shadow.bias = -0.0008;
-scene.add(sun);
+scene.add(sun, sun.target);
 const rim = new THREE.DirectionalLight(0xcfe6ff, 0.9);
 rim.position.set(-4, 3, -5);
 scene.add(rim);
@@ -91,12 +92,18 @@ function tex(url: string) {
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
+const binCache = new Map<string, Promise<Uint8Array>>();
 async function loadModel(name: string) {
-  // models ship as base64 text so the page can be served from any static host
-  const res = await fetch(`models/${name}.glb.txt`);
-  const bin = Uint8Array.from(atob((await res.text()).trim()), (c) => c.charCodeAt(0));
-  return new GLTFLoader().parseAsync(bin.buffer, '');
+  // models ship as base64 text so the page can be served from any static host; decoded once, parsed per copy
+  if (!binCache.has(name))
+    binCache.set(name, fetch(`models/${name}.glb.txt`).then(async (r) => Uint8Array.from(atob((await r.text()).trim()), (c) => c.charCodeAt(0))));
+  const bin = await binCache.get(name)!;
+  return new GLTFLoader().parseAsync(bin.slice().buffer, '');
 }
+async function spawnCreature(name: string, height: number) {
+  return new Creature(await loadModel(name), null, null, null, height, shadowTex, lidData[name] ?? []);
+}
+let game: Game | null = null;
 
 const creatures: Creature[] = [];
 let sheep: Creature | null = null;
@@ -128,6 +135,12 @@ Promise.all(
   rain.group.visible = true;
   renderer.compile(scene, camera);
   rain.group.visible = false;
+  if (keeper)
+    game = new Game({
+      scene, camera, keeper, sfx, shadowTex, spawnCreature,
+      patientKinds: CAST.filter(([n]) => n !== 'opiekun').map(([n, , , h]) => [n, h] as [string, number]),
+    });
+  if (game) game.onFirstPickup = () => hint.classList.add('hidden');
 });
 
 // input: drag anywhere to walk the keeper (floating joystick); tap a creature to make it hop,
@@ -160,6 +173,9 @@ joy.onTap = (cx, cy) => {
 
 // debug hook for automated checks
 (window as unknown as { __keeper: () => number[] | null }).__keeper = () => (keeper ? [keeper.root.position.x, keeper.root.position.z] : null);
+(window as unknown as { __game: () => unknown }).__game = () =>
+  game && { coins: game.coins, carry: game.carry.length, patients: game.patients.map((p) => [p.state, +p.seat.x.toFixed(2), +p.seat.z.toFixed(2)]), tray: game.cauldrons.map((c) => c.tray.length) };
+(window as unknown as { __walk: (x: number, z: number) => void }).__walk = (x, z) => { walkTo = new THREE.Vector3(x, 0, z); };
 
 const SPEED = 2.6;
 const KEEPER_R = 0.32;
@@ -189,6 +205,7 @@ function moveKeeper(dt: number) {
   };
   for (const c of creatures) if (c !== keeper) push(c.root.position.x, c.root.position.z, 0.42);
   for (const [x, z, r] of obstacles.circles) push(x, z, r);
+  if (game) for (const [x, z, r] of game.circles()) push(x, z, r);
   const fr = Math.hypot(k.x, k.z), fa = Math.atan2(k.x, -k.z);
   if (Math.abs(fa) < obstacles.fence.halfAngle + 0.03 && Math.abs(fr - obstacles.fence.radius) < KEEPER_R + 0.08) {
     const side = fr < obstacles.fence.radius ? -1 : 1;
@@ -213,20 +230,25 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+// ?dtmax= lets slow test browsers run game time at a normal pace
+const DT_MAX = +(new URLSearchParams(location.search).get('dtmax') ?? 0.05);
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const dt = Math.min(clock.getDelta(), DT_MAX);
   clouds.rotation.y += dt * 0.006;
   for (const c of creatures) c.update(dt);
   rain.update(dt, 1.1);
   void sheep;
   moveKeeper(dt);
+  game?.update(dt);
   if (keeper) {
     const k = keeper.root.position;
     const f = Math.min(1, dt * 4);
     camTarget.x += (k.x - camTarget.x) * f;
     camTarget.z += (k.z - 1.2 - camTarget.z) * f;
     placeCamera();
+    sun.position.set(camTarget.x + 3.5, 7, camTarget.z + 4);
+    sun.target.position.set(camTarget.x, 0, camTarget.z);
   }
   renderer.render(scene, camera);
 });

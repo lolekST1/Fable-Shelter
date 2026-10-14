@@ -191,6 +191,9 @@ export class Creature {
   private yaw = 0;
   private targetYaw = 0;
   onHopPeak?: () => void;
+  /** standing height in world units (top of the head) */
+  height = 1;
+  private skin!: THREE.MeshPhysicalMaterial;
   /** walking speed as a fraction of full speed (0 = standing); drives the waddle */
   walk = 0;
   private stepPhase = 0;
@@ -219,6 +222,8 @@ export class Creature {
       mesh.scale.set(1, 1, 1);
     }
     mesh.castShadow = true;
+    this.skin = mesh.material as THREE.MeshPhysicalMaterial;
+    this.height = height;
     mesh.geometry.computeBoundingBox();
     const bb = mesh.geometry.boundingBox!;
     const y0 = d ? d.bounds[0][1] : bb.min.y;
@@ -256,6 +261,24 @@ export class Creature {
     this.shadow.renderOrder = -1;
     this.root.add(this.shadow);
   }
+
+  /** carry something on the body (it turns, bobs and squashes with the creature) */
+  attach(o: THREE.Object3D) {
+    this.body.add(o);
+  }
+
+  /** tint the whole creature, e.g. a pale blue chill while it is sick; null restores it */
+  setTint(c: THREE.ColorRepresentation | null) {
+    this.skin.color.set(c ?? 0xffffff);
+  }
+
+  /** a small involuntary jolt (sneeze, hiccup, shiver) */
+  twitch(strength = 1) {
+    this.twitchT = 0;
+    this.twitchK = strength;
+  }
+  private twitchT = -1;
+  private twitchK = 1;
 
   hop() {
     if (this.hopT >= 0) return;
@@ -312,6 +335,17 @@ export class Creature {
       this.body.rotation.z += Math.sin(this.stepPhase) * 0.1 * this.walk;
       sy *= 1 - Math.abs(Math.cos(this.stepPhase)) * 0.03 * this.walk;
     } else this.stepPhase = 0;
+    if (this.twitchT >= 0) {
+      this.twitchT += dt;
+      const k = this.twitchT / 0.28;
+      if (k >= 1) this.twitchT = -1;
+      else {
+        const s = Math.sin(k * Math.PI);
+        sy *= 1 - 0.1 * s * this.twitchK;
+        sxz *= 1 + 0.07 * s * this.twitchK;
+        lift += Math.max(0, Math.sin(k * Math.PI * 2)) * 0.08 * this.twitchK;
+      }
+    }
     this.body.scale.set(sxz, sy, sxz);
     this.body.position.y = lift;
     const sh = 1 - lift * 0.6;
