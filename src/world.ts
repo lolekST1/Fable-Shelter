@@ -180,12 +180,13 @@ export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture): Obsta
     scene.add(g);
   }
 
-  // a small wooden fence arc behind the pen
+  // a wooden fence all round the pen, with a gate gap facing the camp
   const woodMat = new THREE.MeshLambertMaterial({ color: 0xc89a6a });
   const fence = new THREE.Group();
-  const n = 9;
+  const n = 23;
+  const HALF = Math.PI * 0.86;
   for (let i = 0; i < n; i++) {
-    const ang = -Math.PI * 0.32 + (i / (n - 1)) * Math.PI * 0.64;
+    const ang = -HALF + (i / (n - 1)) * HALF * 2;
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.8, 8), woodMat);
     post.position.set(Math.sin(ang) * 3.6, 0.4, -Math.cos(ang) * 3.6);
     const cap = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), woodMat);
@@ -193,7 +194,7 @@ export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture): Obsta
     post.add(cap);
     fence.add(post);
     if (i < n - 1) {
-      const ang2 = -Math.PI * 0.32 + ((i + 1) / (n - 1)) * Math.PI * 0.64;
+      const ang2 = -HALF + ((i + 1) / (n - 1)) * HALF * 2;
       const a3 = new THREE.Vector3(Math.sin(ang) * 3.6, 0, -Math.cos(ang) * 3.6);
       const b3 = new THREE.Vector3(Math.sin(ang2) * 3.6, 0, -Math.cos(ang2) * 3.6);
       for (const y of [0.3, 0.6]) {
@@ -208,7 +209,7 @@ export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture): Obsta
   scene.add(fence);
   return {
     circles: bushes.map(([x, z, s]) => [x, z, 0.75 * s] as [number, number, number]),
-    fence: { radius: 3.6, halfAngle: Math.PI * 0.32 },
+    fence: { radius: 3.6, halfAngle: HALF },
   };
 }
 

@@ -100,6 +100,8 @@ export class Station {
   tray: THREE.Group[] = [];
   private slots: THREE.Vector3[] = [];
   private brew = 0;
+  /** seconds of doubled brewing left, given by a resident helping out */
+  boost = 0;
   private anim: ((t: number) => void)[] = [];
   private t = Math.random() * 5;
 
@@ -254,7 +256,8 @@ export class Station {
     for (const a of this.anim) a(this.t);
     for (const v of this.tray) if (v.scale.x < 1.25) v.scale.setScalar(Math.min(1.25, v.scale.x + dt * 6));
     if (this.tray.length >= TRAY_MAX) return;
-    this.brew += dt;
+    this.boost = Math.max(0, this.boost - dt);
+    this.brew += dt * (this.boost > 0 ? 2.2 : 1);
     if (this.brew < this.brewTime) return;
     this.brew = 0;
     const v = medicineMesh(this.kind);

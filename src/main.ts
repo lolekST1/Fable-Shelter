@@ -181,9 +181,11 @@ joy.onTap = (cx, cy) => {
 (window as unknown as { __keeper: () => number[] | null }).__keeper = () => (keeper ? [keeper.root.position.x, keeper.root.position.z] : null);
 (window as unknown as { __game: () => unknown }).__game = () =>
   game && { coins: game.coins, carry: game.carry.length, patients: game.patients.map((p) => [p.state, +p.c.root.position.x.toFixed(2), +p.c.root.position.z.toFixed(2)]), tray: game.stations.map((c) => c.kind + c.tray.length), residents: game.residents.map((r) => [r.name, r.state, r.need, r.hearts, +r.c.root.position.x.toFixed(2), +r.c.root.position.z.toFixed(2), +r.bed.pos.x.toFixed(2), +r.bed.pos.z.toFixed(2)]), carryKinds: game.carry.map((v) => v.userData.kind) };
+(window as unknown as { __strays: () => string[] }).__strays = () => game?.strays() ?? [];
 (window as unknown as { __coins: (n: number) => void }).__coins = (n) => { if (game) (game as unknown as { setCoins: (n: number) => void }).setCoins(n); };
 (window as unknown as { __walk: (x: number, z: number) => void }).__walk = (x, z) => { walkTo = new THREE.Vector3(x, 0, z); };
 
+(window as unknown as { __strays: () => string[] }).__strays = () => game?.strays() ?? [];
 (window as unknown as { __coins: (n: number) => void }).__coins = (n) => game?.addCoins(n);
 
 const SPEED = 2.6;

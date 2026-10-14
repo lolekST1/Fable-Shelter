@@ -24,27 +24,34 @@ export interface GameDeps {
   spawnCreature: (name: string, height: number) => Promise<Creature>;
 }
 
-interface Species { height: number; ailment: Ailment; cure: Medicine; tint: number; coins: number }
+/** how a resident helps around the camp once it feels at home (has at least one heart):
+ *  boost a station (it brews twice as fast for a while) or carry things for the keeper */
+type Skill = { boost: Medicine } | { carry: 'cure' | 'berry' };
+interface Species { height: number; ailment: Ailment; cure: Medicine; tint: number; coins: number; skill: Skill }
 
 /** every species has its own ailment; the three medicines each cure a few of them */
 export const SPECIES: Record<string, Species> = {
-  chmurnik: { height: 1.05, ailment: 'snow', cure: 'pink', tint: 0xcfe0ff, coins: 5 },
-  feniks: { height: 1.0, ailment: 'smoke', cure: 'pink', tint: 0xd8d8d8, coins: 5 },
-  smok: { height: 1.25, ailment: 'sparks', cure: 'blue', tint: 0xffd9cc, coins: 6 },
-  gryf: { height: 1.25, ailment: 'feathers', cure: 'green', tint: 0xf0e6d8, coins: 7 },
-  grzybolak: { height: 1.15, ailment: 'spores', cure: 'blue', tint: 0xfff0b0, coins: 6 },
-  kraken: { height: 1.05, ailment: 'bubbles', cure: 'green', tint: 0xdcffd8, coins: 7 },
-  jednorozec: { height: 1.15, ailment: 'confetti', cure: 'pink', tint: 0xffe0f0, coins: 6 },
-  bazyliszek: { height: 1.0, ailment: 'stone', cure: 'green', tint: 0xbfc4c8, coins: 8 },
+  chmurnik: { height: 1.05, ailment: 'snow', cure: 'pink', tint: 0xcfe0ff, coins: 5, skill: { boost: 'berry' } },
+  feniks: { height: 1.0, ailment: 'smoke', cure: 'pink', tint: 0xd8d8d8, coins: 5, skill: { boost: 'pink' } },
+  smok: { height: 1.25, ailment: 'sparks', cure: 'blue', tint: 0xffd9cc, coins: 6, skill: { boost: 'pink' } },
+  gryf: { height: 1.25, ailment: 'feathers', cure: 'green', tint: 0xf0e6d8, coins: 7, skill: { carry: 'cure' } },
+  grzybolak: { height: 1.15, ailment: 'spores', cure: 'blue', tint: 0xfff0b0, coins: 6, skill: { boost: 'green' } },
+  kraken: { height: 1.05, ailment: 'bubbles', cure: 'green', tint: 0xdcffd8, coins: 7, skill: { carry: 'cure' } },
+  jednorozec: { height: 1.15, ailment: 'confetti', cure: 'pink', tint: 0xffe0f0, coins: 6, skill: { boost: 'blue' } },
+  bazyliszek: { height: 1.0, ailment: 'stone', cure: 'green', tint: 0xbfc4c8, coins: 8, skill: { carry: 'berry' } },
 };
 
 const PICK_R = 1.4;
 const GIVE_R = 1.45;
 const MAX_HEARTS = 4;
 const ADOPT_COINS = 15; // coins dropped on adoption (each worth 2)
-const SAVE_KEY = 'fable-shelter-save-v2';
+const SAVE_KEY = 'fable-shelter-save-v3';
 
 /** bed places inside the pen, in the order they are added */
+/** just outside and just inside the pen gate: creatures walk through it instead of through the fence */
+const GATE_OUT = new THREE.Vector3(0, 0, 4.3);
+const GATE_IN = new THREE.Vector3(0, 0, 2.7);
+
 const BEDS: [number, number][] = [[-1.1, -2.1], [1.1, -2.1], [-2.4, -0.9], [2.4, -0.9], [-1.15, -0.35], [1.15, -0.35]];
 
 interface Flight { obj: THREE.Object3D; from: THREE.Vector3; to: () => THREE.Vector3; t: number; dur: number; arc: number; done: () => void }
@@ -72,7 +79,12 @@ interface Resident {
   hearts: number;
   need: 'food' | 'sleep' | null;
   needT: number;
-  state: 'toBed' | 'idle' | 'eating' | 'toSleep' | 'sleeping' | 'leaving';
+  state: 'toBed' | 'idle' | 'eating' | 'toSleep' | 'sleeping' | 'leaving' | 'helpGo' | 'helpWork' | 'helpBring' | 'helpBack';
+  /** waypoints still to walk */
+  path: THREE.Vector3[];
+  helpT: number;
+  /** what it is doing while helping */
+  job: { station: Station; patient?: Patient; resident?: Resident; item?: THREE.Group } | null;
   stateT: number;
   target: THREE.Vector3;
   wanderT: number;
@@ -96,16 +108,14 @@ interface SpotDef {
 
 const SPOTS: SpotDef[] = [
   { icon: 'bed', price: 30, at: BEDS[2], apply: (g, i) => g.addBed(i) },
-  { icon: 'cauldron', price: 60, at: [-5.6, 5.6], apply: (g, i) => { g.addStation('pink', -5.6, 5.6, i); g.maxPatients = 2; g.unlock('feniks'); } },
-  { icon: 'spring', price: 100, at: [5.8, 3.2], apply: (g, i) => { g.addStation('blue', 5.8, 3.2, i); g.unlock('smok'); } },
-  { icon: 'bed', price: 130, at: BEDS[3], apply: (g, i) => g.addBed(i) },
-  { icon: 'backpack', price: 160, at: [1.7, 4.4], apply: (g, i) => g.giveBackpack(i) },
+  { icon: 'spring', price: 70, at: [5.8, 3.2], apply: (g, i) => { g.addStation('blue', 5.8, 3.2, i); g.maxPatients = 2; g.unlock('smok'); } },
+  { icon: 'bed', price: 110, at: BEDS[3], apply: (g, i) => { g.addBed(i); g.unlock('feniks'); } },
+  { icon: 'backpack', price: 150, at: [1.7, 4.4], apply: (g, i) => g.giveBackpack(i) },
   { icon: 'herbs', price: 200, at: [0, 8.2], apply: (g, i) => { g.addStation('green', 0, 8.2, i); g.maxPatients = 3; g.unlock('gryf'); } },
-  { icon: 'bed', price: 240, at: BEDS[4], apply: (g, i) => g.addBed(i) },
-  { icon: 'shoes', price: 280, at: [-1.7, 5.4], apply: (g, i) => { g.giveShoes(i); g.unlock('grzybolak'); } },
-  { icon: 'sign', price: 330, at: [-3.9, 7.2], apply: (g, i) => { g.addSign(-3.9, 7.2, i); g.unlock('kraken'); g.unlock('jednorozec'); } },
-  { icon: 'bed', price: 380, at: BEDS[5], apply: (g, i) => g.addBed(i) },
-  { icon: 'helper', price: 460, at: [3.7, 6.6], apply: (g, i) => { void g.addHelper(i); g.unlock('bazyliszek'); } },
+  { icon: 'bed', price: 240, at: BEDS[4], apply: (g, i) => { g.addBed(i); g.unlock('grzybolak'); } },
+  { icon: 'shoes', price: 280, at: [-1.7, 5.6], apply: (g, i) => { g.giveShoes(i); g.unlock('kraken'); } },
+  { icon: 'sign', price: 330, at: [-4.2, 7.2], apply: (g, i) => { g.addSign(-4.2, 7.2, i); g.unlock('jednorozec'); } },
+  { icon: 'bed', price: 380, at: BEDS[5], apply: (g, i) => { g.addBed(i); g.unlock('bazyliszek'); } },
 ];
 
 interface ActiveSpot {
@@ -169,6 +179,7 @@ export class Game {
   private step = 0;
   private t = 0;
   private saveT = 0;
+  private strayT = 1;
   private tmp = new THREE.Vector3();
 
   constructor(private d: GameDeps) {
@@ -190,11 +201,11 @@ export class Game {
     // the starting camp: one cauldron to the west, a berry bush by the pen, two beds, and a basket
     // well away from the medicine sources for emptying your arms
     this.addStation('pink', -5.8, 3.2, true);
-    this.addStation('berry', 3.0, 1.7, true);
+    this.addStation('berry', -3.3, 4.6, true);
     this.addBed(true);
     this.addBed(true);
     this.basket = basketMesh();
-    this.basket.position.set(-2.9, 0, 1.0);
+    this.basket.position.set(2.4, 0, 6.3);
     d.scene.add(this.basket);
 
     this.load();
@@ -256,6 +267,26 @@ export class Game {
     this.hudNum.textContent = '0';
     this.hud.append(cc, this.hudNum);
     document.body.appendChild(this.hud);
+  }
+
+  /** debug/testing: medicine items that are neither on a tray, in the keeper's arms, nor flying */
+  strays(): string[] {
+    return this.findStrays().map((g) => {
+      const p = g.getWorldPosition(new THREE.Vector3());
+      return `${g.userData.kind}@${p.x.toFixed(1)},${p.y.toFixed(1)},${p.z.toFixed(1)} parent=${g.parent?.type}${g.parent === this.d.scene ? '(scene)' : ''}`;
+    });
+  }
+
+  /** items that belong nowhere: not on a tray, in the keeper's arms, flying, or carried by a helping resident */
+  private findStrays(): THREE.Group[] {
+    const ok = new Set<THREE.Object3D>([...this.flights.map((f) => f.obj), ...this.stations.flatMap((s) => s.tray), ...this.carry]);
+    for (const r of this.residents) if (r.job?.item) ok.add(r.job.item);
+    const out: THREE.Group[] = [];
+    this.d.scene.traverse((o) => {
+      if (o.userData.kind === undefined || !(o as THREE.Group).isGroup || ok.has(o)) return;
+      out.push(o as THREE.Group);
+    });
+    return out;
   }
 
   /** debug/testing: grant coins */
@@ -528,7 +559,8 @@ export class Game {
   private sickFx(p: Patient, dt: number) {
     p.fxT -= dt;
     const c = p.c, h = c.height;
-    const head = this.tmp.copy(c.root.position).setY(h * 0.75);
+    // own vector: this.tmp is reused by onScreen() below, which would drag every effect to the middle
+    const head = c.root.position.clone().setY(h * 0.75);
     const toCam = new THREE.Vector3().subVectors(this.d.camera.position, c.root.position).setY(0).normalize();
     const loud = this.onScreen(c.root.position, h);
     switch (p.sp.ailment) {
@@ -636,6 +668,7 @@ export class Game {
   private admit(p: Patient, bed: Bed) {
     const r = this.makeResident(p.name, p.c, bed, 0);
     r.state = 'toBed';
+    r.path = this.intoPen(p.c.root.position, bed.pos.clone().add(new THREE.Vector3(0, 0, 0.75)));
     this.residents.push(r);
   }
 
@@ -649,6 +682,75 @@ export class Game {
     const r = this.makeResident(name, c, bed, Math.min(MAX_HEARTS - 1, hearts));
     r.state = 'idle';
     this.residents.push(r);
+  }
+
+  private inPen(v: THREE.Vector3) {
+    return Math.hypot(v.x, v.z) < 3.6;
+  }
+
+  /** waypoints from a point to a point inside the pen, through the gate if coming from outside */
+  private intoPen(from: THREE.Vector3, to: THREE.Vector3) {
+    return this.inPen(from) ? [to.clone()] : [GATE_OUT.clone(), GATE_IN.clone(), to.clone()];
+  }
+
+  private outOfPen(from: THREE.Vector3, to: THREE.Vector3) {
+    return this.inPen(from) ? [GATE_IN.clone(), GATE_OUT.clone(), to.clone()] : [to.clone()];
+  }
+
+  /** walk along waypoints; true when the last one is reached */
+  private follow(c: Creature, path: THREE.Vector3[], speed: number, dt: number) {
+    if (!path.length) { c.walk = 0; return true; }
+    if (this.walk(c, path[0], speed, dt)) path.shift();
+    return path.length === 0;
+  }
+
+  /** give up a helping job and release anything it reserved */
+  private dropJob(r: Resident) {
+    if (!r.job) return;
+    if (r.job.patient) r.job.patient.claimed = false;
+    if (r.job.resident) r.job.resident.fedIncoming = false;
+    if (r.job.item) {
+      const it = r.job.item;
+      this.fx.emit('dust', it.getWorldPosition(new THREE.Vector3()), 5, { speed: 0.6, up: 0.8, g: 2, life: 0.4 });
+      it.parent?.remove(it);
+    }
+    r.job = null;
+  }
+
+  /** pick a helping job matching the species' skill, if there is something useful to do */
+  private findJob(r: Resident): boolean {
+    const skill = SPECIES[r.name].skill;
+    const pos = r.c.root.position;
+    const near = (list: Station[]) => list.sort((a, b) => a.pos.distanceTo(pos) - b.pos.distanceTo(pos))[0];
+    if ('boost' in skill) {
+      const st = near(this.stations.filter((s) => s.kind === skill.boost && s.boost <= 0 && s.tray.length < 6));
+      if (!st) return false;
+      r.job = { station: st };
+    } else if (skill.carry === 'cure') {
+      const p = this.patients.find((p) => (p.state === 'waiting' || p.state === 'arriving') && !p.claimed && this.stations.some((s) => s.kind === p.sp.cure && s.tray.length));
+      if (!p) return false;
+      p.claimed = true;
+      r.job = { station: near(this.stations.filter((s) => s.kind === p.sp.cure && s.tray.length)), patient: p };
+    } else {
+      const other = this.residents.find((o) => o !== r && o.need === 'food' && !o.fedIncoming && o.state === 'idle');
+      const st = near(this.stations.filter((s) => s.kind === 'berry' && s.tray.length));
+      if (!other || !st) return false;
+      other.fedIncoming = true;
+      r.job = { station: st, resident: other };
+    }
+    const front = r.job.station.pos.clone().add(new THREE.Vector3(-0.2, 0, 0.8));
+    r.path = this.outOfPen(pos, front);
+    r.state = 'helpGo';
+    return true;
+  }
+
+  private feed(r: Resident, v: THREE.Group) {
+    r.fedIncoming = true;
+    this.fly(v, () => r.c.root.position.clone().setY(r.c.height * 0.6), 0.35, 0.8, () => {
+      this.d.scene.remove(v);
+      r.fedIncoming = false;
+      if (r.state === 'idle' && r.need === 'food') { r.state = 'eating'; r.stateT = 0; }
+    });
   }
 
   private makeResident(name: string, c: Creature, bed: Bed, hearts: number): Resident {
@@ -665,6 +767,7 @@ export class Game {
     const r: Resident = {
       name, c, bed, hearts, need: null, needT: 4 + Math.random() * 4, state: 'idle', stateT: 0,
       target: bed.pos.clone().add(new THREE.Vector3(0, 0, 0.75)), wanderT: 2, canvas, tex, bubble, edge, edgeIcon, fedIncoming: false,
+      path: [], helpT: 8 + Math.random() * 6, job: null,
     };
     bed.owner = r;
     this.drawNeed(r);
@@ -704,8 +807,9 @@ export class Game {
     this.fx.emit('heart', at, 30, { speed: 2.2, up: 2.5, g: 1, life: 1.6, size: 1.8 });
     this.fx.emit('star', at, 20, { speed: 2.4, up: 2, life: 1.1 });
     this.dropCoins(at, ADOPT_COINS);
-    // off to a new home, down the path toward the edge of the meadow
-    r.target = new THREE.Vector3((Math.random() - 0.5) * 4, 0, 13);
+    // off to a new home: out through the gate and down toward the edge of the meadow
+    this.dropJob(r);
+    r.path = [GATE_IN.clone(), GATE_OUT.clone(), new THREE.Vector3((Math.random() - 0.5) * 4, 0, 13)];
     this.save();
   }
 
@@ -718,7 +822,7 @@ export class Game {
       r.stateT += dt;
       const nearBed = r.bed.pos.clone().add(new THREE.Vector3(0, 0, 0.75));
       if (r.state === 'toBed') {
-        if (this.walk(c, nearBed, 1.6, dt)) { r.state = 'idle'; c.hop(); }
+        if (this.follow(c, r.path, 1.6, dt)) { r.state = 'idle'; c.hop(); }
       } else if (r.state === 'idle') {
         // potter about next to its bed until it needs something
         r.wanderT -= dt;
@@ -727,6 +831,14 @@ export class Game {
           r.target = nearBed.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1, 0, (Math.random() - 0.5) * 0.6));
         }
         if (!this.walk(c, r.target, 0.6, dt)) { /* strolling */ } else if (pos.distanceTo(k) < 3) c.lookAt(k.x, k.z);
+        // once it feels at home it helps out between its own needs
+        if (!r.need && r.hearts >= 1) {
+          r.helpT -= dt;
+          if (r.helpT <= 0) {
+            r.helpT = 10 + Math.random() * 6;
+            if (this.findJob(r)) continue;
+          }
+        }
         if (!r.need) {
           r.needT -= dt;
           if (r.needT <= 0) {
@@ -738,15 +850,7 @@ export class Game {
         // feeding: berries fly over when the keeper comes close
         if (r.need === 'food' && !r.fedIncoming && pos.distanceTo(k) < GIVE_R) {
           const v = this.takeFromArms('berry');
-          if (v) {
-            r.fedIncoming = true;
-            this.fly(v, () => c.root.position.clone().setY(c.height * 0.6), 0.35, 0.8, () => {
-              this.d.scene.remove(v);
-              r.fedIncoming = false;
-              r.state = 'eating';
-              r.stateT = 0;
-            });
-          }
+          if (v) this.feed(r, v);
         }
         // sleepy: stand on its bed for a moment to plump it up, then it goes to sleep
         if (r.need === 'sleep') {
@@ -775,9 +879,75 @@ export class Game {
       } else if (r.state === 'sleeping') {
         if (Math.random() < dt * 1.2) this.fx.emit('zzz', pos.clone().setY(c.height + 0.1), 1, { speed: 0.2, up: 0.5, g: -0.1, life: 1.8, size: 1.6 });
         if (r.stateT > 5) { r.state = 'idle'; c.eyesShut = undefined; c.hop(); this.addHeart(r); }
+      } else if (r.state === 'helpGo') {
+        const job = r.job!;
+        const lost = job.patient && (job.patient.state === 'cured' || job.patient.state === 'leaving' || job.patient.state === 'incoming');
+        if (lost) { this.dropJob(r); r.state = 'helpBack'; r.path = this.intoPen(pos, nearBed); }
+        else if (this.follow(c, r.path, 1.9, dt)) {
+          if ('boost' in SPECIES[r.name].skill) { r.state = 'helpWork'; r.stateT = 0; c.lookAt(job.station.pos.x, job.station.pos.z); }
+          else if (job.station.tray.length) {
+            // pick up one item and carry it on its head
+            const v = job.station.tray.pop()!;
+            const slot = new THREE.Object3D();
+            slot.position.set(0, c.height + 0.05, 0);
+            c.attach(slot);
+            this.fly(v, () => slot.getWorldPosition(new THREE.Vector3()), 0.25, 0.5, () => {
+              if (r.job?.item !== v) { this.d.scene.remove(v); return; }
+              slot.add(v);
+              v.position.set(0, 0, 0);
+              v.rotation.set(0, 0, 0);
+              v.scale.setScalar(1.6);
+            });
+            job.item = v;
+            r.state = 'helpBring';
+            r.path = [];
+          } else { this.dropJob(r); r.state = 'helpBack'; r.path = this.intoPen(pos, nearBed); }
+        }
+      } else if (r.state === 'helpWork') {
+        // the species' own way of helping: rain on the bush, fire under the cauldron, magic, spores
+        const st = r.job!.station;
+        const kind = SPECIES[r.name].skill;
+        if (Math.random() < dt * 8) {
+          const at = st.pos.clone().setY(0.9);
+          if ('boost' in kind && kind.boost === 'berry') this.fx.emit('bubble', at.clone().setY(1.6), 1, { speed: 0.3, g: 3, life: 0.7, size: 0.5 });
+          else if ('boost' in kind && kind.boost === 'pink') this.fx.emit('spark', at.clone().setY(0.3), 2, { speed: 0.8, up: 1.2, g: 1, life: 0.6 });
+          else if ('boost' in kind && kind.boost === 'green') this.fx.emit('spore', at, 2, { speed: 0.6, up: 0.6, g: 0.2, life: 1 });
+          else this.fx.emit('star', at, 1, { speed: 0.8, up: 0.8, life: 0.7, size: 0.7 });
+        }
+        if (Math.floor(r.stateT * 2) !== Math.floor((r.stateT - dt) * 2)) c.twitch(0.5);
+        if (r.stateT > 2.2) {
+          st.boost = 15;
+          this.fx.emit('star', st.pos.clone().setY(1.2), 14, { speed: 2, up: 1.5, life: 0.9 });
+          this.dropJob(r);
+          r.state = 'helpBack';
+          r.path = this.intoPen(pos, nearBed);
+        }
+      } else if (r.state === 'helpBring') {
+        const job = r.job!;
+        const tgt = job.patient ? job.patient.c : job.resident!.c;
+        const gone = job.patient
+          ? job.patient.state === 'cured' || job.patient.state === 'leaving' || job.patient.state === 'incoming'
+          : !this.residents.includes(job.resident!) || job.resident!.need !== 'food';
+        if (gone) { this.dropJob(r); r.state = 'helpBack'; r.path = this.intoPen(pos, nearBed); }
+        else {
+          if (!r.path.length) r.path = job.patient ? this.outOfPen(pos, tgt.root.position) : this.intoPen(pos, tgt.root.position);
+          r.path[r.path.length - 1].copy(tgt.root.position);
+          this.follow(c, r.path, 1.9, dt);
+          if (pos.distanceTo(tgt.root.position) < 1.1 && job.item?.parent && job.item.parent !== this.d.scene) {
+            const v = job.item;
+            job.item = undefined;
+            if (job.patient) { job.patient.claimed = false; this.deliver(v, job.patient); }
+            else this.feed(job.resident!, v);
+            r.job = null;
+            r.state = 'helpBack';
+            r.path = this.intoPen(pos, nearBed);
+          }
+        }
+      } else if (r.state === 'helpBack') {
+        if (this.follow(c, r.path, 1.7, dt)) { r.state = 'idle'; r.wanderT = 0; }
       } else if (r.state === 'leaving') {
         if (Math.random() < dt * 4) this.fx.emit('heart', pos.clone().setY(c.height * 0.8), 1, { speed: 0.3, up: 0.6, g: -0.2, life: 1.2, size: 1.3 });
-        if (this.walk(c, r.target, 2.0, dt)) {
+        if (this.follow(c, r.path, 2.0, dt)) {
           this.d.scene.remove(c.root, r.bubble);
           r.edge.remove();
           this.residents.splice(i, 1);
@@ -983,6 +1153,17 @@ export class Game {
       if (e >= 1) {
         this.flights.splice(i, 1);
         f.done();
+      }
+    }
+
+    // safety net: anything left lying around with no owner disappears in a puff
+    this.strayT -= dt;
+    if (this.strayT <= 0) {
+      this.strayT = 1;
+      for (const g of this.findStrays()) {
+        this.fx.emit('dust', g.getWorldPosition(new THREE.Vector3()), 6, { speed: 0.8, up: 1, g: 2, life: 0.5 });
+        if (location.search.includes('debug')) console.warn('stray item removed', g.userData.kind, g.parent?.type);
+        g.parent?.remove(g);
       }
     }
 
