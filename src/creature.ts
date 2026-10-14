@@ -93,10 +93,67 @@ function makeEye(radius: number): { group: THREE.Group; lid: THREE.Object3D } {
   return { group, lid };
 }
 
+/** a painted eye on a textured model: surface point, normal, radius and the skin colour around it */
+export interface LidData {
+  pos: number[];
+  normal: number[];
+  r: number;
+  skin: number[];
+  /** lid size relative to the detected dark iris (bigger for eyes with a white rim) */
+  scale?: number;
+}
+
+/**
+ * Eyelid for a painted eye: a flattened skin-coloured dome that slides down from the top
+ * of the eye and carries a small dark lash curve, so a closed eye reads as a happy "‿".
+ */
+function makeLid(d: LidData): { group: THREE.Group; lid: THREE.Object3D } {
+  const R = d.r * (d.scale ?? 1.22);
+  const cv = document.createElement('canvas');
+  cv.width = 256;
+  cv.height = 128;
+  const g = cv.getContext('2d')!;
+  const [sr, sg, sb] = d.skin;
+  g.fillStyle = `rgb(${sr},${sg},${sb})`;
+  g.fillRect(0, 0, 256, 128);
+  // lash line where the lid meets the lower edge of the eye (front of the sphere sits at u = 0.25)
+  g.strokeStyle = `rgb(${Math.round(sr * 0.32)},${Math.round(sg * 0.28)},${Math.round(sb * 0.3)})`;
+  g.lineWidth = 11;
+  g.lineCap = 'round';
+  g.beginPath();
+  g.moveTo(256 * 0.15, 128 * 0.5);
+  g.quadraticCurveTo(256 * 0.25, 128 * 0.62, 256 * 0.35, 128 * 0.5);
+  g.stroke();
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 24, 16),
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }),
+  );
+  dome.scale.set(R, R, R * 0.5);
+  // hinge at the top of the eye: scaling the lid in y pulls the dome down over the eye
+  dome.position.y = -R;
+  const lid = new THREE.Group();
+  lid.position.y = R;
+  lid.add(dome);
+  const group = new THREE.Group();
+  group.add(lid);
+  const n = new THREE.Vector3(...(d.normal as [number, number, number])).lerp(new THREE.Vector3(0, 0, 1), 0.5).normalize();
+  const p = new THREE.Vector3(...(d.pos as [number, number, number])).addScaledVector(n, -d.r * 0.05);
+  group.position.copy(p);
+  group.lookAt(p.clone().add(n));
+  lid.scale.y = 0.001;
+  lid.visible = false;
+  return { group, lid };
+}
+
 export class Creature {
+  /** debug: hold every painted eyelid at a fixed closure (?eyes=closed / ?eyes=half) */
+  static forceShut: number | undefined;
   root = new THREE.Group();
   private body = new THREE.Group();
   private lids: THREE.Object3D[] = [];
+  private paintedLids: THREE.Object3D[] = [];
   private shadow: THREE.Mesh;
   private t = Math.random() * 10;
   private nextBlink = 2;
@@ -107,7 +164,7 @@ export class Creature {
   onHopPeak?: () => void;
   private peaked = false;
 
-  constructor(gltf: GLTF, tex: THREE.Texture | null, back: THREE.Texture | null, d: CreatureData | null, height: number, shadowTex: THREE.Texture) {
+  constructor(gltf: GLTF, tex: THREE.Texture | null, back: THREE.Texture | null, d: CreatureData | null, height: number, shadowTex: THREE.Texture, lidData: LidData[] = []) {
     const mesh = gltf.scene.getObjectByProperty('type', 'Mesh') as THREE.Mesh;
     if (tex && d) {
       mesh.geometry.computeVertexNormals();
@@ -147,6 +204,11 @@ export class Creature {
       group.lookAt(p.clone().add(n));
       model.add(group);
       this.lids.push(lid);
+    }
+    for (const l of lidData) {
+      const { group, lid } = makeLid(l);
+      model.add(group);
+      this.paintedLids.push(lid);
     }
     model.scale.setScalar(scale);
     model.position.y = -y0 * scale;
@@ -237,5 +299,11 @@ export class Creature {
       if (k >= 1) this.blinkT = -1;
     }
     for (const l of this.lids) l.scale.y = lid;
+    // painted eyes: the lid covers the eye as much as the 3D eyes would squash
+    const shut = Creature.forceShut ?? Math.min(1, (1 - lid) / 0.92);
+    for (const l of this.paintedLids) {
+      l.visible = shut > 0.02;
+      l.scale.y = Math.max(0.001, shut);
+    }
   }
 }
