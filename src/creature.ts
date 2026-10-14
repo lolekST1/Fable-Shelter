@@ -93,58 +93,87 @@ function makeEye(radius: number): { group: THREE.Group; lid: THREE.Object3D } {
   return { group, lid };
 }
 
-/** a painted eye on a textured model: surface point, normal, radius and the skin colour around it */
+/** a painted eye on a textured model, with the face surface sampled around it (see lids.json) */
 export interface LidData {
-  pos: number[];
-  normal: number[];
   r: number;
   skin: number[];
-  /** lid size relative to the detected dark iris (bigger for eyes with a white rim) */
-  scale?: number;
+  /** lid radius, frame normal / right / up, and a (grid+1)^2 lattice of face points around the eye */
+  R: number;
+  n: number[];
+  right: number[];
+  up: number[];
+  grid: number;
+  pts: number[];
+}
+
+interface PaintedLid {
+  mesh: THREE.Mesh;
+  shut: { value: number };
 }
 
 /**
- * Eyelid for a painted eye: a flattened skin-coloured dome that slides down from the top
- * of the eye and carries a small dark lash curve, so a closed eye reads as a happy "‿".
+ * Eyelid for a painted eye: a thin skin-coloured shell moulded on the face around the eye,
+ * with a slight bulge like a real lid. Closing sweeps it down from the top; when shut it shows
+ * a small lash curve so the closed eye reads as a happy "‿".
  */
-function makeLid(d: LidData): { group: THREE.Group; lid: THREE.Object3D } {
-  const R = d.r * (d.scale ?? 1.22);
-  const cv = document.createElement('canvas');
-  cv.width = 256;
-  cv.height = 128;
-  const g = cv.getContext('2d')!;
+function makeLid(d: LidData): PaintedLid {
+  const G = d.grid, R = d.R;
+  const n = new THREE.Vector3(...(d.n as [number, number, number]));
+  const pos: number[] = [], uv: number[] = [], idx: number[] = [];
+  for (let j = 0; j <= G; j++) for (let i = 0; i <= G; i++) {
+    const k = (j * (G + 1) + i) * 3, x = (i / G) * 2 - 1, y = (j / G) * 2 - 1;
+    // lift off the face a touch, more in the middle so the lid has some volume
+    const lift = R * (0.05 + 0.2 * Math.max(0, 1 - x * x - y * y));
+    pos.push(d.pts[k] + n.x * lift, d.pts[k + 1] + n.y * lift, d.pts[k + 2] + n.z * lift);
+    uv.push(x, y);
+  }
+  const inDisc = (i: number, j: number) => { const x = (i / G) * 2 - 1, y = (j / G) * 2 - 1; return x * x + y * y < 1.6; };
+  for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) {
+    if (!(inDisc(i, j) || inDisc(i + 1, j + 1))) continue;
+    const a = j * (G + 1) + i, b = a + 1, c = a + G + 1, e = c + 1;
+    idx.push(a, b, e, a, e, c);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('lidUV', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
   const [sr, sg, sb] = d.skin;
-  g.fillStyle = `rgb(${sr},${sg},${sb})`;
-  g.fillRect(0, 0, 256, 128);
-  // lash line where the lid meets the lower edge of the eye (front of the sphere sits at u = 0.25)
-  g.strokeStyle = `rgb(${Math.round(sr * 0.32)},${Math.round(sg * 0.28)},${Math.round(sb * 0.3)})`;
-  g.lineWidth = 11;
-  g.lineCap = 'round';
-  g.beginPath();
-  g.moveTo(256 * 0.15, 128 * 0.5);
-  g.quadraticCurveTo(256 * 0.25, 128 * 0.62, 256 * 0.35, 128 * 0.5);
-  g.stroke();
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  const dome = new THREE.Mesh(
-    new THREE.SphereGeometry(1, 24, 16),
-    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }),
-  );
-  dome.scale.set(R, R, R * 0.5);
-  // hinge at the top of the eye: scaling the lid in y pulls the dome down over the eye
-  dome.position.y = -R;
-  const lid = new THREE.Group();
-  lid.position.y = R;
-  lid.add(dome);
-  const group = new THREE.Group();
-  group.add(lid);
-  const n = new THREE.Vector3(...(d.normal as [number, number, number])).lerp(new THREE.Vector3(0, 0, 1), 0.5).normalize();
-  const p = new THREE.Vector3(...(d.pos as [number, number, number])).addScaledVector(n, -d.r * 0.05);
-  group.position.copy(p);
-  group.lookAt(p.clone().add(n));
-  lid.scale.y = 0.001;
-  lid.visible = false;
-  return { group, lid };
+  const mat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color().setRGB(sr / 255, sg / 255, sb / 255, THREE.SRGBColorSpace),
+    roughness: 0.9,
+    side: THREE.DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
+  const shut = { value: 0 };
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uShut = shut;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec2 lidUV;\nvarying vec2 vL;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvL = lidUV;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uShut;\nvarying vec2 vL;')
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+{
+  if (dot(vL, vL) > 1.0) discard;
+  // lid edge sweeps down from the top, curved like a real eyelid
+  float edge = 1.0 - 2.15 * uShut - 0.25 * uShut * (1.0 - vL.x * vL.x);
+  if (vL.y < edge) discard;
+  float rim = (1.0 - smoothstep(0.0, 0.12, vL.y - edge)) * step(uShut, 0.97);
+  // closed: a small smiling lash curve
+  float yl = 0.02 - 0.32 * (1.0 - vL.x * vL.x);
+  float lash = (1.0 - smoothstep(0.05, 0.1, abs(vL.y - yl))) * (1.0 - smoothstep(0.7, 0.85, abs(vL.x))) * smoothstep(0.85, 1.0, uShut);
+  diffuseColor.rgb *= 1.0 - 0.72 * max(lash, rim * 0.6);
+}`,
+      );
+  };
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.visible = false;
+  return { mesh, shut };
 }
 
 export class Creature {
@@ -153,7 +182,7 @@ export class Creature {
   root = new THREE.Group();
   private body = new THREE.Group();
   private lids: THREE.Object3D[] = [];
-  private paintedLids: THREE.Object3D[] = [];
+  private paintedLids: PaintedLid[] = [];
   private shadow: THREE.Mesh;
   private t = Math.random() * 10;
   private nextBlink = 2;
@@ -206,8 +235,8 @@ export class Creature {
       this.lids.push(lid);
     }
     for (const l of lidData) {
-      const { group, lid } = makeLid(l);
-      model.add(group);
+      const lid = makeLid(l);
+      model.add(lid.mesh);
       this.paintedLids.push(lid);
     }
     model.scale.setScalar(scale);
@@ -302,8 +331,8 @@ export class Creature {
     // painted eyes: the lid covers the eye as much as the 3D eyes would squash
     const shut = Creature.forceShut ?? Math.min(1, (1 - lid) / 0.92);
     for (const l of this.paintedLids) {
-      l.visible = shut > 0.02;
-      l.scale.y = Math.max(0.001, shut);
+      l.mesh.visible = shut > 0.02;
+      l.shut.value = shut;
     }
   }
 }
