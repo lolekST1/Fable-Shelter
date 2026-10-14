@@ -3,12 +3,14 @@ import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export interface CreatureData {
   bounds: number[][];
-  img: number[];
+  /** front projection frame: centre x, centre y, scale (texture units per model unit) */
+  proj: number[];
   eyes: { pos: number[]; normal: number[] }[];
+  eyeRadius: number;
+  /** optional ear ellipsoid, mirrored on x: centre xyz + radii xyz */
+  ear?: number[];
   legY: number;
 }
-
-const IMG = 1024;
 
 /**
  * Plush material: physical material with sheen (fabric fuzz), colour projected
@@ -16,8 +18,7 @@ const IMG = 1024;
  * skin colour on the legs. Lighting stays fully dynamic.
  */
 function plushMaterial(tex: THREE.Texture, d: CreatureData): THREE.MeshPhysicalMaterial {
-  const [[x0, y0], [x1, y1]] = d.bounds;
-  const [ix0, ix1, iy0, iy1] = d.img;
+  const [cx, cy, k] = d.proj;
   const mat = new THREE.MeshPhysicalMaterial({
     color: 0xffffff,
     roughness: 0.95,
@@ -27,8 +28,10 @@ function plushMaterial(tex: THREE.Texture, d: CreatureData): THREE.MeshPhysicalM
   });
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uConcept = { value: tex };
-    shader.uniforms.uBox = { value: new THREE.Vector4(x0, x1, y0, y1) };
-    shader.uniforms.uImg = { value: new THREE.Vector4(ix0 / IMG, ix1 / IMG, iy0 / IMG, iy1 / IMG) };
+    shader.uniforms.uProj = { value: new THREE.Vector3(cx, cy, k) };
+    const ear = d.ear ?? [0, -99, 0, 0.01, 0.01, 0.01];
+    shader.uniforms.uEar = { value: new THREE.Vector3(ear[0], ear[1], ear[2]) };
+    shader.uniforms.uEarR = { value: new THREE.Vector3(ear[3], ear[4], ear[5]) };
     shader.uniforms.uLegY = { value: d.legY };
     shader.uniforms.uWool = { value: new THREE.Color(0xf6f4f2) };
     shader.uniforms.uSkin = { value: new THREE.Color(0xf6c9b4) };
@@ -39,7 +42,7 @@ function plushMaterial(tex: THREE.Texture, d: CreatureData): THREE.MeshPhysicalM
       .replace(
         '#include <common>',
         `#include <common>
-uniform sampler2D uConcept; uniform vec4 uBox; uniform vec4 uImg; uniform float uLegY;
+uniform sampler2D uConcept; uniform vec3 uProj; uniform float uLegY; uniform vec3 uEar; uniform vec3 uEarR;
 uniform vec3 uWool; uniform vec3 uSkin;
 varying vec3 vObjPos; varying vec3 vObjNrm;`,
       )
@@ -47,12 +50,15 @@ varying vec3 vObjPos; varying vec3 vObjNrm;`,
         '#include <color_fragment>',
         `#include <color_fragment>
 {
-  float u = mix(uImg.x, uImg.y, (vObjPos.x - uBox.x) / (uBox.y - uBox.x));
-  float v = mix(uImg.z, uImg.w, (uBox.w - vObjPos.y) / (uBox.w - uBox.z));
-  vec3 proj = texture2D(uConcept, vec2(u, 1.0 - v)).rgb;
-  float front = smoothstep(0.12, 0.6, normalize(vObjNrm).z);
+  // the paint map is drawn in the model's own front view, so it lines up with the sculpted face
+  vec2 uv = vec2((vObjPos.x - uProj.x) * uProj.z + 0.5, (vObjPos.y - uProj.y) * uProj.z + 0.5);
+  vec3 proj = texture2D(uConcept, uv).rgb;
+  float front = smoothstep(-0.05, 0.3, normalize(vObjNrm).z);
   vec3 col = mix(uWool, proj, front);
   col = mix(col, uSkin, smoothstep(uLegY + 0.03, uLegY - 0.03, vObjPos.y));
+  // ear flaps: a soft ellipsoid on each side of the head
+  vec3 e = (vec3(abs(vObjPos.x), vObjPos.y, vObjPos.z) - uEar) / uEarR;
+  col = mix(col, uSkin, 1.0 - smoothstep(0.8, 1.0, length(e)));
   diffuseColor.rgb *= col;
 }`,
       );
@@ -108,12 +114,12 @@ export class Creature {
     const model = new THREE.Group();
     model.add(mesh);
     for (const e of d.eyes) {
-      const { group, lid } = makeEye(0.075);
+      const { group, lid } = makeEye(d.eyeRadius * 0.82);
       const p = new THREE.Vector3(...(e.pos as [number, number, number]));
       const n = new THREE.Vector3(...(e.normal as [number, number, number]))
-        .lerp(new THREE.Vector3(0, 0, 1), 0.85)
+        .lerp(new THREE.Vector3(0, 0, 1), 1)
         .normalize();
-      group.position.copy(p).addScaledVector(n, 0.03);
+      group.position.copy(p).addScaledVector(n, 0.02);
       group.lookAt(p.clone().add(n));
       model.add(group);
       this.lids.push(lid);
@@ -143,7 +149,7 @@ export class Creature {
   lookAt(worldX: number, worldZ: number) {
     const dx = worldX - this.root.position.x;
     const dz = worldZ - this.root.position.z;
-    this.targetYaw = THREE.MathUtils.clamp(Math.atan2(dx, dz), -0.9, 0.9);
+    this.targetYaw = Math.atan2(dx, dz);
   }
 
   update(dt: number) {
@@ -188,7 +194,9 @@ export class Creature {
     (this.shadow.material as THREE.MeshBasicMaterial).opacity = 0.55 * sh;
 
     // turn toward the point of interest
-    this.yaw += (this.targetYaw - this.yaw) * Math.min(1, dt * 4);
+    let diff = this.targetYaw - this.yaw;
+    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    this.yaw += diff * Math.min(1, dt * 4);
     this.body.rotation.y = this.yaw;
 
     // blinking
