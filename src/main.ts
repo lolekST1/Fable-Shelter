@@ -84,7 +84,7 @@ const CAST: [string, number, number, number][] = [
 ];
 
 // models generated with their own textures (Hunyuan3D 3.0)
-const TEXTURED = new Set(['feniks', 'bazyliszek', 'gryf', 'grzybolak', 'jednorozec', 'smok', 'opiekun', 'kraken']);
+const TEXTURED = new Set(['feniks', 'bazyliszek', 'gryf', 'grzybolak', 'jednorozec', 'smok', 'opiekun', 'kraken', 'chmurnik']);
 
 const texLoader = new THREE.TextureLoader();
 function tex(url: string) {

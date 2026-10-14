@@ -118,6 +118,8 @@ export class Creature {
       const plush = new THREE.MeshPhysicalMaterial({
         map: m.map, normalMap: m.normalMap, roughnessMap: m.roughnessMap,
         roughness: 0.85, metalness: 0, sheen: 0.6, sheenRoughness: 0.5, sheenColor: new THREE.Color(0xffffff),
+        // Pixal3D meshes can have thin open spots (tentacle tips); keep the file's double-sided flag so they don't show holes
+        side: m.side,
       });
       mesh.material = plush;
       // bake the node transforms from the file into the geometry so size and floor line are right
