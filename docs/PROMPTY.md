@@ -137,7 +137,7 @@ Do każdego dopisz akapit stylu z góry pliku.
 ### Rekwizyty Śnieżnego wzgórza
 - Ognisko z kakao (stacja): `a small campfire in a ring of round stones with a little iron pot of hot cocoa hanging from a wooden tripod, steam rising, chunky cute shapes,` + styl rekwizytów
 - Legowisko z koca: `a round cozy pet bed made of a red knitted wool blanket with a soft cream cushion and a white pompom, chunky cute shapes,` + styl rekwizytów
-- Duże ognisko: `a big cozy bonfire with stacked logs in a ring of snowy stones, bright warm flames, chunky cute shapes,` + styl rekwizytów
+- Duże ognisko: `a big cozy bonfire with stacked logs in a ring of snowy stones, bright warm flames, chunky cute shapes, simple solid shapes,` + styl rekwizytów (zrobione 16.10.2026 w FLUX 3 Klein, plik `DuzeOgnisko-flux3_00002_WYBRANY.png`; w Pixal3D wyszło czysto za pierwszym razem)
 
 ---
 

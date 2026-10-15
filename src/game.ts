@@ -33,7 +33,7 @@ export interface GameDeps {
 const PROP_MODEL: Record<string, [string, number, number?]> = {
   pink: ['prop_kociolek', 1.15], blue: ['prop_zrodelko', 1.25], green: ['prop_ziola', 1.1], purple: ['prop_lilia', 1.3], gold: ['prop_ul', 1.05],
   camp: ['prop_legowisko', 1.15], pond: ['prop_legowiskolisc', 1.15], basket: ['prop_kosz', 0.95], house: ['prop_domek', 3.0, -0.45],
-  berry: ['prop_krzak', 1.1], glade: ['prop_legowiskomech', 1.15], snow: ['prop_legowiskokoc', 1.15], cocoa: ['prop_ognisko', 1.2],
+  berry: ['prop_krzak', 1.1], glade: ['prop_legowiskomech', 1.15], snow: ['prop_legowiskokoc', 1.15], cocoa: ['prop_ognisko', 1.2], bonfire: ['prop_duzeognisko', 1.6],
 };
 
 /** how a resident helps around the camp once it feels at home (has at least one heart):
@@ -545,7 +545,7 @@ export class Game {
 
   /** put the generated 3D model on a prop once it has loaded (see PROP_MODEL); keep the stand-in otherwise */
   private dress(target: THREE.Object3D, key: string) {
-    if (!PROP_MODEL[key]) return; // the big bonfire stays hand-made
+    if (!PROP_MODEL[key]) return;
     const [name, width, yaw = 0] = PROP_MODEL[key];
     this.d.loadProp(name).then((m) => dressUp(target, m, width, yaw), () => { /* no model yet: the stand-in stays */ });
   }
@@ -628,6 +628,7 @@ export class Game {
 
   addBonfire(x: number, z: number, instant: boolean) {
     const g = bonfireMesh();
+    this.dress(g, 'bonfire');
     g.position.set(x, 0, z);
     this.d.scene.add(g);
     this.props.push(g);
