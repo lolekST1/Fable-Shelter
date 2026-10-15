@@ -72,6 +72,8 @@ const MAX_HEARTS = 4;
 const ADOPT_COINS = 15; // coins dropped on adoption (each worth 2)
 const SAVE_KEY = 'fable-shelter-save-v3';
 const POND_C = new THREE.Vector3(0.6, 0, -14.6);
+/** the pond water is 2.6 across from its middle; creatures keep to the shore just outside it */
+const POND_SHORE = 2.9;
 
 /** bed places inside the pen, in the order they are added */
 
@@ -720,8 +722,17 @@ export class Game {
     const pos = c.root.position;
     const dx = target.x - pos.x, dz = target.z - pos.z, dd = Math.hypot(dx, dz);
     if (dd < 0.05) { c.walk = 0; return true; }
-    pos.x += (dx / dd) * Math.min(dd, speed * dt);
-    pos.z += (dz / dd) * Math.min(dd, speed * dt);
+    const step = Math.min(dd, speed * dt);
+    pos.x += (dx / dd) * step;
+    pos.z += (dz / dd) * step;
+    // nobody walks on the pond water: back onto the shore and round it toward the target
+    const wx = pos.x - POND_C.x, wz = pos.z - POND_C.z, wd = Math.hypot(wx, wz);
+    if (wd < POND_SHORE && Math.hypot(target.x - POND_C.x, target.z - POND_C.z) >= POND_SHORE) {
+      const nx = wd > 1e-6 ? wx / wd : 1, nz = wd > 1e-6 ? wz / wd : 0;
+      const side = -nz * dx + nx * dz >= 0 ? 1 : -1; // go round on the side the target is
+      pos.x = POND_C.x + nx * POND_SHORE - nz * side * step;
+      pos.z = POND_C.z + nz * POND_SHORE + nx * side * step;
+    }
     c.walk += (Math.min(1, dd / 0.5) - c.walk) * Math.min(1, dt * 8);
     c.lookAt(target.x, target.z);
     return false;
