@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const q = new URLSearchParams(location.search);
-const file = q.get('m'), T = +(q.get('t') || 70), YMAX = +(q.get('y') || 512), FILL = +(q.get('f') || 0.45);
+const file = q.get('m'), T = +(q.get('t') || 70), YMAX = +(q.get('y') || 512), YMIN = +(q.get('ymin') || 0), FILL = +(q.get('f') || 0.45);
 const N = 512;
 const r = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), preserveDrawingBuffer: true });
 r.outputColorSpace = THREE.SRGBColorSpace;
@@ -37,7 +37,7 @@ for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
       const nk = ny * N + nx; if (lab[nk] < 0 && lum(P(nx, ny)) <= T) { lab[nk] = comps.length; st.push(nk); } } }
   comps.push({ a, cx: sx / a, cy: sy / a, w: x1 - x0 + 1, h: y1 - y0 + 1 });
 }
-const cand = comps.filter(o => o.a > 15 && o.a < 4000 && o.a / (o.w * o.h) > FILL && o.cy < YMAX && o.w / o.h > 0.5 && o.w / o.h < 2);
+const cand = comps.filter(o => o.a > 15 && o.a < 4000 && o.a / (o.w * o.h) > FILL && o.cy < YMAX && o.cy > YMIN && o.w / o.h > 0.5 && o.w / o.h < 2);
 // best symmetric pair around the model centre
 const mx = N / 2; let best = null;
 for (let i = 0; i < cand.length; i++) for (let j = i + 1; j < cand.length; j++) {
