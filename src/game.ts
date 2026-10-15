@@ -149,15 +149,6 @@ interface ActiveSpot {
   payAcc: number;
 }
 
-interface Helper {
-  c: Creature;
-  state: 'idle' | 'toStation' | 'toPatient';
-  station: Station | null;
-  patient: Patient | null;
-  item: THREE.Group | null;
-  home: THREE.Vector3;
-}
-
 const EDGE_SVG = '<svg class="ar" viewBox="0 0 64 64"><path d="M60 32 L44 20 L44 44 Z" fill="#ff7a59" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg>';
 
 export class Game {
@@ -188,7 +179,6 @@ export class Game {
   private props: THREE.Object3D[] = [];
   private basket: THREE.Group;
   private dropT = 0;
-  private helpers: Helper[] = [];
   private pickT = 0;
   private spawnT = 1.5;
   private spawning = false;
@@ -330,6 +320,22 @@ export class Game {
     });
   }
 
+  /** debug/testing: every medicine item as [id, kind, x, y, z, owner] */
+  items(): [number, string, number, number, number, string][] {
+    const owner = (o: THREE.Object3D) =>
+      this.flights.some((f) => f.obj === o) ? 'flight'
+        : this.stations.some((s) => s.tray.includes(o as THREE.Group)) ? 'tray'
+          : this.carry.includes(o as THREE.Group) ? 'carry'
+            : this.residents.some((r) => r.job?.item === o) ? 'job' : 'stray';
+    const out: [number, string, number, number, number, string][] = [];
+    this.d.scene.traverse((o) => {
+      if (o.userData.kind === undefined || !(o as THREE.Group).isGroup) return;
+      const p = o.getWorldPosition(new THREE.Vector3());
+      out.push([o.id, o.userData.kind, +p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2), owner(o)]);
+    });
+    return out;
+  }
+
   /** items that belong nowhere: not on a tray, in the keeper's arms, flying, or carried by a helping resident */
   private findStrays(): THREE.Group[] {
     const ok = new Set<THREE.Object3D>([...this.flights.map((f) => f.obj), ...this.stations.flatMap((s) => s.tray), ...this.carry]);
@@ -382,7 +388,7 @@ export class Game {
 
   /** creatures the player can tap to make them hop */
   tappables(): Creature[] {
-    return [...this.patients.map((p) => p.c), ...this.residents.map((r) => r.c), ...this.helpers.map((h) => h.c)];
+    return [...this.patients.map((p) => p.c), ...this.residents.map((r) => r.c)];
   }
 
   // ------------------------------------------------------------ things the progression adds
@@ -477,23 +483,6 @@ export class Game {
     this.shoes = true;
     this.speed = 1.35;
     if (!instant) this.toKeeper();
-  }
-
-  async addHelper(instant: boolean) {
-    const home = new THREE.Vector3(3.7, 0, 6.6);
-    const c = await this.d.spawnCreature('kraken', 0.95);
-    c.root.position.copy(home);
-    this.d.scene.add(c.root);
-    const slot = new THREE.Object3D();
-    slot.position.set(0, 0.95, 0.15);
-    c.attach(slot);
-    c.root.userData.slot = slot;
-    this.helpers.push({ c, state: 'idle', station: null, patient: null, item: null, home });
-    if (!instant) {
-      this.fx.emit('star', home.clone().setY(0.8), 30, { speed: 3, up: 2, life: 1 });
-      this.d.sfx.build();
-      c.hop();
-    }
   }
 
   private toKeeper() {
@@ -1253,7 +1242,6 @@ export class Game {
     }
 
     this.updateResidents(dt);
-    this.updateHelpers(dt);
 
     // basket: standing next to it tips the pile in, top item first
     const b = this.basket.position;
@@ -1362,57 +1350,6 @@ export class Game {
     if (this.saveT > 5) {
       this.saveT = 0;
       this.save();
-    }
-  }
-
-  private updateHelpers(dt: number) {
-    for (const h of this.helpers) {
-      h.c.update(dt);
-      const pos = h.c.root.position;
-      const done = (p: Patient | null) => !p || p.state === 'cured' || p.state === 'leaving' || p.state === 'incoming';
-      if (h.state === 'idle' && h.item) {
-        const kind = h.item.userData.kind as Medicine;
-        const p = this.patients.find((p) => (p.state === 'waiting' || p.state === 'arriving') && !p.claimed && p.sp.cure === kind);
-        if (p) { p.claimed = true; h.patient = p; h.state = 'toPatient'; }
-        else this.walk(h.c, h.home, 1.4, dt);
-      } else if (h.state === 'idle') {
-        const p = this.patients.find((p) => (p.state === 'waiting' || p.state === 'arriving') && !p.claimed && this.stations.some((s) => s.kind === p.sp.cure && s.tray.length));
-        if (p) {
-          const st = this.stations.filter((s) => s.kind === p.sp.cure && s.tray.length).sort((a, b) => a.pos.distanceTo(pos) - b.pos.distanceTo(pos))[0];
-          p.claimed = true;
-          h.patient = p;
-          h.station = st;
-          h.state = 'toStation';
-        } else this.walk(h.c, h.home, 1.4, dt);
-      } else if (h.state === 'toStation' && h.station) {
-        const st = h.station;
-        const p = h.patient!;
-        if (done(p)) { p.claimed = false; h.state = 'idle'; continue; }
-        if (this.walk(h.c, new THREE.Vector3(st.pos.x - 0.1, 0, st.pos.z + 0.75), 2.0, dt) || pos.distanceTo(st.pos) < 1.0) {
-          if (!st.tray.length) { p.claimed = false; h.state = 'idle'; continue; }
-          const v = st.tray.pop()!;
-          const slot = h.c.root.userData.slot as THREE.Object3D;
-          this.fly(v, () => slot.getWorldPosition(new THREE.Vector3()), 0.25, 0.5, () => {
-            slot.add(v);
-            v.position.set(0, 0, 0);
-            v.rotation.set(0, 0, 0);
-            v.scale.setScalar(1.8);
-          });
-          h.item = v;
-          h.state = 'toPatient';
-        }
-      } else if (h.state === 'toPatient' && h.patient && h.item) {
-        const p = h.patient;
-        if (done(p)) { h.patient = null; h.state = 'idle'; continue; }
-        const pp = p.c.root.position;
-        if (this.walk(h.c, pp, 2.0, dt) || pos.distanceTo(pp) < 1.1) {
-          const v = h.item;
-          h.item = null;
-          h.state = 'idle';
-          h.c.walk = 0;
-          this.deliver(v, p);
-        }
-      }
     }
   }
 

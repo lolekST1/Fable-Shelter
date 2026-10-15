@@ -514,32 +514,6 @@ export function drawSign(g: CanvasRenderingContext2D, x: number, y: number, r: n
   g.restore();
 }
 
-/** a little octopus face: a helper */
-export function drawHelper(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
-  g.save();
-  g.fillStyle = '#a99bf0';
-  for (let i = 0; i < 5; i++) {
-    g.beginPath();
-    g.ellipse(x - r * 0.6 + i * r * 0.3, y + r * 0.45, r * 0.12, r * 0.3, 0, 0, Math.PI * 2);
-    g.fill();
-  }
-  g.beginPath();
-  g.arc(x, y - r * 0.05, r * 0.62, 0, Math.PI * 2);
-  g.fill();
-  g.fillStyle = '#2a2140';
-  for (const dx of [-0.22, 0.22]) {
-    g.beginPath();
-    g.arc(x + dx * r, y - r * 0.02, r * 0.1, 0, Math.PI * 2);
-    g.fill();
-  }
-  g.strokeStyle = '#2a2140';
-  g.lineWidth = r * 0.06;
-  g.beginPath();
-  g.arc(x, y + r * 0.12, r * 0.12, 0.15 * Math.PI, 0.85 * Math.PI);
-  g.stroke();
-  g.restore();
-}
-
 /** wooden footbridge */
 export function drawBridge(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
   g.save();
@@ -615,9 +589,9 @@ export function drawLantern(g: CanvasRenderingContext2D, x: number, y: number, r
   g.restore();
 }
 
-export type SpotIcon = 'cauldron' | 'spring' | 'herbs' | 'backpack' | 'shoes' | 'sign' | 'helper' | 'bed' | 'berry' | 'bridge' | 'lily' | 'lilybed' | 'lantern';
+export type SpotIcon = 'cauldron' | 'spring' | 'herbs' | 'backpack' | 'shoes' | 'sign' | 'bed' | 'berry' | 'bridge' | 'lily' | 'lilybed' | 'lantern';
 export function drawSpotIcon(g: CanvasRenderingContext2D, icon: SpotIcon, x: number, y: number, r: number) {
-  ({ cauldron: drawCauldron, spring: drawSpring, herbs: drawHerbs, backpack: drawBackpack, shoes: drawShoe, sign: drawSign, helper: drawHelper, bed: drawBed, berry: drawBerry, bridge: drawBridge, lily: drawLily, lilybed: drawLilyBed, lantern: drawLantern })[icon](g, x, y, r);
+  ({ cauldron: drawCauldron, spring: drawSpring, herbs: drawHerbs, backpack: drawBackpack, shoes: drawShoe, sign: drawSign, bed: drawBed, berry: drawBerry, bridge: drawBridge, lily: drawLily, lilybed: drawLilyBed, lantern: drawLantern })[icon](g, x, y, r);
 }
 
 function bubbleBase(g: CanvasRenderingContext2D) {

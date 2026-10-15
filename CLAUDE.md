@@ -48,7 +48,7 @@ npm run build      # tsc --noEmit + vite build -> dist/
 
 ## Haki debug (URL i konsola)
 - `?reset=1` czyści zapis. `?debug` włącza ostrzeżenia. `?dtmax=0.4` pozwala grze iść w wolnej przeglądarce testowej. `?eyes=closed|half` zamyka powieki.
-- `window.__game()` zwraca stan, `__keeper()` pozycję opiekuna, `__walk(x,z)` wysyła go w punkt. `__coins(n)` i `__hearts(n)` dodają monety i serduszka. `__strays()` pokazuje zabłąkane przedmioty.
+- `window.__game()` zwraca stan, `__keeper()` pozycję opiekuna, `__walk(x,z)` wysyła go w punkt. `__coins(n)` i `__hearts(n)` dodają monety i serduszka. `__strays()` pokazuje zabłąkane przedmioty, a `__items()` wszystkie fiolki z pozycją i właścicielem.
 
 ## Modele i narzędzia (`tools/`)
 Modele leżą jako base64 w `public/models/<nazwa>.glb.txt`. Tak dało się je serwować z każdego hostingu, a `loadModel` w `main.ts` dekoduje je w przeglądarce. Oryginały high-poly są tylko u użytkownika na `D:`.
@@ -69,7 +69,7 @@ node viewer/eyes.mjs nessie                      # oczy + powieki -> src/lids.js
 Skrypty Playwright na Chromium z swiftshader. Robią zrzuty do `tools/out/`.
 ```
 npm run build && npx vite preview --port 4173     # w katalogu głównym
-cd tools && node tests/care.mjs                   # też: pond, prog, stray, lids, helpers
+cd tools && node tests/care.mjs                   # też: pond, prog, stray, lids, helpers, vials
 ```
 W środowisku chmurowym Claude Chromium leży w `/opt/pw-browsers`, a Playwright jest przypięty do 1.56.0, żeby pasował. Lokalnie może być potrzebne `npx playwright install chromium`.
 - Windows (u użytkownika): pobieranie `chromium-1194` urwało się bez `chrome.exe`. Kompletny jest `chromium-1243`, więc `helpers.mjs` przyjmuje `CHROME_PATH` (`%LOCALAPPDATA%\ms-playwright\chromium-1243\chrome-win64\chrome.exe`).
@@ -77,5 +77,5 @@ W środowisku chmurowym Claude Chromium leży w `/opt/pw-browsers`, a Playwright
 - Mieszkaniec pomaga tylko wtedy, gdy sam niczego nie potrzebuje, więc w teście ktoś musi go karmić i kłaść spać.
 
 ## Otwarte sprawy
-- Fiolki „chodzące same”: potrzebny zrzut ekranu od użytkownika.
+- Fiolki „chodzące same”: nie udało się odtworzyć. `tests/vials.mjs` sprawdza fiolki klatka po klatce (`__items()`) przez 100 rund w pełnym obozie i niczego nie znalazł. Podejrzenie: to fiolka niesiona na głowie przez pomagającego mieszkańca. Usunięto też martwy kod starego wynajętego krakena-pomocnika. Nadal potrzebny zrzut ekranu od użytkownika.
 - Gatunki stawu (zabiksiaze, nessie, wodnik, swietlik) mają modele z Pixal3D zrobione przez Claude'a (15.10.2026, tylko przód, bez Hunyuana). Użytkownik może je później poprawić w Hunyuan3D 3.0. Rekwizyty stawu są nadal prostymi kształtami.
