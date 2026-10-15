@@ -88,6 +88,7 @@ W środowisku chmurowym Claude Chromium leży w `/opt/pw-browsers`, a Playwright
 
 ## Tempo gry (test całej gry, 15.10.2026)
 Automatyczny gracz (szybszy od człowieka) przechodzi całą grę w 49–58 minut gry. Pierwsze 10 zakupów zajmuje po 1,5–2 min (5–15 wyleczeń), ostatnie po 4–5 min (25–40 wyleczeń). W grze jest ok. 170 adopcji na 350–400 wyleczeń. Progi serduszek (3/6/10/13) nigdy nie blokują, bo gracz ma ich wtedy 35/45/65/85. Po ostatnim zakupie przybywa ok. 330 monet na minutę i nie ma ich na co wydać. Pożegnania zajmują graczowi ok. 1/3 czasu. Krzak jagód leży na drodze do kociołka i napełnia ręce jagodami, więc nieuważny gracz częściej chodzi do kosza (w jednym przebiegu 4. zakup przyszedł dopiero po 10,8 min zamiast ok. 5).
+Po zmianach (teren 4, progi 15/30/50/70/90/110, jagody tylko dla głodnych) cała gra trwa u automatycznego gracza 74 minuty gry. Zakupy Śnieżnego wzgórza zajmują po 4–6 min (33–59 wyleczeń). Szybki gracz nadal nie czeka na serduszka, wolniejszy może.
 
 ## Otwarte sprawy
 - Śnieżne wzgórze: gatunki i rekwizyty (ognisko z kakao, legowisko z koca, duże ognisko) potrzebują modeli 3D, prompty są w `docs/PROMPTY.md`.

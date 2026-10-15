@@ -34,7 +34,13 @@ await run({ coins: 0, bought: 99, hearts: 15, residents: [{ name: 'leszy', heart
   await p.waitForTimeout(8000);
   let st = await S(p);
   check(st.tray.some((t) => t.startsWith('gold') && +t.slice(4) > 0), `beehive brews honey (${st.tray})`);
-  const gladeSick = st.patients.filter((x) => x[1] > 10.5 && x[0] !== 'cured' && x[0] !== 'leaving');
+  // with the snowy hill open too, the glade's own patient may take a few more seconds to turn up
+  let gladeSick = [];
+  for (let i = 0; i < 10 && !gladeSick.length; i++) {
+    st = await S(p);
+    gladeSick = st.patients.filter((x) => x[1] > 10.5 && x[0] !== 'cured' && x[0] !== 'leaving');
+    if (!gladeSick.length) await p.waitForTimeout(2000);
+  }
   check(gladeSick.length > 0, `a patient sits in the glade (${JSON.stringify(st.patients)})`);
   await p.screenshot({ path: 'out/gl1.png', timeout: 150000 });
   // take honey and hand it out to the glade patients
