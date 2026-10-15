@@ -113,12 +113,13 @@ export const TRAY_MAX = 6;
  * scaled to `width` across, takes their place. Prop models come centred and standing on y = 0 (tools/models/upright.mjs).
  * Stand-ins stay if the model is missing.
  */
-export function dressUp(target: THREE.Object3D, model: THREE.Object3D, width: number) {
+export function dressUp(target: THREE.Object3D, model: THREE.Object3D, width: number, yaw = 0) {
   const size = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
   model.traverse((o) => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   const fit = new THREE.Group();
   fit.add(model);
   fit.scale.setScalar(width / Math.max(size.x, size.z));
+  fit.rotation.y = yaw; // a model whose front is not along +z like its stand-in's
   for (const c of target.children) c.visible = false;
   target.add(fit);
 }
