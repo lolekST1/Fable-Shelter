@@ -17,6 +17,10 @@ const mats = {
   soil: new THREE.MeshStandardMaterial({ color: 0x6b4a2e, roughness: 1 }),
   iron: new THREE.MeshStandardMaterial({ color: 0x4b4560, roughness: 0.45, metalness: 0.35, side: THREE.DoubleSide }),
   ironDark: new THREE.MeshStandardMaterial({ color: 0x3a3550, roughness: 0.6 }),
+  honey: new THREE.MeshStandardMaterial({ color: 0xf5b301, emissive: 0xc77a00, emissiveIntensity: 0.4, roughness: 0.25 }),
+  cloth: new THREE.MeshStandardMaterial({ color: 0xf2e2c4, roughness: 1 }),
+  straw: new THREE.MeshStandardMaterial({ color: 0xe8c36a, roughness: 0.9 }),
+  moss: new THREE.MeshStandardMaterial({ color: 0x6aa84f, roughness: 1 }),
 };
 
 const leafGeo = (() => {
@@ -52,6 +56,18 @@ export function medicineMesh(kind: Medicine): THREE.Group {
     const cork = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.025, 0.04, 10), mats.cork);
     cork.position.y = 0.235;
     g.add(fill, body, neck, cork);
+  } else if (kind === 'gold') {
+    // golden honey in a squat jar with a cloth lid
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.07, 0.13, 16), mats.glass);
+    body.position.y = 0.065;
+    const fill = new THREE.Mesh(new THREE.CylinderGeometry(0.066, 0.062, 0.11, 16), mats.honey);
+    fill.position.y = 0.058;
+    const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.08, 0.035, 16), mats.cloth);
+    lid.position.y = 0.145;
+    const tie = new THREE.Mesh(new THREE.TorusGeometry(0.077, 0.008, 6, 18), mats.twine);
+    tie.rotation.x = Math.PI / 2;
+    tie.position.y = 0.13;
+    g.add(fill, body, lid, tie);
   } else if (kind === 'berry') {
     // a little cluster of red berries with a leaf
     const bm = new THREE.MeshStandardMaterial({ color: 0xe8435a, emissive: 0x7a1020, emissiveIntensity: 0.25, roughness: 0.35 });
@@ -111,6 +127,7 @@ export class Station {
     else if (kind === 'blue') this.buildSpring();
     else if (kind === 'green') this.buildHerbs();
     else if (kind === 'purple') this.buildLily();
+    else if (kind === 'gold') this.buildHive();
     else this.buildBerryBush();
     const board = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.08, 0.46), mats.wood);
     board.position.set(0.82, 0.18, 0.05);
@@ -241,6 +258,47 @@ export class Station {
     this.group.add(pool, pad, flower);
     this.bubbles(0.22, 0xe0ccff, 0xa46cff, 0.15);
     this.anim.push((t) => { flower.rotation.y = Math.sin(t * 0.7) * 0.15; pad.rotation.y = Math.sin(t * 0.5) * 0.08; });
+  }
+
+  private buildHive() {
+    // a straw skep on a tree stump, with a few bees buzzing round it
+    const stump = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.45, 0.4, 14), mats.darkWood);
+    stump.position.y = 0.2;
+    stump.castShadow = true;
+    const top = new THREE.Mesh(new THREE.CircleGeometry(0.38, 14), mats.wood);
+    top.rotation.x = -Math.PI / 2;
+    top.position.y = 0.401;
+    this.group.add(stump, top);
+    const skep = new THREE.Group();
+    for (let i = 0; i < 5; i++) {
+      const rr = 0.32 - i * i * 0.012 - i * 0.02;
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.07, 8, 20), mats.straw);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = 0.46 + i * 0.1;
+      ring.castShadow = true;
+      skep.add(ring);
+    }
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), mats.straw);
+    cap.position.y = 0.92;
+    const door = new THREE.Mesh(new THREE.CircleGeometry(0.07, 12), new THREE.MeshBasicMaterial({ color: 0x3a2a14 }));
+    door.position.set(0, 0.52, 0.33);
+    const drip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), mats.honey);
+    drip.position.set(0.05, 0.48, 0.32);
+    drip.scale.set(1, 1.6, 1);
+    skep.add(cap, door, drip);
+    this.group.add(skep);
+    const beeMat = new THREE.MeshBasicMaterial({ color: 0xffc83d });
+    for (let i = 0; i < 3; i++) {
+      const bee = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), beeMat);
+      bee.scale.set(1.4, 1, 1);
+      const ph = i * 2.1;
+      this.group.add(bee);
+      this.anim.push((t) => {
+        const a = t * (1.6 + i * 0.4) + ph;
+        bee.position.set(Math.cos(a) * (0.45 + i * 0.08), 0.75 + Math.sin(t * 5 + i) * 0.08, Math.sin(a) * (0.45 + i * 0.08));
+      });
+    }
+    this.anim.push((t) => { skep.scale.set(1 + Math.sin(t * 2) * 0.01, 1 - Math.sin(t * 2) * 0.01, 1); });
   }
 
   private buildBerryBush() {
@@ -402,6 +460,129 @@ export function lanternMesh(): THREE.Group {
   return g;
 }
 
+/** a soft round moss bed for the glade residents */
+export function mossBedMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.14, 12, 28), mats.moss);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.11;
+  ring.scale.set(1, 0.85, 0.75);
+  ring.castShadow = true;
+  const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.42, 0.1, 26), new THREE.MeshStandardMaterial({ color: 0x9fd77a, roughness: 1 }));
+  pad.position.y = 0.06;
+  const pillow = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }));
+  pillow.scale.set(1.3, 0.45, 0.8);
+  pillow.position.set(0, 0.14, -0.2);
+  g.add(ring, pad, pillow);
+  // a few heather sprigs tucked into the rim
+  const sprig = new THREE.MeshStandardMaterial({ color: 0xc084e8, roughness: 0.8 });
+  for (let i = 0; i < 5; i++) {
+    const a = 0.6 + i * 1.1;
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), sprig);
+    s.position.set(Math.cos(a) * 0.46, 0.2, Math.sin(a) * 0.36);
+    g.add(s);
+  }
+  return g;
+}
+
+/** a wooden arch with heather on top: the gate in the hedge, spanning along z */
+export function gateArchMesh(): THREE.Group {
+  const g = new THREE.Group();
+  for (const z of [-0.9, 0.9]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.5, 8), mats.darkWood);
+    post.position.set(0, 0.75, z);
+    post.castShadow = true;
+    g.add(post);
+  }
+  const arch = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.07, 8, 20, Math.PI), mats.wood);
+  arch.rotation.y = Math.PI / 2;
+  arch.position.y = 1.5;
+  g.add(arch);
+  const flower = new THREE.MeshStandardMaterial({ color: 0xc084e8, roughness: 0.8 });
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 8) * Math.PI;
+    const f = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), i % 3 ? flower : mats.leaf);
+    f.position.set(0, 1.5 + Math.sin(a) * 0.9, Math.cos(a) * 0.9);
+    g.add(f);
+  }
+  return g;
+}
+
+/** a glowing mushroom lamp: more patients find their way to the glade */
+export function mushroomLampMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.7, 12), new THREE.MeshStandardMaterial({ color: 0xfff3d6, roughness: 0.8 }));
+  stem.position.y = 0.35;
+  stem.castShadow = true;
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.42, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xff7a59, emissive: 0xff5a2a, emissiveIntensity: 0.35, roughness: 0.6 }));
+  cap.scale.y = 0.7;
+  cap.position.y = 0.66;
+  cap.castShadow = true;
+  const dotMat = new THREE.MeshStandardMaterial({ color: 0xfff9c4, emissive: 0xffe066, emissiveIntensity: 1 });
+  for (let i = 0; i < 6; i++) {
+    const a = i * 1.05;
+    const d = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), dotMat);
+    d.position.set(Math.cos(a) * 0.26, 0.86 - (i % 2) * 0.06, Math.sin(a) * 0.26);
+    g.add(d);
+  }
+  g.add(stem, cap);
+  return g;
+}
+
+/** the heather glade east of the camp: heather patches and round trees around its rim */
+export function gladeScenery(cx: number, cz: number, r: number): THREE.Group {
+  const g = new THREE.Group();
+  const heath = new THREE.Mesh(new THREE.CircleGeometry(r + 0.6, 40), new THREE.MeshLambertMaterial({ color: 0xa9cf7a }));
+  heath.rotation.x = -Math.PI / 2;
+  heath.position.set(cx, 0.004, cz);
+  g.add(heath);
+  const bloom = [0xc084e8, 0xd9a6f2, 0xa66bd6, 0xf0c6ff].map((c) => new THREE.MeshLambertMaterial({ color: c }));
+  const ball = new THREE.SphereGeometry(0.09, 8, 6);
+  for (let i = 0; i < 160; i++) {
+    const a = i * 2.399, rr = Math.sqrt((i + 0.5) / 160) * r * 1.05;
+    const m = new THREE.Mesh(ball, bloom[i % bloom.length]);
+    m.position.set(cx + Math.cos(a) * rr, 0.06, cz + Math.sin(a) * rr);
+    m.scale.set(1 + (i % 3) * 0.3, 0.7, 1 + (i % 2) * 0.3);
+    g.add(m);
+  }
+  const trunk = new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.9 });
+  const crown = [0x4f9e45, 0x5fae4f, 0x6aaf4f].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 }));
+  for (let i = 0; i < 11; i++) {
+    const a = -1.9 + i * 0.38; // the back half of the rim, away from the gate
+    const tx = cx + Math.cos(a) * (r + 1.4), tz = cz + Math.sin(a) * (r + 1.4);
+    const t = new THREE.Group();
+    const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 1.2, 8), trunk);
+    tr.position.y = 0.6;
+    t.add(tr);
+    for (let k = 0; k < 3; k++) {
+      const c = new THREE.Mesh(new THREE.SphereGeometry(0.7 - k * 0.12, 14, 10), crown[(i + k) % 3]);
+      c.position.set((k - 1) * 0.25, 1.5 + k * 0.42, (k % 2) * 0.2);
+      c.castShadow = true;
+      t.add(c);
+    }
+    t.position.set(tx, 0, tz);
+    t.scale.setScalar(0.9 + (i % 3) * 0.15);
+    g.add(t);
+  }
+  return g;
+}
+
+/** a hedge of round bushes; returns each bush so the middle ones can be cleared for the gate */
+export function hedgeBushes(points: [number, number][]): THREE.Group[] {
+  const mat = new THREE.MeshLambertMaterial({ color: 0x4f9e45 });
+  return points.map(([x, z], i) => {
+    const b = new THREE.Group();
+    for (let k = 0; k < 3; k++) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 10), mat);
+      m.position.set(((k * 7 + i) % 3 - 1) * 0.25, 0.45 + k * 0.15, ((k + i) % 2 - 0.5) * 0.3);
+      m.castShadow = true;
+      b.add(m);
+    }
+    b.position.set(x, 0, z);
+    return b;
+  });
+}
+
 /** the brook along the north of the camp and the pond beyond it, with reeds and lily pads */
 export function pondScenery(): THREE.Group {
   const g = new THREE.Group();
@@ -500,7 +681,7 @@ export function backpackMesh(): THREE.Group {
 // ---------------------------------------------------------------- particles
 
 interface Particle { m: THREE.Mesh; v: THREE.Vector3; life: number; max: number; g: number; spin: number; s: number }
-type Kind = 'spark' | 'flake' | 'bubble' | 'star' | 'dust' | 'smoke' | 'spore' | 'feather' | 'confetti' | 'pebble' | 'heart' | 'zzz';
+type Kind = 'spark' | 'flake' | 'bubble' | 'star' | 'dust' | 'smoke' | 'spore' | 'feather' | 'confetti' | 'pebble' | 'heart' | 'zzz' | 'leaf' | 'note';
 
 export class Fx {
   private list: Particle[] = [];
@@ -517,6 +698,8 @@ export class Fx {
     pebble: new THREE.DodecahedronGeometry(0.05),
     heart: (() => { const s = new THREE.Shape(); s.moveTo(0, -0.06); s.bezierCurveTo(-0.1, 0.01, -0.04, 0.08, 0, 0.03); s.bezierCurveTo(0.04, 0.08, 0.1, 0.01, 0, -0.06); return new THREE.ShapeGeometry(s, 6); })(),
     zzz: new THREE.TorusGeometry(0.04, 0.012, 6, 12),
+    leaf: (() => { const s = new THREE.Shape(); s.moveTo(0, -0.08); s.quadraticCurveTo(0.07, 0, 0, 0.09); s.quadraticCurveTo(-0.07, 0, 0, -0.08); return new THREE.ShapeGeometry(s, 5); })(),
+    note: (() => { const s = new THREE.Shape(); s.absellipse(0, 0, 0.045, 0.035, 0, Math.PI * 2, false, -0.4); const st = new THREE.Shape(); st.moveTo(0.03, 0); st.lineTo(0.045, 0); st.lineTo(0.045, 0.14); st.lineTo(0.09, 0.1); st.lineTo(0.09, 0.12); st.lineTo(0.03, 0.16); return new THREE.ShapeGeometry([s, st], 6); })(),
   };
   private mat: Record<Kind, THREE.Material[]> = {
     spark: [new THREE.MeshBasicMaterial({ color: 0xff8a3d }), new THREE.MeshBasicMaterial({ color: 0xffe066 })],
@@ -531,6 +714,8 @@ export class Fx {
     pebble: [new THREE.MeshStandardMaterial({ color: 0x9aa3ad }), new THREE.MeshStandardMaterial({ color: 0x7d858e })],
     heart: [new THREE.MeshBasicMaterial({ color: 0xff5f86, side: THREE.DoubleSide })],
     zzz: [new THREE.MeshBasicMaterial({ color: 0x8f9bff })],
+    leaf: [0xff9a3d, 0xffcf4d, 0xe8643a, 0x8fcf6a].map((c) => new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })),
+    note: [0x6a5acd, 0x8a6cff].map((c) => new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })),
   };
   constructor(private scene: THREE.Scene) {}
   emit(kind: Kind, at: THREE.Vector3, n: number, opts: { speed?: number; up?: number; dir?: THREE.Vector3; spread?: number; g?: number; life?: number; size?: number }) {

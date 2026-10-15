@@ -124,4 +124,14 @@ export class Sfx {
   shiver() {
     for (let i = 0; i < 4; i++) this.tone(320, 300, 0.05, 0.04, 'triangle', i * 0.06);
   }
+  /** a tiny wolf howl: up, hold, down */
+  howl() {
+    this.tone(420, 760, 0.25, 0.07, 'sine');
+    this.tone(760, 520, 0.45, 0.06, 'sine', 0.25);
+  }
+  /** shrinking and popping back */
+  squeak() {
+    this.tone(1200, 1800, 0.08, 0.06, 'sine');
+    this.tone(400, 300, 0.1, 0.06, 'triangle', 0.35);
+  }
 }
