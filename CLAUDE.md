@@ -80,5 +80,6 @@ W środowisku chmurowym Claude Chromium leży w `/opt/pw-browsers`, a Playwright
 - Mieszkaniec pomaga tylko wtedy, gdy sam niczego nie potrzebuje, więc w teście ktoś musi go karmić i kłaść spać.
 
 ## Otwarte sprawy
+- Krzak jagód i legowisko z mchu nie mają modeli 3D. Liście i mech wychodziły w Pixal3D jak zgnieciona folia, także przy 40000 trójkątów (15.10.2026). Można spróbować w Hunyuan3D albo z innym obrazkiem.
 - Fiolki „chodzące same”: nie udało się odtworzyć. `tests/vials.mjs` sprawdza fiolki klatka po klatce (`__items()`) przez 100 rund w pełnym obozie i niczego nie znalazł. Podejrzenie: to fiolka niesiona na głowie przez pomagającego mieszkańca. Usunięto też martwy kod starego wynajętego krakena-pomocnika. Nadal potrzebny zrzut ekranu od użytkownika.
 - Gatunki stawu (zabiksiaze, nessie, wodnik, swietlik) mają modele z Pixal3D zrobione przez Claude'a (15.10.2026, tylko przód, bez Hunyuana). Użytkownik może je później poprawić w Hunyuan3D 3.0. Rekwizyty stawu są nadal prostymi kształtami.
