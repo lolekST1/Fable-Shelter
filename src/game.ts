@@ -723,6 +723,7 @@ export class Game {
         seat = new THREE.Vector3(GLADE_C.x + Math.cos(theta) * rr, 0, GLADE_C.z + Math.sin(theta) * rr);
       } else {
         theta = (Math.random() - 0.5) * 3.6;
+        if (theta > 1.15) theta = -theta; // not from the east: the glade and its hedge are there
         const rr = 5 + Math.random() * 4;
         seat = new THREE.Vector3(Math.sin(theta) * rr, 0, Math.cos(theta) * rr);
       }
