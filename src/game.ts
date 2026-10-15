@@ -197,6 +197,7 @@ export class Game {
   private heartHud!: HTMLDivElement;
   private heartNum!: HTMLSpanElement;
   private guide: THREE.Group;
+  private guideEdge: HTMLDivElement;
   private shoes = false;
   private dustT = 0;
   /** tutorial: 0 take medicine, 1 cure, 2 care for a resident, 3 build, 4 done */
@@ -221,6 +222,17 @@ export class Game {
     cone.rotation.y = Math.PI / 4;
     this.guide.add(cone);
     d.scene.add(this.guide);
+    // the guide gets a screen-edge arrow too: at the start the cauldron is off screen
+    const gi = document.createElement('canvas');
+    gi.width = gi.height = 80;
+    const gg = gi.getContext('2d')!;
+    gg.fillStyle = '#ffc21a';
+    gg.beginPath();
+    gg.moveTo(18, 26);
+    gg.lineTo(62, 26);
+    gg.lineTo(40, 60);
+    gg.fill();
+    this.guideEdge = this.makeEdge(gi);
 
     // the starting camp: one cauldron to the west, a berry bush by the pen, two beds, and a basket
     // well away from the medicine sources for emptying your arms
@@ -1427,6 +1439,10 @@ export class Game {
       this.guide.position.set(target.x, target.y + Math.abs(Math.sin(this.t * 4)) * 0.25, target.z);
       this.guide.rotation.y += 0.03;
     }
+    // creatures that need the keeper already have their own edge arrows
+    const atCreature = target && [...this.patients.map((p) => p.c), ...this.residents.map((r) => r.c)].some((c) => Math.hypot(c.root.position.x - target!.x, c.root.position.z - target!.z) < 0.01);
+    if (target && !atCreature) this.placeEdge(target, target.y / 0.6, this.guideEdge);
+    else this.guideEdge.classList.remove('on');
   }
 
   /** pin an arrow to the screen edge pointing at something that needs the keeper and is out of view */
