@@ -45,7 +45,7 @@ function bot() {
     // purchases
     if (g.bought > B.buys.length) {
       while (B.buys.length < g.bought) B.buys.push({ i: B.buys.length, t: B.t, cures: B.cures, adoptions: B.adoptions, hearts: g.hearts, coins: g.coins });
-      if (g.bought === 20 || g.spots.length === 0) B.doneAt ??= B.t;
+      if (g.spots.length === 0) B.doneAt ??= B.t;
     }
     // once a second: how busy the camp is
     if (Math.floor(B.t) !== Math.floor(B.t - dt)) {

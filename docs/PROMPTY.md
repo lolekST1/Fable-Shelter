@@ -106,6 +106,41 @@ Do każdego dopisz akapit stylu z góry pliku.
 
 ---
 
+## Teren 4: Śnieżne wzgórze (na południowy zachód od obozu, za zaspą)
+W grze od 15.10.2026 na modelach zastępczych z zabarwieniem: yeti = chmurnik, renifer = jednorożec, bałwanek = grzybolak, pingwinek = sówka. Po zrobieniu modelu usuń `model`/`base` z wpisu w `SPECIES` i wygeneruj powieki.
+
+### Yeti-maluch (`yeti`)
+Choroba w grze: czka śnieżkami. Lekarstwo: gorące kakao.
+```
+cute baby yeti creature, very fluffy snow white fur with a light blue tint, pale blue face and belly, two tiny rounded horns, big flat feet, round chubby body, happy toothy smile, standing straight, arms at sides,
+```
+
+### Renifer (`renifer`)
+Choroba w grze: nos miga na czerwono jak lampka ostrzegawcza. Lekarstwo: gorące kakao.
+```
+cute baby reindeer creature, soft caramel brown fur, cream belly and muzzle, small velvet antlers, big round red nose, a tiny knitted red scarf, round chubby body, cheerful face, standing straight on two feet, arms at sides,
+```
+
+### Bałwanek (`balwanek`)
+Choroba w grze: topnieje, kapie z niego i się kurczy. Lekarstwo: zimna woda ze źródełka (niebieska).
+```
+cute little snowman creature made of two soft round snowballs, plush white fabric, small carrot nose, coal button eyes, a red knitted beanie with a pompom, twig arms, round chubby body, happy smile, standing straight,
+```
+
+### Pingwinek (`pingwinek`)
+Choroba w grze: ślizga się i kręci w kółko. Lekarstwo: gorące kakao.
+```
+cute baby penguin creature, soft fluffy dark blue grey down, white belly, small orange beak and orange feet, tiny flippers at its sides, a small yellow knitted scarf, round chubby body, happy face, standing straight,
+```
+Do każdego dopisz akapit stylu z góry pliku.
+
+### Rekwizyty Śnieżnego wzgórza
+- Ognisko z kakao (stacja): `a small campfire in a ring of round stones with a little iron pot of hot cocoa hanging from a wooden tripod, steam rising, chunky cute shapes,` + styl rekwizytów
+- Legowisko z koca: `a round cozy pet bed made of a red knitted wool blanket with a soft cream cushion and a white pompom, chunky cute shapes,` + styl rekwizytów
+- Duże ognisko: `a big cozy bonfire with stacked logs in a ring of snowy stones, bright warm flames, chunky cute shapes,` + styl rekwizytów
+
+---
+
 ## Osoby adoptujące i domek schroniska (zrobione 15.10.2026)
 Pliki: `D:\ComfyUI-Shared\output\FS\ludzie` i `...\rekwizyty\Domek-*`. Pixal3D z 40000 trójkątów. Osoby obrabiane jak stworki (tekstury 1024, oczy z `ymin`), domek jak rekwizyt.
 - Dziewczynka: `cute little girl character, two short pigtails, yellow raincoat, red rubber boots, big happy smile, standing straight, arms at sides,` + styl postaci

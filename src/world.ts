@@ -71,7 +71,9 @@ export interface Obstacles {
   fence: { radius: number; halfAngle: number; inner: number };
 }
 
-export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture): Obstacles {
+/** `bare`: circles [x, z, r] kept free of grass and flowers (the snowy hill has its own cover) */
+export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture, bare: [number, number, number][] = []): Obstacles {
+  const isBare = (x: number, z: number) => bare.some(([bx, bz, br]) => Math.hypot(x - bx, z - bz) < br);
   // meadow disc with vertex-coloured patches
   const geo = new THREE.CircleGeometry(30, 96, 0, Math.PI * 2);
   geo.rotateX(-Math.PI / 2);
@@ -124,7 +126,7 @@ export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture): Obsta
       const pp = new THREE.Vector3().setFromMatrixPosition(prev);
       x = pp.x + (r() - 0.5) * 0.3; z = pp.z + (r() - 0.5) * 0.3;
     }
-    dummy.position.set(x, 0.02, z);
+    dummy.position.set(x, isBare(x, z) ? -1 : 0.02, z);
     dummy.rotation.set(0, r() * 6.28, 0);
     dummy.scale.setScalar(0.6 + r() * 0.9);
     dummy.updateMatrix();
@@ -145,12 +147,12 @@ export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture): Obsta
     let x = 0, z = 0;
     do { x = (r() - 0.5) * 22; z = (r() - 0.5) * 22; } while (x * x + z * z < 6);
     const h = 0.8 + r() * 0.6;
-    dummy.position.set(x, 0, z);
+    dummy.position.set(x, isBare(x, z) ? -1 : 0, z);
     dummy.rotation.set(0, 0, 0);
     dummy.scale.set(1, h, 1);
     dummy.updateMatrix();
     stems.setMatrixAt(i, dummy.matrix);
-    dummy.position.set(x, 0.28 * h, z);
+    dummy.position.set(x, isBare(x, z) ? -1 : 0.28 * h, z);
     dummy.scale.setScalar(0.8 + r() * 0.6);
     dummy.updateMatrix();
     heads.setMatrixAt(i, dummy.matrix);

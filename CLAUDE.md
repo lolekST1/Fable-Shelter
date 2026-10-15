@@ -21,20 +21,20 @@ npm run build      # tsc --noEmit + vite build -> dist/
 ## Architektura (`src/`)
 - `main.ts`: renderer, kamera podążająca (kąt 40°), słońce idące za kamerą, wczytywanie modeli, joystick i tap. Tap w stworka robi podskok, tap w ziemię idzie do miejsca. W `moveKeeper` są kolizje z kołami przeszkód, z płotem i z `game.bound()`. Jest tu też przycisk wyciszenia i haki debug.
 - `game.ts`: cała rozgrywka, czyli klasa `Game`.
-  - `SPECIES`: gatunki, każdy z własną chorobą (`ailment`), lekarstwem (`cure`), monetami i umiejętnością (`skill: {boost}` przyspiesza stację, `{carry}` nosi lekarstwa albo jagody). Gatunki z `zone:'pond'` żyją przy stawie, a z `zone:'glade'` na wrzosowej polanie. `model` + `base` wskazują model zastępczy i jego zabarwienie, dopóki nie ma docelowego.
-  - `BEDS` / `POND_BEDS` / `GLADE_BEDS`: miejsca na legowiska. `freeBed(zone)` woli łóżko w strefie gatunku. Każdy otwarty teren poza obozem trzyma co najmniej jednego swojego pacjenta.
+  - `SPECIES`: gatunki, każdy z własną chorobą (`ailment`), lekarstwem (`cure`), monetami i umiejętnością (`skill: {boost}` przyspiesza stację, `{carry}` nosi lekarstwa albo jagody). Gatunki z `zone:'pond'` żyją przy stawie, z `zone:'glade'` na wrzosowej polanie, a z `zone:'snow'` na Śnieżnym wzgórzu. `model` + `base` wskazują model zastępczy i jego zabarwienie, dopóki nie ma docelowego.
+  - `BEDS` / `POND_BEDS` / `GLADE_BEDS` / `SNOW_BEDS`: miejsca na legowiska. `freeBed(zone)` woli łóżko w strefie gatunku. Każdy otwarty teren poza obozem trzyma co najmniej jednego swojego pacjenta.
   - `SPOTS`: ścieżka rozwoju. Każdy punkt ma cenę w monetach (opcjonalnie też w serduszkach) i efekt: nowe legowisko, stację, plecak, buty, drogowskaz, mostek z `openPond`, latarnię, furtkę w żywopłocie z `openGlade`, grzybową lampkę. Kupienie odblokowuje nowe gatunki i limit pacjentów.
   - Pomocnicy terenów (`workers`, `addWorker(zone)`): uczeń opiekuna kupowany jako punkt budowy, po jednym na teren (obóz 420 przed mostkiem, staw 780 przed furtką, polana 1400). Sam kładzie spać i karmi mieszkańców swojego terenu i nosi lekarstwa jego pacjentom. Monety z takiego terenu same lecą do opiekuna. Stany: idle, go, bring, tuck.
   - Adopcja (`adopt` → `callAdopter` → `updateAdopters` → `farewell`): przy 4 serduszkach mieszkaniec czeka przy legowisku (`awaiting`), a z drzwi domku schroniska (`HOUSE`, na zachodnim skraju obozu) wychodzi osoba z `ADOPTERS` (dziewczynka, chłopiec, babcia, dziadek). Podchodzi, przytulają się (`hug`, 1,5 s), spadają monety i serduszko adopcji, po czym oboje wracają do domku. Jeśli opiekun stoi w promieniu 3 m, dostaje premię `FAREWELL_BONUS`. Gracz nic nie musi robić.
   - Mieszkańcy mają stany: toBed, idle, eating, toSleep, sleeping, awaiting (czeka na adopcję), leaving, helpGo/helpWork/helpBring/helpBack. Pomagają od 1 serduszka, potem odpoczywają 10–16 s.
-  - `route()` prowadzi przez przednią i tylną bramę zagrody, przez mostek i przez przejście w żywopłocie (`GAP`). `bound()` nie wpuszcza do strumyka (z=-9), dopóki nie ma mostka, a za żywopłot (koło `GLADE_C`, r=5), dopóki nie ma furtki.
+  - `route()` prowadzi przez przednią i tylną bramę zagrody, przez mostek i przez przejścia w żywopłocie (`GAP`) i w zaspie (`SNOW_GAP`). `bound()` nie wpuszcza do strumyka (z=-9), dopóki nie ma mostka, za żywopłot (koło `GLADE_C`, r=5), dopóki nie ma furtki, a za zaspę (koło `SNOW_C`, r=5), dopóki nie ma łopaty. Oba tereny za skrajem łąki opisuje lista `RIMS`. Miejsca na wzgórzu liczy `onSnow(odCentrum, wBok)`.
   - Zapis: localStorage `fable-shelter-save-v3` z polem `ver` (teraz 2). Jeśli zmieniasz format zapisu, podbij wersję klucza. Wyjątek: wstawienie punktów do `SPOTS` obsługuje `migrateBought` (zapis bez `ver` przesuwa licznik zakupów za punkty pomocników). Testy, które wgrywają zapis bez `ver`, też przez to przechodzą.
   - Siatka bezpieczeństwa: co 1 s usuwa „zabłąkane” lekarstwa, czyli takie, które nie leżą na tacy, nie są w rękach opiekuna i nie lecą. Pod `?debug` ostrzega o tym w konsoli. Błąd zgłoszony przez użytkownika: fiolki same się przesuwają albo pojawiają daleko. Do tej pory nie odtworzony.
 - `props.ts`: proste meshe stacji i rekwizytów. Część z nich podmieniają modele 3D `prop_*.glb.txt` przez `dressUp` (lista w `PROP_MODEL` w `game.ts`: kociołek, źródełko, zioła, lilia, legowiska obozu i stawu, kosz). Ul ma model z drugiego podejścia (40000 trójkątów). Krzak jagód i legowisko z mchu: patrz Otwarte sprawy. Reszta pliku: (kociołek, źródełko, zioła, jagody, lilia, legowiska, mostek, latarnia, kosz, plecak, drogowskaz, scenografia stawu) i cząsteczki `Fx`.
 - `album.ts`: album adopcji (przycisk z książeczką pod wyciszeniem). Strona na teren (`ALBUM_PAGES` w `game.ts`), karta na gatunek: `?`, sylwetka (gatunek odblokowany) albo portret z liczbą adopcji. Portrety rysuje `portrait()` w `main.ts` w osobnym małym rendererze. Pełna strona raz daje monety, które same lecą do opiekuna. Zapis: pola `album` i `albumPaid` (stare zapisy zaczynają z pustym albumem). Nowy gatunek dopisz do odpowiedniej strony.
 - `icons.ts`: ikonki rysowane na canvasie: choroby, lekarstwa, punkty budowy, dymki, serduszka.
 - `creature.ts`: stworek z modelu GLB. Ma waddle przy chodzeniu, `twitch`, tint, malowane powieki (shader `uShut`, kształt z `lids.json`).
-- `world.ts`: teren, płot z dwiema bramami, krzaki, `Obstacles`.
+- `world.ts`: teren, płot z dwiema bramami, krzaki, `Obstacles`. `buildGround(…, bare)` nie sadzi trawy ani kwiatków w podanych kołach (śnieg wzgórza).
 - `sfx.ts`: dźwięki syntezowane WebAudio. Wyciszenie zapisuje się w `fable-shelter-muted`.
 - `joystick.ts`: pływający joystick i obsługa tapnięć.
 - `lids.json`: dane powiek z `tools/viewer/eyes.mjs`. Nie edytuj ręcznie.
@@ -48,6 +48,9 @@ npm run build      # tsc --noEmit + vite build -> dist/
 - Ulepszenia opiekuna widać na nim samym (plecak, buty), a nie jako skrzynki w świecie.
 - Rozbudowa świata: teren 2 to staw za strumykiem. Mostek kosztuje monety i serduszka z adopcji. Każdy kolejny teren przynosi nowe gatunki i nowe lekarstwo (przy stawie fioletowy nektar z lilii). Teren 3 to wrzosowa polana na wschód, za żywopłotem: furtka (850 monet, 10 serduszek), ul ze złotym miodem, legowiska z mchu, grzybowa lampka i gatunki leszy, wilkołaczek, skrzat, sówka (zrobione w nocy 15.10.2026, scalone przez użytkownika).
 - Ceny mają rosnąć tak, żeby kolejna rzecz wymagała kilku pacjentów, a nie dwóch.
+- Teren 4 to Śnieżne wzgórze na południowy zachód, za zaspą (zrobione 15.10.2026, wybór użytkownika): łopata (1600 monet, 90 serduszek), ognisko z kakao, legowiska z koca, duże ognisko (110 serduszek, 7 pacjentów) i pomocnik (2600). Gatunki: yeti (czka śnieżkami), renifer (miga nosem), bałwanek (topnieje, leczy go woda ze źródełka), pingwinek (kręci się w kółko). Na razie mają modele zastępcze z zabarwieniem, prompty są w `docs/PROMPTY.md`.
+- Progi serduszek od 15.10.2026: mostek 15, latarnia 30, furtka 50, lampka 70 (wcześniej 3/6/10/13, nic nie blokowały).
+- Jagody da się zebrać tylko wtedy, gdy któryś mieszkaniec jest głodny i opiekun nie niesie ich już dość. Powód: krzak stoi przy drodze do kociołka i zapychał ręce.
 - Starsze tereny mają się automatyzować przez pomocników, a gracz zajmuje się najnowszym terenem i kolejnymi progami. Powód: w środku gry było kilkanaście osób do obsłużenia naraz (opinia użytkownika z 15.10.2026).
 
 ## Haki debug (URL i konsola)
@@ -75,7 +78,7 @@ node viewer/eyes.mjs nessie                      # oczy + powieki -> src/lids.js
 Skrypty Playwright na Chromium z swiftshader. Robią zrzuty do `tools/out/`.
 ```
 npm run build && npx vite preview --port 4173     # w katalogu głównym
-cd tools && node tests/care.mjs                   # też: pond, prog, lids, helpers, vials, glade, workers, water, adoption, album
+cd tools && node tests/care.mjs                   # też: pond, prog, lids, helpers, vials, glade, snow, workers, water, adoption, album
 RUNS=2 CAREFUL=1 node tests/playthrough.mjs       # cała gra od zera, kilka minut na przejście; bez CAREFUL gracz idzie prosto przez krzaki
 ```
 W środowisku chmurowym Claude Chromium leży w `/opt/pw-browsers`, a Playwright jest przypięty do 1.56.0, żeby pasował. Lokalnie może być potrzebne `npx playwright install chromium`.
@@ -87,6 +90,7 @@ W środowisku chmurowym Claude Chromium leży w `/opt/pw-browsers`, a Playwright
 Automatyczny gracz (szybszy od człowieka) przechodzi całą grę w 49–58 minut gry. Pierwsze 10 zakupów zajmuje po 1,5–2 min (5–15 wyleczeń), ostatnie po 4–5 min (25–40 wyleczeń). W grze jest ok. 170 adopcji na 350–400 wyleczeń. Progi serduszek (3/6/10/13) nigdy nie blokują, bo gracz ma ich wtedy 35/45/65/85. Po ostatnim zakupie przybywa ok. 330 monet na minutę i nie ma ich na co wydać. Pożegnania zajmują graczowi ok. 1/3 czasu. Krzak jagód leży na drodze do kociołka i napełnia ręce jagodami, więc nieuważny gracz częściej chodzi do kosza (w jednym przebiegu 4. zakup przyszedł dopiero po 10,8 min zamiast ok. 5).
 
 ## Otwarte sprawy
+- Śnieżne wzgórze: gatunki i rekwizyty (ognisko z kakao, legowisko z koca, duże ognisko) potrzebują modeli 3D, prompty są w `docs/PROMPTY.md`.
 - Krzak jagód i legowisko z mchu nie mają modeli 3D. Liście i mech wychodziły w Pixal3D jak zgnieciona folia, także przy 40000 trójkątów (15.10.2026). Można spróbować w Hunyuan3D albo z innym obrazkiem.
 - Fiolki „chodzące same”: nie udało się odtworzyć. `tests/vials.mjs` sprawdza fiolki klatka po klatce (`__items()`) przez 100 rund w pełnym obozie i niczego nie znalazł. Podejrzenie: to fiolka niesiona na głowie przez pomagającego mieszkańca. Usunięto też martwy kod starego wynajętego krakena-pomocnika. Nadal potrzebny zrzut ekranu od użytkownika.
 - Gatunki stawu (zabiksiaze, nessie, wodnik, swietlik) mają modele z Pixal3D zrobione przez Claude'a (15.10.2026, tylko przód, bez Hunyuana). Użytkownik może je później poprawić w Hunyuan3D 3.0. Rekwizyty stawu są nadal prostymi kształtami.

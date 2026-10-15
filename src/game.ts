@@ -3,7 +3,7 @@ import type { Creature } from './creature';
 import type { Sfx } from './sfx';
 import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, drawAilment, drawBerry, drawCoin, drawHeart, drawMoon, drawSpotIcon, needCanvas } from './icons';
 import { Album } from './album';
-import { Fx, Station, backpackMesh, basketMesh, bedMesh, bridgeMesh, coinGeo, coinMat, dressUp, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh } from './props';
+import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, coinGeo, coinMat, dressUp, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery } from './props';
 
 /**
  * Fable Shelter loop:
@@ -38,10 +38,10 @@ const PROP_MODEL: Record<string, [string, number, number?]> = {
 /** how a resident helps around the camp once it feels at home (has at least one heart):
  *  boost a station (it brews twice as fast for a while) or carry things for the keeper */
 type Skill = { boost: Medicine } | { carry: 'cure' | 'berry' };
-type Zone = 'camp' | 'pond' | 'glade';
+type Zone = 'camp' | 'pond' | 'glade' | 'snow';
 interface Species {
   height: number; ailment: Ailment; cure: Medicine; tint: number; coins: number; skill: Skill;
-  /** where it lives: the camp meadow, the pond beyond the brook or the heather glade east of the camp */
+  /** where it lives: the camp meadow, the pond beyond the brook, the heather glade east of the camp or the snowy hill south-west */
   zone?: Zone;
   /** stand-in model (and colour) until its own model is made */
   model?: string; base?: number;
@@ -67,6 +67,11 @@ export const SPECIES: Record<string, Species> = {
   skrzat: { height: 0.95, ailment: 'shrink', cure: 'green', tint: 0xd8f0c0, coins: 12, skill: { boost: 'gold' }, zone: 'glade' },
   sowka: { height: 1.0, ailment: 'dizzy', cure: 'gold', tint: 0xe8d8ff, coins: 12, skill: { carry: 'cure' }, zone: 'glade' },
   bazyliszek: { height: 1.0, ailment: 'stone', cure: 'green', tint: 0xbfc4c8, coins: 8, skill: { carry: 'berry' } },
+  // snowy hill creatures (stand-in models, tinted, until their own are made)
+  yeti: { height: 1.2, ailment: 'snowball', cure: 'cocoa', tint: 0xc8dcff, coins: 13, skill: { boost: 'cocoa' }, zone: 'snow', model: 'chmurnik', base: 0xf4f8ff },
+  renifer: { height: 1.2, ailment: 'nose', cure: 'cocoa', tint: 0xffd0c0, coins: 13, skill: { carry: 'berry' }, zone: 'snow', model: 'jednorozec', base: 0xc8986a },
+  balwanek: { height: 1.1, ailment: 'melt', cure: 'blue', tint: 0xd8f0ff, coins: 14, skill: { boost: 'blue' }, zone: 'snow', model: 'grzybolak', base: 0xffffff },
+  pingwinek: { height: 0.95, ailment: 'slide', cure: 'cocoa', tint: 0xc0d0ff, coins: 14, skill: { carry: 'cure' }, zone: 'snow', model: 'sowka', base: 0x5a6680 },
 };
 
 /** the album's pages, one per area, in the order the species turn up; a full page pays its reward (in coins) once */
@@ -74,6 +79,7 @@ const ALBUM_PAGES: { zone: Zone; icon: SpotIcon; reward: number; species: string
   { zone: 'camp', icon: 'bed', reward: 150, species: ['chmurnik', 'smok', 'feniks', 'gryf', 'grzybolak', 'kraken', 'jednorozec', 'bazyliszek'] },
   { zone: 'pond', icon: 'lilybed', reward: 250, species: ['zabiksiaze', 'nessie', 'swietlik', 'wodnik'] },
   { zone: 'glade', icon: 'mossbed', reward: 350, species: ['leszy', 'wilkolaczek', 'skrzat', 'sowka'] },
+  { zone: 'snow', icon: 'snowbed', reward: 450, species: ['yeti', 'renifer', 'balwanek', 'pingwinek'] },
 ];
 
 const PICK_R = 1.4;
@@ -106,7 +112,26 @@ const HEDGE: [number, number][] = Array.from({ length: 9 }, (_, i) => {
   return [Math.cos(a) * 10.6, Math.sin(a) * 10.6];
 });
 const HEDGE_GAP = (i: number) => Math.abs(i - 4) <= 2;
-const ZONE_BEDS: Record<Zone, [number, number][]> = { camp: BEDS, pond: POND_BEDS, glade: GLADE_BEDS };
+/** the snowy hill south-west of the camp, the glade's twin: a circle overlapping the meadow edge, behind a snowdrift */
+const SNOW_A = 2.7;
+export const SNOW_C = new THREE.Vector3(Math.cos(SNOW_A) * 15, 0, Math.sin(SNOW_A) * 15);
+export const SNOW_R = 5;
+const SNOW_GAP = new THREE.Vector3(Math.cos(SNOW_A) * 10.45, 0, Math.sin(SNOW_A) * 10.45);
+/** on the hill, relative to its middle (x away from the camp, z sideways), turned to face the camp */
+const onSnow = (out: number, side: number): [number, number] => [
+  SNOW_C.x + Math.cos(SNOW_A) * out - Math.sin(SNOW_A) * side, SNOW_C.z + Math.sin(SNOW_A) * out + Math.cos(SNOW_A) * side,
+];
+const SNOW_BEDS: [number, number][] = [onSnow(1.4, -2.2), onSnow(2.6, 1.6), onSnow(-0.4, 3.4)];
+const SNOW_STATION = onSnow(-2.2, -2.6);
+const SNOW_FIRE = onSnow(3.4, -1.8);
+const DRIFT: [number, number][] = Array.from({ length: 9 }, (_, i) => {
+  const a = SNOW_A + (i - 4) * 0.0825;
+  return [Math.cos(a) * 10.6, Math.sin(a) * 10.6];
+});
+const ZONE_BEDS: Record<Zone, [number, number][]> = { camp: BEDS, pond: POND_BEDS, glade: GLADE_BEDS, snow: SNOW_BEDS };
+/** the open areas beyond the meadow edge (glade, snowy hill): middle, radius, the angle of the way in */
+const RIMS = [{ zone: 'glade' as const, c: GLADE_C, r: GLADE_R, a: GLADE_A, gap: GAP }, { zone: 'snow' as const, c: SNOW_C, r: SNOW_R, a: SNOW_A, gap: SNOW_GAP }];
+const angleTo = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 /** the shelter house at the west edge of the camp, its door facing the camp (south-east): adopters come out of it */
 const HOUSE = new THREE.Vector3(-9.2, 0, -1.4);
 const HOUSE_FACING = Math.PI / 4;
@@ -116,7 +141,7 @@ const ADOPTERS: [string, number][] = [['dziewczynka', 1.2], ['chlopiec', 1.2], [
 /** extra coins (each worth 2) when the keeper is there to say goodbye */
 const FAREWELL_BONUS = 8;
 /** where each area's hired helper waits between jobs */
-const WORKER_HOME: Record<Zone, THREE.Vector3> = { camp: new THREE.Vector3(3.4, 0, 5.4), pond: new THREE.Vector3(2.8, 0, -11.2), glade: new THREE.Vector3(13.0, 0, 3.6) };
+const WORKER_HOME: Record<Zone, THREE.Vector3> = { camp: new THREE.Vector3(3.4, 0, 5.4), pond: new THREE.Vector3(2.8, 0, -11.2), glade: new THREE.Vector3(13.0, 0, 3.6), snow: new THREE.Vector3(onSnow(-1.6, 2.2)[0], 0, onSnow(-1.6, 2.2)[1]) };
 
 interface Flight { obj: THREE.Object3D; from: THREE.Vector3; to: () => THREE.Vector3; t: number; dur: number; arc: number; done: () => void }
 
@@ -200,17 +225,23 @@ const SPOTS: SpotDef[] = [
   // each area gets its own helper before the next one opens, so the keeper can leave it running
   { icon: 'helper', price: 420, at: [WORKER_HOME.camp.x, WORKER_HOME.camp.z], apply: (g, i) => void g.addWorker('camp', i) },
   // the pond beyond the brook
-  { icon: 'bridge', price: 450, hearts: 3, at: [0, -7.4], apply: (g, i) => g.openPond(i) },
+  { icon: 'bridge', price: 450, hearts: 15, at: [0, -7.4], apply: (g, i) => g.openPond(i) },
   { icon: 'lilybed', price: 500, at: POND_BEDS[1], apply: (g, i) => { g.addBed(i, 'pond'); g.unlock('nessie'); } },
-  { icon: 'lantern', price: 600, hearts: 6, at: [-0.4, -18.4], apply: (g, i) => { g.addLantern(-0.4, -18.4, i); g.unlock('swietlik'); } },
+  { icon: 'lantern', price: 600, hearts: 30, at: [-0.4, -18.4], apply: (g, i) => { g.addLantern(-0.4, -18.4, i); g.unlock('swietlik'); } },
   { icon: 'lilybed', price: 700, at: POND_BEDS[2], apply: (g, i) => { g.addBed(i, 'pond'); g.unlock('wodnik'); } },
   { icon: 'helper', price: 780, at: [WORKER_HOME.pond.x, WORKER_HOME.pond.z], apply: (g, i) => void g.addWorker('pond', i) },
   // the heather glade through the hedge
-  { icon: 'gate', price: 850, hearts: 10, at: [Math.cos(GLADE_A) * 9.3, Math.sin(GLADE_A) * 9.3], apply: (g, i) => g.openGlade(i) },
+  { icon: 'gate', price: 850, hearts: 50, at: [Math.cos(GLADE_A) * 9.3, Math.sin(GLADE_A) * 9.3], apply: (g, i) => g.openGlade(i) },
   { icon: 'mossbed', price: 950, at: GLADE_BEDS[1], apply: (g, i) => { g.addBed(i, 'glade'); g.unlock('wilkolaczek'); } },
-  { icon: 'mushroom', price: 1100, hearts: 13, at: [18.6, -0.4], apply: (g, i) => { g.addMushroom(18.6, -0.4, i); g.unlock('skrzat'); } },
+  { icon: 'mushroom', price: 1100, hearts: 70, at: [18.6, -0.4], apply: (g, i) => { g.addMushroom(18.6, -0.4, i); g.unlock('skrzat'); } },
   { icon: 'mossbed', price: 1250, at: GLADE_BEDS[2], apply: (g, i) => { g.addBed(i, 'glade'); g.unlock('sowka'); } },
   { icon: 'helper', price: 1400, at: [WORKER_HOME.glade.x, WORKER_HOME.glade.z], apply: (g, i) => void g.addWorker('glade', i) },
+  // the snowy hill through the snowdrift
+  { icon: 'shovel', price: 1600, hearts: 90, at: [Math.cos(SNOW_A) * 9.3, Math.sin(SNOW_A) * 9.3], apply: (g, i) => g.openSnow(i) },
+  { icon: 'snowbed', price: 1800, at: SNOW_BEDS[1], apply: (g, i) => { g.addBed(i, 'snow'); g.unlock('renifer'); } },
+  { icon: 'bonfire', price: 2000, hearts: 110, at: SNOW_FIRE, apply: (g, i) => { g.addBonfire(SNOW_FIRE[0], SNOW_FIRE[1], i); g.unlock('balwanek'); } },
+  { icon: 'snowbed', price: 2300, at: SNOW_BEDS[2], apply: (g, i) => { g.addBed(i, 'snow'); g.unlock('pingwinek'); } },
+  { icon: 'helper', price: 2600, at: [WORKER_HOME.snow.x, WORKER_HOME.snow.z], apply: (g, i) => void g.addWorker('snow', i) },
 ];
 
 /** saves from before the helpers counted purchases without them: shift the count past the inserted helper spots */
@@ -236,7 +267,9 @@ export class Game {
   hearts = 0;
   pondOpen = false;
   gladeOpen = false;
+  snowOpen = false;
   private hedge: THREE.Group[] = [];
+  private drift: THREE.Group[] = [];
   carry: THREE.Group[] = [];
   capacity = 4;
   maxPatients = 1;
@@ -324,6 +357,9 @@ export class Game {
     d.scene.add(pondScenery(), gladeScenery(GLADE_C.x, GLADE_C.z, GLADE_R));
     this.hedge = hedgeBushes(HEDGE);
     d.scene.add(...this.hedge);
+    d.scene.add(snowScenery(SNOW_C.x, SNOW_C.z, SNOW_R, SNOW_A));
+    this.drift = driftMounds(DRIFT);
+    d.scene.add(...this.drift);
     this.basket = basketMesh();
     this.basket.position.set(2.4, 0, 6.3);
     d.scene.add(this.basket);
@@ -495,7 +531,7 @@ export class Game {
     for (const r of this.residents) if (r.state !== 'sleeping' && r.state !== 'toSleep') out.push([r.c.root.position.x, r.c.root.position.z, 0.32]);
     for (const o of this.props) out.push([o.position.x, o.position.z, 0.25]);
     out.push([this.basket.position.x, this.basket.position.z, 0.42], [HOUSE.x, HOUSE.z, 1.45]);
-    for (const h of this.hedge) if (h.parent) out.push([h.position.x, h.position.z, 0.55]);
+    for (const h of [...this.hedge, ...this.drift]) if (h.parent) out.push([h.position.x, h.position.z, 0.55]);
     return out;
   }
 
@@ -518,7 +554,7 @@ export class Game {
   }
 
   addStation(kind: Medicine, x: number, z: number, instant: boolean) {
-    const brew = { pink: 2.6, blue: 3.0, green: 3.4, berry: 2.2, purple: 3.2, gold: 3.4 }[kind];
+    const brew = { pink: 2.6, blue: 3.0, green: 3.4, berry: 2.2, purple: 3.2, gold: 3.4, cocoa: 3.4 }[kind];
     const s = new Station(kind, new THREE.Vector3(x, 0, z), brew, this.d.shadowTex);
     this.d.scene.add(s.group);
     this.stations.push(s);
@@ -528,7 +564,7 @@ export class Game {
 
   addBed(instant: boolean, zone: Zone = 'camp') {
     const [x, z] = ZONE_BEDS[zone][this.beds.filter((b) => b.zone === zone).length];
-    const mesh = { camp: bedMesh, pond: lilyBedMesh, glade: mossBedMesh }[zone]();
+    const mesh = { camp: bedMesh, pond: lilyBedMesh, glade: mossBedMesh, snow: snowBedMesh }[zone]();
     this.dress(mesh, zone);
     mesh.position.set(x, 0, z);
     // pulsing ring around a bed that needs plumping up
@@ -571,6 +607,33 @@ export class Game {
     if (!instant) this.popIn(arch);
   }
 
+  /** dig through the middle of the snowdrift and put up a ski-pole arch: the snowy hill opens with its cocoa fire and a first blanket bed */
+  openSnow(instant: boolean) {
+    this.drift.forEach((h, i) => {
+      if (!HEDGE_GAP(i)) return;
+      if (!instant) this.fx.emit('flake', h.position.clone().setY(0.6), 14, { speed: 1.6, up: 1.4, g: 2, life: 0.9 });
+      h.parent?.remove(h);
+    });
+    const arch = snowGateMesh();
+    arch.position.copy(SNOW_GAP);
+    arch.rotation.y = -SNOW_A;
+    this.d.scene.add(arch);
+    this.snowOpen = true;
+    this.addStation('cocoa', SNOW_STATION[0], SNOW_STATION[1], instant);
+    this.addBed(instant, 'snow');
+    this.unlock('yeti');
+    if (!instant) this.popIn(arch);
+  }
+
+  addBonfire(x: number, z: number, instant: boolean) {
+    const g = bonfireMesh();
+    g.position.set(x, 0, z);
+    this.d.scene.add(g);
+    this.props.push(g);
+    this.maxPatients = 7;
+    if (!instant) this.popIn(g);
+  }
+
   addMushroom(x: number, z: number, instant: boolean) {
     const g = mushroomLampMesh();
     g.position.set(x, 0, z);
@@ -600,13 +663,16 @@ export class Game {
     else if (!onBridge && k.z < -8.2 && k.z > -9.8) k.z = north(prev.z) ? -9.8 : -8.2;
     // meadow edge, and the pond circle once it is open
     if (k.z > -9) {
-      // the meadow, plus the glade circle once the gate is built; outside both, back onto the nearer edge
+      // the meadow, plus the glade and the snowy hill once their ways in are open; outside all, back onto the nearest edge
       const r = Math.hypot(k.x, k.z);
-      const dg = Math.hypot(k.x - GLADE_C.x, k.z - GLADE_C.z);
-      // before the gate the meadow ends in front of the hedge (a hard edge, so big steps can't slip through the bushes)
-      const edge = !this.gladeOpen && Math.abs(Math.atan2(k.z, k.x) - GLADE_A) < 0.42 ? 9.9 : 11;
-      if (r > edge && !(this.gladeOpen && dg <= GLADE_R)) {
-        if (this.gladeOpen && dg - GLADE_R < r - edge) { k.x = GLADE_C.x + (k.x - GLADE_C.x) * (GLADE_R / dg); k.z = GLADE_C.z + (k.z - GLADE_C.z) * (GLADE_R / dg); }
+      const open = RIMS.filter((m) => (m.zone === 'glade' ? this.gladeOpen : this.snowOpen));
+      // before the way in, the meadow ends in front of the hedge or drift (a hard edge, so big steps can't slip through)
+      const shut = RIMS.some((m) => !open.includes(m) && angleTo(Math.atan2(k.z, k.x), m.a) < 0.42);
+      const edge = shut ? 9.9 : 11;
+      const dist = (m: (typeof RIMS)[number]) => Math.hypot(k.x - m.c.x, k.z - m.c.z);
+      if (r > edge && !open.some((m) => dist(m) <= m.r)) {
+        const m = open.sort((a, b) => dist(a) - a.r - (dist(b) - b.r))[0];
+        if (m && dist(m) - m.r < r - edge) { const d = dist(m); k.x = m.c.x + (k.x - m.c.x) * (m.r / d); k.z = m.c.z + (k.z - m.c.z) * (m.r / d); }
         else { k.x *= edge / r; k.z *= edge / r; }
       }
     } else {
@@ -792,7 +858,7 @@ export class Game {
     // usually someone the keeper already carries the cure for, so a full pile is rarely useless;
     // otherwise favour the newest species so a fresh station gets used
     // every open area beyond the camp (pond, glade) keeps one patient of its own
-    const open: Zone[] = ['camp', ...(this.pondOpen ? ['pond' as const] : []), ...(this.gladeOpen ? ['glade' as const] : [])];
+    const open: Zone[] = ['camp', ...(this.pondOpen ? ['pond' as const] : []), ...(this.gladeOpen ? ['glade' as const] : []), ...(this.snowOpen ? ['snow' as const] : [])];
     const zoneOf = (n: string) => SPECIES[n].zone ?? 'camp';
     const lonely = open.find((z) => z !== 'camp' && !this.patients.some((p) => (p.sp.zone ?? 'camp') === z && p.state !== 'cured' && p.state !== 'leaving'));
     const pool = this.species.filter((n) => (lonely ? zoneOf(n) === lonely : open.includes(zoneOf(n))));
@@ -814,9 +880,17 @@ export class Game {
         theta = (Math.random() - 0.5) * 2.4;
         const rr = 1.6 + Math.random() * 2.8;
         seat = new THREE.Vector3(GLADE_C.x + Math.cos(theta) * rr, 0, GLADE_C.z + Math.sin(theta) * rr);
+      } else if (zone === 'snow') {
+        // in the snow, coming down from the pines on the far side
+        theta = SNOW_A + (Math.random() - 0.5) * 2.4;
+        const rr = 1.6 + Math.random() * 2.8;
+        seat = new THREE.Vector3(SNOW_C.x + Math.cos(theta) * rr, 0, SNOW_C.z + Math.sin(theta) * rr);
       } else {
         theta = (Math.random() - 0.5) * 3.6;
         if (theta > 1.15) theta = -theta; // not from the east: the glade and its hedge are there
+        // nor from the south-west, where the snowy hill and its drift are
+        const snowT = Math.atan2(SNOW_C.x, SNOW_C.z);
+        if (Math.abs(theta - snowT) < 0.45) theta = theta > snowT ? snowT + 0.45 : snowT - 0.45;
         const rr = 5 + Math.random() * 4;
         seat = new THREE.Vector3(Math.sin(theta) * rr, 0, Math.cos(theta) * rr);
       }
@@ -833,6 +907,7 @@ export class Game {
     }
     const exit = zone === 'pond' ? new THREE.Vector3(POND_C.x + Math.cos(theta) * 12, 0, POND_C.z - 6 + Math.sin(theta) * 4)
       : zone === 'glade' ? new THREE.Vector3(GLADE_C.x + Math.cos(theta) * 9, 0, GLADE_C.z + Math.sin(theta) * 9)
+      : zone === 'snow' ? new THREE.Vector3(SNOW_C.x + Math.cos(theta) * 9, 0, SNOW_C.z + Math.sin(theta) * 9)
         : new THREE.Vector3(Math.sin(theta) * 13, 0, Math.cos(theta) * 13);
     const c = await this.d.spawnCreature(sp.model ?? name, sp.height);
     c.root.position.copy(exit);
@@ -974,6 +1049,46 @@ export class Game {
         }
         if (p.fxT <= 0) { p.fxT = 2.4 + Math.random(); c.twitch(0.7); if (loud) this.d.sfx.hiccup(); }
         break;
+      case 'snowball':
+        // hiccups snowballs
+        if (p.fxT <= 0) {
+          p.fxT = 2.2 + Math.random();
+          c.twitch(1.1);
+          this.fx.emit('flake', head.clone().addScaledVector(toCam, 0.3), 16, { speed: 1.6, dir: toCam, spread: 0.5, up: 1.6, g: 3, life: 1, size: 2.2 });
+          if (loud) this.d.sfx.hiccup();
+        }
+        break;
+      case 'nose':
+        // its nose blinks red like a warning lamp
+        c.setTint(Math.sin(this.t * 9) > 0.3 ? 0xff9a9a : p.sp.tint);
+        if (p.fxT <= 0) {
+          p.fxT = 2.4 + Math.random();
+          c.twitch(0.7);
+          this.fx.emit('spark', head.clone().addScaledVector(toCam, 0.35).setY(h * 0.8), 8, { speed: 0.8, dir: toCam, spread: 0.6, up: 0.5, g: 1, life: 0.6 });
+          if (loud) this.d.sfx.squeak();
+        }
+        break;
+      case 'melt':
+        // melting: drops all round and it slowly sags
+        if (Math.random() < dt * 7) {
+          const a = Math.random() * Math.PI * 2;
+          this.fx.emit('bubble', c.root.position.clone().add(new THREE.Vector3(Math.cos(a) * 0.4, h * (0.3 + Math.random() * 0.5), Math.sin(a) * 0.4)), 1, { speed: 0.05, g: 5, life: 0.5, size: 0.45 });
+        }
+        c.root.scale.set(1, 0.88 + Math.sin(this.t * 1.5) * 0.06, 1);
+        if (p.fxT <= 0) { p.fxT = 3 + Math.random(); c.twitch(0.4); if (loud) this.d.sfx.shiver(); }
+        break;
+      case 'slide':
+        // slips on the ice and spins round and round
+        if (p.fxT <= 0) {
+          p.fxT = 3 + Math.random();
+          if (loud) this.d.sfx.squeak();
+        }
+        if (p.fxT > 2.2) {
+          const a = this.t * 14;
+          c.lookAt(c.root.position.x + Math.cos(a), c.root.position.z + Math.sin(a));
+          if (Math.random() < dt * 10) this.fx.emit('flake', c.root.position.clone().setY(0.1), 1, { speed: 0.8, up: 0.4, g: 2, life: 0.5 });
+        }
+        break;
       case 'stone':
         // slowly turning to stone: stiff, grey, crumbling pebbles
         if (Math.random() < dt * 1.2) this.fx.emit('pebble', c.root.position.clone().setY(h * (0.3 + Math.random() * 0.5)), 1, { speed: 0.5, up: 0.3, g: 6, life: 1.2 });
@@ -1051,9 +1166,10 @@ export class Game {
     this.residents.push(r);
   }
 
-  private zone(v: THREE.Vector3): 'pen' | 'camp' | 'pond' | 'glade' {
+  private zone(v: THREE.Vector3): 'pen' | 'camp' | 'pond' | 'glade' | 'snow' {
     if (Math.hypot(v.x, v.z) < 3.6) return 'pen';
     if (v.x > 10 && Math.hypot(v.x, v.z) > 10.6) return 'glade';
+    if (Math.hypot(v.x - SNOW_C.x, v.z - SNOW_C.z) < SNOW_R + 1.5 && Math.hypot(v.x, v.z) > 10.6) return 'snow';
     return v.z < -9 ? 'pond' : 'camp';
   }
 
@@ -1065,9 +1181,11 @@ export class Game {
     const V = (x: number, z: number) => new THREE.Vector3(x, 0, z);
     const FO = V(0, 4.3), FI = V(0, 2.8), BI = V(0, -2.8), BO = V(0, -4.4), BS = V(0, -7.9), BN = V(0, -10.1);
     const zf = this.zone(from), zt = this.zone(to);
-    // the glade connects only through the gap in the hedge
-    if (zf === 'glade' && zt !== 'glade') return [GAP.clone(), ...this.route(GAP, to)];
-    if (zt === 'glade' && zf !== 'glade') return [...this.route(from, GAP), to.clone()];
+    // the glade and the snowy hill connect only through their gaps in the hedge and the drift
+    for (const m of RIMS) {
+      if (zf === m.zone && zt !== m.zone) return [m.gap.clone(), ...this.route(m.gap, to)];
+      if (zt === m.zone && zf !== m.zone) return [...this.route(from, m.gap), to.clone()];
+    }
     const enterPen = (p: THREE.Vector3) => (p.z < 0 ? [BO, BI] : [FO, FI]);
     const leavePen = (p: THREE.Vector3) => (p.z < 0 ? [BI, BO] : [FI, FO]);
     let via: THREE.Vector3[] = [];
@@ -1457,8 +1575,12 @@ export class Game {
     // pick up from any station in reach, one at a time
     this.pickT -= dt;
     if (this.pickT <= 0 && this.carry.length < this.capacity) {
+      // berries only while someone is hungry and the arms don't hold enough yet: the bush sits by the path to the cauldron
+      const hungry = this.residents.filter((r) => r.need === 'food' && !r.fedIncoming).length;
+      const berries = this.carry.filter((v) => v.userData.kind === 'berry').length;
       for (const s of this.stations) {
         if (!s.tray.length || s.pos.distanceTo(k) > PICK_R) continue;
+        if (s.kind === 'berry' && berries >= hungry) continue;
         const v = s.tray.pop()!;
         v.userData.landed = false;
         this.carry.push(v);
@@ -1482,7 +1604,7 @@ export class Game {
     // patients
     this.spawnT -= dt;
     const active = this.patients.filter((p) => p.state !== 'cured' && p.state !== 'leaving').length;
-    if (!this.spawning && active < this.maxPatients + (this.pondOpen ? 1 : 0) + (this.gladeOpen ? 1 : 0) && this.spawnT <= 0) {
+    if (!this.spawning && active < this.maxPatients + (this.pondOpen ? 1 : 0) + (this.gladeOpen ? 1 : 0) + (this.snowOpen ? 1 : 0) && this.spawnT <= 0) {
       this.spawnT = 3.5;
       void this.spawnPatient();
     }

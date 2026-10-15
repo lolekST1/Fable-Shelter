@@ -21,6 +21,12 @@ const mats = {
   cloth: new THREE.MeshStandardMaterial({ color: 0xf2e2c4, roughness: 1 }),
   straw: new THREE.MeshStandardMaterial({ color: 0xe8c36a, roughness: 0.9 }),
   moss: new THREE.MeshStandardMaterial({ color: 0x6aa84f, roughness: 1 }),
+  cocoa: new THREE.MeshStandardMaterial({ color: 0x8a4f2a, emissive: 0x3a1a08, emissiveIntensity: 0.3, roughness: 0.35 }),
+  mug: new THREE.MeshStandardMaterial({ color: 0xf2ead8, roughness: 0.5 }),
+  snow: new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xc8dcf0, emissiveIntensity: 0.25, roughness: 0.95 }),
+  flame: new THREE.MeshStandardMaterial({ color: 0xff8a2a, emissive: 0xff5a00, emissiveIntensity: 1, roughness: 0.5 }),
+  flameCore: new THREE.MeshStandardMaterial({ color: 0xffe066, emissive: 0xffc000, emissiveIntensity: 1, roughness: 0.5 }),
+  knit: new THREE.MeshStandardMaterial({ color: 0xe8435a, roughness: 1 }),
 };
 
 const leafGeo = (() => {
@@ -68,6 +74,22 @@ export function medicineMesh(kind: Medicine): THREE.Group {
     tie.rotation.x = Math.PI / 2;
     tie.position.y = 0.13;
     g.add(fill, body, lid, tie);
+  } else if (kind === 'cocoa') {
+    // hot cocoa in a mug with a marshmallow
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.062, 0.13, 16), mats.mug);
+    body.position.y = 0.065;
+    const fill = new THREE.Mesh(new THREE.CircleGeometry(0.062, 16), mats.cocoa);
+    fill.rotation.x = -Math.PI / 2;
+    fill.position.y = 0.12;
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.071, 0.068, 0.025, 16), mats.knit);
+    band.position.y = 0.06;
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.012, 6, 12, Math.PI), mats.mug);
+    handle.rotation.z = -Math.PI / 2;
+    handle.position.set(0.07, 0.07, 0);
+    const mallow = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.03, 0.035), mats.cloth);
+    mallow.position.set(-0.015, 0.128, 0.01);
+    mallow.rotation.y = 0.5;
+    g.add(body, fill, band, handle, mallow);
   } else if (kind === 'berry') {
     // a little cluster of red berries with a leaf
     const bm = new THREE.MeshStandardMaterial({ color: 0xe8435a, emissive: 0x7a1020, emissiveIntensity: 0.25, roughness: 0.35 });
@@ -147,6 +169,7 @@ export class Station {
     else if (kind === 'green') this.buildHerbs();
     else if (kind === 'purple') this.buildLily();
     else if (kind === 'gold') this.buildHive();
+    else if (kind === 'cocoa') this.buildCocoaFire();
     else this.buildBerryBush();
     this.body.add(...this.group.children);
     this.group.add(this.body);
@@ -320,6 +343,48 @@ export class Station {
       });
     }
     this.anim.push((t) => { skep.scale.set(1 + Math.sin(t * 2) * 0.01, 1 - Math.sin(t * 2) * 0.01, 1); });
+  }
+
+  private buildCocoaFire() {
+    // a little campfire in a ring of stones with a pot of cocoa hanging over it on a tripod
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.11), mats.stone);
+      st.position.set(Math.cos(a) * 0.42, 0.07, Math.sin(a) * 0.42);
+      st.castShadow = true;
+      this.group.add(st);
+    }
+    for (let i = 0; i < 3; i++) {
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.6, 8), mats.darkWood);
+      log.rotation.set(Math.PI / 2 - 0.25, (i / 3) * Math.PI, 0);
+      log.position.y = 0.1;
+      this.group.add(log);
+    }
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.38, 10), mats.flame);
+    flame.position.y = 0.26;
+    const core = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.22, 8), mats.flameCore);
+    core.position.y = 0.2;
+    this.group.add(flame, core);
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 + 0.5;
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 1.25, 6), mats.darkWood);
+      leg.position.set(Math.cos(a) * 0.32, 0.58, Math.sin(a) * 0.32);
+      leg.lookAt(0, 1.3, 0);
+      leg.rotateX(Math.PI / 2);
+      this.group.add(leg);
+    }
+    const pot = new THREE.Mesh(new THREE.SphereGeometry(0.24, 18, 12, 0, Math.PI * 2, Math.PI * 0.35, Math.PI * 0.65), mats.iron);
+    pot.position.y = 0.72;
+    pot.castShadow = true;
+    const surface = new THREE.Mesh(new THREE.CircleGeometry(0.21, 18), mats.cocoa);
+    surface.rotation.x = -Math.PI / 2;
+    surface.position.y = 0.83;
+    this.group.add(pot, surface);
+    this.bubbles(0.86, 0xffffff, 0xd8c8b8, 0.2);
+    this.anim.push((t) => {
+      flame.scale.set(1 + Math.sin(t * 13) * 0.08, 1 + Math.sin(t * 9) * 0.15, 1 + Math.cos(t * 11) * 0.08);
+      core.scale.y = 1 + Math.sin(t * 15) * 0.2;
+    });
   }
 
   private buildBerryBush() {
@@ -534,6 +599,131 @@ export function mossBedMesh(): THREE.Group {
     s.position.set(Math.cos(a) * 0.46, 0.2, Math.sin(a) * 0.36);
     g.add(s);
   }
+  return g;
+}
+
+/** a knitted blanket nest for the snowy hill residents */
+export function snowBedMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.14, 12, 28), mats.knit);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.11;
+  ring.scale.set(1, 0.85, 0.75);
+  ring.castShadow = true;
+  // a white pompom on the rim, like on a winter hat
+  const pom = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }));
+  pom.position.set(0.36, 0.24, 0.2);
+  g.add(pom);
+  const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.42, 0.1, 26), new THREE.MeshStandardMaterial({ color: 0xf2d39b, roughness: 1 }));
+  pad.position.y = 0.06;
+  const pillow = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }));
+  pillow.scale.set(1.3, 0.45, 0.8);
+  pillow.position.set(0, 0.14, -0.2);
+  g.add(ring, pad, pillow);
+  return g;
+}
+
+/** a big bonfire: more patients find their way up the snowy hill */
+export function bonfireMesh(): THREE.Group {
+  const g = new THREE.Group();
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.14), mats.stone);
+    st.position.set(Math.cos(a) * 0.6, 0.09, Math.sin(a) * 0.6);
+    g.add(st);
+  }
+  for (let i = 0; i < 5; i++) {
+    const log = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.95, 8), mats.darkWood);
+    const a = (i / 5) * Math.PI * 2;
+    log.position.set(Math.cos(a) * 0.18, 0.4, Math.sin(a) * 0.18);
+    log.rotation.set(Math.sin(a) * 0.45, 0, -Math.cos(a) * 0.45);
+    log.castShadow = true;
+    g.add(log);
+  }
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.8, 12), mats.flame);
+  flame.position.y = 0.5;
+  const core = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.5, 10), mats.flameCore);
+  core.position.y = 0.38;
+  g.add(flame, core);
+  g.userData.flame = flame;
+  return g;
+}
+
+/** a ski-pole arch with a snow cap: the way through the snowdrift, spanning along z */
+export function snowGateMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const red = new THREE.MeshStandardMaterial({ color: 0xe8435a, roughness: 0.6 });
+  for (const z of [-0.9, 0.9]) {
+    for (let k = 0; k < 5; k++) {
+      const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.3, 8), k % 2 ? mats.snow : red);
+      seg.position.set(0, 0.15 + k * 0.3, z);
+      seg.castShadow = true;
+      g.add(seg);
+    }
+  }
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 2.0), mats.wood);
+  bar.position.y = 1.55;
+  g.add(bar);
+  for (let i = 0; i < 7; i++) {
+    const f = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), mats.snow);
+    f.position.set(0, 1.66, -0.9 + i * 0.3);
+    f.scale.set(1, 0.6, 1);
+    g.add(f);
+  }
+  return g;
+}
+
+/** a snowdrift of round mounds; returns each mound so the middle ones can be dug away */
+export function driftMounds(points: [number, number][]): THREE.Group[] {
+  return points.map(([x, z], i) => {
+    const b = new THREE.Group();
+    for (let k = 0; k < 3; k++) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 10), mats.snow);
+      m.position.set(((k * 7 + i) % 3 - 1) * 0.25, 0.25 + k * 0.12, ((k + i) % 2 - 0.5) * 0.3);
+      m.scale.set(1.15, 0.75, 1);
+      m.castShadow = true;
+      b.add(m);
+    }
+    b.position.set(x, 0, z);
+    return b;
+  });
+}
+
+/** the snowy hill south-west of the camp: a snow cover, snowy pines round the back of its rim, a few snowmen-mounds */
+export function snowScenery(cx: number, cz: number, r: number, away: number): THREE.Group {
+  const g = new THREE.Group();
+  const cover = new THREE.Mesh(new THREE.CircleGeometry(r + 0.6, 40), new THREE.MeshLambertMaterial({ color: 0xf4f8ff }));
+  cover.rotation.x = -Math.PI / 2;
+  cover.position.set(cx, 0.005, cz);
+  g.add(cover);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), scl = new THREE.Vector3(), col = new THREE.Color();
+  // little lumps of snow scattered over the cover
+  const N = 40;
+  const lumps = new THREE.InstancedMesh(new THREE.SphereGeometry(0.2, 12, 8), new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0xdde8f4, emissiveIntensity: 0.5 }), N);
+  for (let i = 0; i < N; i++) {
+    const a = i * 2.399, rr = Math.sqrt((i + 0.5) / N) * r;
+    lumps.setMatrixAt(i, m4.compose(pos.set(cx + Math.cos(a) * rr, 0.02, cz + Math.sin(a) * rr), q.identity(), scl.set(1 + (i % 3) * 0.5, 0.6, 1 + (i % 2) * 0.5)));
+    lumps.setColorAt(i, col.set(i % 4 ? 0xffffff : 0xe2eefc));
+  }
+  g.add(lumps);
+  // snowy pines on the far half of the rim, away from the way in
+  const T = 11;
+  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.14, 0.6, 8), new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.9 }), T);
+  const tiers = new THREE.InstancedMesh(new THREE.ConeGeometry(0.8, 0.9, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }), T * 3);
+  tiers.castShadow = true;
+  for (let i = 0; i < T; i++) {
+    const a = away - 1.9 + i * 0.38;
+    const tx = cx + Math.cos(a) * (r + 1.4), tz = cz + Math.sin(a) * (r + 1.4);
+    const s = 0.9 + (i % 3) * 0.15;
+    trunks.setMatrixAt(i, m4.compose(pos.set(tx, 0.3 * s, tz), q.identity(), scl.setScalar(s)));
+    for (let k = 0; k < 3; k++) {
+      const ts = s * (1 - k * 0.25);
+      tiers.setMatrixAt(i * 3 + k, m4.compose(pos.set(tx, (0.9 + k * 0.5) * s, tz), q.identity(), scl.setScalar(ts)));
+      // dark green tiers with the top one snow-white
+      tiers.setColorAt(i * 3 + k, col.set(k === 2 ? 0xf4f8ff : [0x3f7a4a, 0x4a8a55][(i + k) % 2]));
+    }
+  }
+  g.add(trunks, tiers);
   return g;
 }
 
