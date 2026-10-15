@@ -245,10 +245,10 @@ const SPOTS: SpotDef[] = [
   { icon: 'snowbed', price: 2300, at: SNOW_BEDS[2], apply: (g, i) => { g.addBed(i, 'snow'); g.unlock('pingwinek'); } },
   { icon: 'helper', price: 2600, at: [WORKER_HOME.snow.x, WORKER_HOME.snow.z], apply: (g, i) => void g.addWorker('snow', i) },
   // after the last area: decorations for the camp, each one makes every cure pay DECOR_BONUS more
-  { icon: 'swing', price: 2900, at: [7.0, 6.2], apply: (g, i) => g.addDecor('swing', 7.0, 6.2, i) },
-  { icon: 'fountain', price: 3300, at: [3.6, 9.2], apply: (g, i) => g.addDecor('fountain', 3.6, 9.2, i) },
-  { icon: 'carousel', price: 3800, at: [-7.4, -5.2], apply: (g, i) => g.addDecor('carousel', -7.4, -5.2, i) },
-  { icon: 'statue', price: 4400, hearts: 130, at: [-2.2, 9.6], apply: (g, i) => g.addDecor('statue', -2.2, 9.6, i) },
+  { icon: 'swing', price: 1800, at: [7.0, 6.2], apply: (g, i) => g.addDecor('swing', 7.0, 6.2, i) },
+  { icon: 'fountain', price: 2100, at: [3.6, 9.2], apply: (g, i) => g.addDecor('fountain', 3.6, 9.2, i) },
+  { icon: 'carousel', price: 2400, at: [-7.4, -5.2], apply: (g, i) => g.addDecor('carousel', -7.4, -5.2, i) },
+  { icon: 'statue', price: 2700, hearts: 130, at: [-2.2, 9.6], apply: (g, i) => g.addDecor('statue', -2.2, 9.6, i) },
 ];
 
 const DECOR_BONUS = 2;

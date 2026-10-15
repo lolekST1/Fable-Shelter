@@ -19,7 +19,7 @@ const check = (ok, what) => { console.log(ok ? 'OK  ' : 'FAIL', what); if (!ok) 
 // 1. everything up to the snow helper bought: the swing is the next spot
 await run({ ver: 2, coins: 0, bought: 25, hearts: 120 }, async (p) => {
   const sp = await p.evaluate(() => window.__spots());
-  check(sp.total === 29 && sp.spots[0]?.[0] === 25 && sp.spots[0][3] === 2900, `swing spot next (${JSON.stringify(sp)})`);
+  check(sp.total === 29 && sp.spots[0]?.[0] === 25 && sp.spots[0][3] === 1800, `swing spot next (${JSON.stringify(sp)})`);
   check(await p.evaluate(() => window.__G().cheer) === 0, 'no decorations yet');
   await walk(p, 6.2, 7.6, 6000);
   await p.screenshot({ path: 'out/decor0.png', timeout: 150000 });
