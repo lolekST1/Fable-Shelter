@@ -93,6 +93,33 @@ async function loadModel(name: string) {
 async function spawnCreature(name: string, height: number) {
   return new Creature(await loadModel(name), null, null, null, height, shadowTex, lidData[name] ?? []);
 }
+/** album portraits: the model drawn once in a small offscreen renderer of its own, three-quarter view */
+let snap: { r: THREE.WebGLRenderer; scene: THREE.Scene; cam: THREE.PerspectiveCamera } | null = null;
+async function portrait(model: string, tint: number | null) {
+  const c = await spawnCreature(model, 1);
+  if (tint !== null) c.setTint(tint);
+  if (!snap) {
+    const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    r.setSize(192, 192, false);
+    r.outputColorSpace = THREE.SRGBColorSpace;
+    r.toneMapping = THREE.NeutralToneMapping;
+    const s = new THREE.Scene();
+    s.add(new THREE.HemisphereLight(0xffffff, 0xd8c8a8, 1.6));
+    const key = new THREE.DirectionalLight(0xfff1dc, 2.0);
+    key.position.set(2, 3, 4);
+    s.add(key);
+    const cam = new THREE.PerspectiveCamera(26, 1, 0.1, 20);
+    cam.position.set(0.9, 1.05, 2.6);
+    cam.lookAt(0, 0.5, 0);
+    snap = { r, scene: s, cam };
+  }
+  c.root.rotation.y = 0.35;
+  c.update(0);
+  snap.scene.add(c.root);
+  snap.r.render(snap.scene, snap.cam);
+  snap.scene.remove(c.root);
+  return snap.r.domElement.toDataURL('image/png');
+}
 let game: Game | null = null;
 
 const creatures: Creature[] = [];
@@ -120,7 +147,7 @@ Promise.all(
   rain.group.visible = false;
   if (keeper)
     game = new Game({
-      scene, camera, keeper, sfx, shadowTex, spawnCreature, loadProp: async (name) => (await loadModel(name)).scene,
+      scene, camera, keeper, sfx, shadowTex, spawnCreature, portrait, loadProp: async (name) => (await loadModel(name)).scene,
     });
   if (game) game.onFirstPickup = () => hint.classList.add('hidden');
   if (game?.restored) hint.classList.add('hidden');
@@ -249,16 +276,27 @@ window.addEventListener('resize', resize);
 resize();
 
 // ?dtmax= lets slow test browsers run game time at a normal pace
-const DT_MAX = +(new URLSearchParams(location.search).get('dtmax') ?? 0.05);
+const params = new URLSearchParams(location.search);
+const DT_MAX = +(params.get('dtmax') ?? 0.05);
+// balance tests: ?speed=N runs N fixed game steps per frame, ?norender draws only every 30th frame,
+// and window.__tick (if a test sets it) is called before each step, e.g. to steer the keeper
+const STEPS = Math.max(1, Math.floor(+(params.get('speed') ?? 1)));
+const NORENDER = params.has('norender');
+(window as unknown as { __G: () => Game | null }).__G = () => game;
+let frame = 0;
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
-  const dt = Math.min(clock.getDelta(), DT_MAX);
-  clouds.rotation.y += dt * 0.006;
-  for (const c of creatures) c.update(dt);
-  rain.update(dt, 1.1);
+  const real = Math.min(clock.getDelta(), DT_MAX);
+  const dt = STEPS > 1 ? 1 / 30 : real;
+  for (let s = 0; s < STEPS; s++) {
+    (window as unknown as { __tick?: (dt: number) => void }).__tick?.(dt);
+    clouds.rotation.y += dt * 0.006;
+    for (const c of creatures) c.update(dt);
+    rain.update(dt, 1.1);
+    moveKeeper(dt);
+    game?.update(dt);
+  }
   void sheep;
-  moveKeeper(dt);
-  game?.update(dt);
   if (keeper) {
     const k = keeper.root.position;
     const f = Math.min(1, dt * 4);
@@ -268,5 +306,5 @@ renderer.setAnimationLoop(() => {
     sun.position.set(camTarget.x + 3.5, 7, camTarget.z + 4);
     sun.target.position.set(camTarget.x, 0, camTarget.z);
   }
-  renderer.render(scene, camera);
+  if (!NORENDER || frame++ % 30 === 0) renderer.render(scene, camera);
 });
