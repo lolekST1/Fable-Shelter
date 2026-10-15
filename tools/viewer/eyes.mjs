@@ -6,7 +6,7 @@
 import { chromium } from 'playwright'; import fs from 'fs';
 fs.mkdirSync('out', { recursive: true });
 const LIDS = new URL('../../src/lids.json', import.meta.url);
-const b = await chromium.launch({ args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'] });
+const b = await chromium.launch({ executablePath: process.env.CHROME_PATH, args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'] });
 const p = await b.newPage({ viewport:{width:1024,height:512} });
 p.on('pageerror', e => console.log('ERR', e.message));
 const lids = JSON.parse(fs.readFileSync(LIDS));

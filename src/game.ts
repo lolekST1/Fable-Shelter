@@ -44,11 +44,11 @@ export const SPECIES: Record<string, Species> = {
   grzybolak: { height: 1.15, ailment: 'spores', cure: 'blue', tint: 0xfff0b0, coins: 6, skill: { boost: 'green' } },
   kraken: { height: 1.05, ailment: 'bubbles', cure: 'green', tint: 0xdcffd8, coins: 7, skill: { carry: 'cure' } },
   jednorozec: { height: 1.15, ailment: 'confetti', cure: 'pink', tint: 0xffe0f0, coins: 6, skill: { boost: 'blue' } },
-  // pond creatures (stand-in models, recoloured, until their own are generated)
-  zabiksiaze: { height: 1.0, ailment: 'crown', cure: 'purple', tint: 0xfff0a0, coins: 9, skill: { carry: 'berry' }, zone: 'pond', model: 'bazyliszek', base: 0xb6ff8a },
-  nessie: { height: 1.2, ailment: 'fountain', cure: 'purple', tint: 0xc8f0ff, coins: 9, skill: { boost: 'purple' }, zone: 'pond', model: 'smok', base: 0x9fe8e0 },
-  swietlik: { height: 1.0, ailment: 'flicker', cure: 'purple', tint: 0x9a90b0, coins: 10, skill: { carry: 'cure' }, zone: 'pond', model: 'feniks', base: 0xe6d6ff },
-  wodnik: { height: 1.1, ailment: 'drip', cure: 'blue', tint: 0xc8dcff, coins: 10, skill: { boost: 'blue' }, zone: 'pond', model: 'grzybolak', base: 0xa8d4ff },
+  // pond creatures
+  zabiksiaze: { height: 1.0, ailment: 'crown', cure: 'purple', tint: 0xfff0a0, coins: 9, skill: { carry: 'berry' }, zone: 'pond' },
+  nessie: { height: 1.2, ailment: 'fountain', cure: 'purple', tint: 0xc8f0ff, coins: 9, skill: { boost: 'purple' }, zone: 'pond' },
+  swietlik: { height: 1.0, ailment: 'flicker', cure: 'purple', tint: 0x9a90b0, coins: 10, skill: { carry: 'cure' }, zone: 'pond' },
+  wodnik: { height: 1.1, ailment: 'drip', cure: 'blue', tint: 0xc8dcff, coins: 10, skill: { boost: 'blue' }, zone: 'pond' },
   bazyliszek: { height: 1.0, ailment: 'stone', cure: 'green', tint: 0xbfc4c8, coins: 8, skill: { carry: 'berry' } },
 };
 

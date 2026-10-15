@@ -6,7 +6,7 @@ Gra idle-arcade na telefon (pionowo, 390×844): schronisko dla bajkowych stwork�
 - Odpowiadaj po polsku, ludzkim językiem, bez żargonu.
 - Daj jedną rekomendację, a alternatywy tylko krótko. Kiedy coś jest niejasne, zapytaj, zamiast zgadywać.
 - Komendy dla Windowsa pisz w składni Nushell.
-- Grafiki generuje użytkownik: ComfyUI z Z-Image Turbo, potem 3D w Hunyuan3D 3.0 albo lokalnie w Pixal3D. Pliki trafiają do `D:\ComfyUI-Shared\output\FS`. Claude wybiera najlepszy, oznacza go `WYBRANY` w nazwie, a resztę przenosi do `Archiwum`.
+- Grafiki generuje użytkownik: ComfyUI z Z-Image Turbo, potem 3D w Hunyuan3D 3.0 albo lokalnie w Pixal3D. Claude też może to zrobić przez MCP `comfy-mcp`, używając zapisanych workflow `image_z_image_turbo-tworzenie obrazów.json` i `3d_pixal3d_trellis2_image_to_model-….json` z `D:\ComfyUI\ComfyUI (1)\ComfyUI\user\default\workflows`. Kopiuje je wtedy do scratchpadu i ustawia sloty: Z-Image `57.text`, `57.seed`, `57/13.batch_size`, `9.filename_prefix`. Pixal: `122.image` (najpierw `upload_file`), `322.filename_prefix`, `186.target_face_count=25000`. Na 8 GB VRAM duże kształty (np. kapelusz wodnika) dają OOM w DecimateMesh i wtedy pomaga `241.resolution=512`. Przed Pixal3D wołaj `free_memory`. Pliki trafiają do `D:\ComfyUI-Shared\output\FS`. Claude wybiera najlepszy, oznacza go `WYBRANY` w nazwie, a resztę przenosi do `Archiwum`.
 - Wszystkie prompty do grafik są w `docs/PROMPTY.md`, a kopia leży w `D:\ComfyUI-Shared\output\FS\PROMPTY.md`. Nowe prompty dopisuj tam.
 
 ## Uruchomienie i wdrożenie
@@ -78,4 +78,4 @@ W środowisku chmurowym Claude Chromium leży w `/opt/pw-browsers`, a Playwright
 
 ## Otwarte sprawy
 - Fiolki „chodzące same”: potrzebny zrzut ekranu od użytkownika.
-- Gatunki stawu (zabiksiaze, nessie, wodnik, swietlik) i rekwizyty stawu są na modelach zastępczych. Użytkownik generuje docelowe z `docs/PROMPTY.md`.
+- Gatunki stawu (zabiksiaze, nessie, wodnik, swietlik) mają modele z Pixal3D zrobione przez Claude'a (15.10.2026, tylko przód, bez Hunyuana). Użytkownik może je później poprawić w Hunyuan3D 3.0. Rekwizyty stawu są nadal prostymi kształtami.

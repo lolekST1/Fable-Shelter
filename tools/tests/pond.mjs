@@ -2,7 +2,7 @@
 import { chromium } from 'playwright';
 const BASE = process.env.GAME_URL ?? 'http://localhost:4173/';
 import fs from 'fs'; fs.mkdirSync('out', { recursive: true });
-const b = await chromium.launch({ args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'] });
+const b = await chromium.launch({ executablePath: process.env.CHROME_PATH, args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'] });
 const p = await b.newPage({ viewport:{width:390,height:844} });
 p.on('pageerror',e=>console.log('ERR '+e.message)); p.on('console',m=>{if(m.type()==='error'||m.type()==='warning')console.log('CONSOLE '+m.text())});
 await p.goto(BASE+'?dtmax=0.4&reset=1&debug'); await p.waitForTimeout(12000);
