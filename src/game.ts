@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Creature } from './creature';
 import type { Sfx } from './sfx';
 import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, drawAilment, drawBerry, drawCoin, drawHeart, drawMoon, drawSpotIcon, needCanvas } from './icons';
+import { Album } from './album';
 import { Fx, Station, backpackMesh, basketMesh, bedMesh, bridgeMesh, coinGeo, coinMat, dressUp, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh } from './props';
 
 /**
@@ -24,6 +25,8 @@ export interface GameDeps {
   spawnCreature: (name: string, height: number) => Promise<Creature>;
   /** a generated prop model (public/models/<name>.glb.txt); rejects if there is none */
   loadProp: (name: string) => Promise<THREE.Object3D>;
+  /** a still portrait of a creature model (an image URL) for the album */
+  portrait: (model: string, tint: number | null) => Promise<string>;
 }
 
 /** generated 3D models for the props, and how wide each stands; the simple stand-in shows until (unless) it loads */
@@ -65,6 +68,13 @@ export const SPECIES: Record<string, Species> = {
   sowka: { height: 1.0, ailment: 'dizzy', cure: 'gold', tint: 0xe8d8ff, coins: 12, skill: { carry: 'cure' }, zone: 'glade' },
   bazyliszek: { height: 1.0, ailment: 'stone', cure: 'green', tint: 0xbfc4c8, coins: 8, skill: { carry: 'berry' } },
 };
+
+/** the album's pages, one per area, in the order the species turn up; a full page pays its reward (in coins) once */
+const ALBUM_PAGES: { zone: Zone; icon: SpotIcon; reward: number; species: string[] }[] = [
+  { zone: 'camp', icon: 'bed', reward: 150, species: ['chmurnik', 'smok', 'feniks', 'gryf', 'grzybolak', 'kraken', 'jednorozec', 'bazyliszek'] },
+  { zone: 'pond', icon: 'lilybed', reward: 250, species: ['zabiksiaze', 'nessie', 'swietlik', 'wodnik'] },
+  { zone: 'glade', icon: 'mossbed', reward: 350, species: ['leszy', 'wilkolaczek', 'skrzat', 'sowka'] },
+];
 
 const PICK_R = 1.4;
 const GIVE_R = 1.45;
@@ -150,7 +160,7 @@ interface Resident {
   fedIncoming: boolean;
 }
 
-interface Coin { m: THREE.Mesh; v: THREE.Vector3; t: number; magnet: boolean }
+interface Coin { m: THREE.Mesh; v: THREE.Vector3; t: number; magnet: boolean; /** flies to the keeper wherever the keeper is (rewards) */ toKeeper?: boolean }
 
 /** someone from the shelter house come to take a four-heart resident home */
 interface Adopter { c: Creature; r: Resident; state: 'come' | 'hug' | 'go'; path: THREE.Vector3[]; t: number }
@@ -270,9 +280,16 @@ export class Game {
   private saveT = 0;
   private strayT = 1;
   private tmp = new THREE.Vector3();
+  private album: Album;
 
   constructor(private d: GameDeps) {
     this.fx = new Fx(d.scene);
+    this.album = new Album(
+      ALBUM_PAGES.flatMap((pg, page) => pg.species.map((name) => ({ name, ailment: SPECIES[name].ailment, page }))),
+      ALBUM_PAGES.map((pg) => ({ icon: pg.icon, reward: pg.reward })),
+      () => this.species,
+      (name) => d.portrait(SPECIES[name].model ?? name, SPECIES[name].base ?? null),
+    );
     for (let i = 0; i < 10; i++) {
       const s = new THREE.Object3D();
       s.position.set(0, 0.5 + i * 0.3, 0.4);
@@ -326,7 +343,7 @@ export class Game {
   // ------------------------------------------------------------ save / load
 
   private load() {
-    let data: { ver?: number; coins?: number; bought?: number; hearts?: number; residents?: { name: string; hearts: number }[] } | null = null;
+    let data: { ver?: number; coins?: number; bought?: number; hearts?: number; residents?: { name: string; hearts: number }[]; album?: Record<string, number>; albumPaid?: number[] } | null = null;
     try {
       if (new URLSearchParams(location.search).has('reset')) localStorage.removeItem(SAVE_KEY);
       data = JSON.parse(localStorage.getItem(SAVE_KEY) ?? 'null');
@@ -339,6 +356,7 @@ export class Game {
     this.setCoins(Math.max(0, data.coins ?? 0), false);
     this.setHearts(Math.max(0, data.hearts ?? 0));
     for (const r of data.residents ?? []) if (SPECIES[r.name]) void this.spawnResident(r.name, r.hearts);
+    this.album.load(data.album, data.albumPaid);
     this.restored = true;
     if (n > 0) this.step = 4;
   }
@@ -351,6 +369,9 @@ export class Game {
         bought: this.bought,
         hearts: this.hearts,
         residents: this.residents.filter((r) => r.state !== 'leaving').map((r) => ({ name: r.name, hearts: r.hearts })),
+        // added later; older saves just start with an empty album
+        album: this.album.counts,
+        albumPaid: this.album.paid,
       }));
     } catch { /* ignore */ }
   }
@@ -803,7 +824,7 @@ export class Game {
         this.stations.every((c) => c.pos.distanceTo(seat) > 2) &&
         this.spots.every((s) => s.pos.distanceTo(seat) > 1.6) &&
         this.props.every((o) => o.position.distanceTo(seat) > 1.4) &&
-        this.basket.position.distanceTo(seat) > 1.4 &&
+        this.basket.position.distanceTo(seat) > 2.6 && // the keeper must not tip the cures into the basket on the way
         HOUSE.distanceTo(seat) > 3 &&
         this.beds.every((b) => b.pos.distanceTo(seat) > 1.3) &&
         this.patients.every((p) => p.seat.distanceTo(seat) > 1.8) &&
@@ -975,7 +996,7 @@ export class Game {
     });
   }
 
-  private dropCoins(at: THREE.Vector3, n: number) {
+  private dropCoins(at: THREE.Vector3, n: number, magnet = false) {
     for (let i = 0; i < n; i++) {
       const m = new THREE.Mesh(coinGeo, coinMat);
       m.castShadow = true;
@@ -983,7 +1004,7 @@ export class Game {
       const a = Math.random() * Math.PI * 2;
       const v = new THREE.Vector3(Math.cos(a) * (0.5 + Math.random() * 0.6), 3.5 + Math.random() * 1.5, Math.sin(a) * (0.5 + Math.random() * 0.6));
       this.d.scene.add(m);
-      this.ground.push({ m, v, t: 0, magnet: false });
+      this.ground.push({ m, v, t: magnet ? -i * 0.03 : 0, magnet: false, toKeeper: magnet });
     }
   }
 
@@ -1206,6 +1227,12 @@ export class Game {
     this.dropCoins(at, ADOPT_COINS + (bonus ? FAREWELL_BONUS : 0));
     this.setHearts(this.hearts + 1);
     for (const sp of this.spots) this.drawSpot(sp);
+    // a new sticker in the album; a full page pays its reward, flying to the keeper
+    for (const page of this.album.add(r.name)) {
+      this.fx.emit('star', at, 40, { speed: 3.2, up: 3, life: 1.4 });
+      this.dropCoins(at, Math.round(ALBUM_PAGES[page].reward / 2), true);
+      this.d.sfx.build();
+    }
     r.path = this.route(r.c.root.position, HOUSE_DOOR);
     this.save();
   }
@@ -1533,7 +1560,7 @@ export class Game {
           c.v.z *= 0.6;
         }
         c.m.rotation.y += dt * 4;
-        if (c.t > 0.6 && Math.hypot(c.m.position.x - k.x, c.m.position.z - k.z) < 2.2) c.magnet = true;
+        if (c.t > 0.6 && (c.toKeeper || Math.hypot(c.m.position.x - k.x, c.m.position.z - k.z) < 2.2)) c.magnet = true;
         // an area with a hired helper runs on its own: its coins come to the keeper wherever the keeper is
         if (c.t > 1.5 && this.workers.length) {
           const z = this.zone(c.m.position);
