@@ -24,9 +24,10 @@ npm run build      # tsc --noEmit + vite build -> dist/
   - `SPECIES`: gatunki, każdy z własną chorobą (`ailment`), lekarstwem (`cure`), monetami i umiejętnością (`skill: {boost}` przyspiesza stację, `{carry}` nosi lekarstwa albo jagody). Gatunki z `zone:'pond'` żyją przy stawie, a z `zone:'glade'` na wrzosowej polanie. `model` + `base` wskazują model zastępczy i jego zabarwienie, dopóki nie ma docelowego.
   - `BEDS` / `POND_BEDS` / `GLADE_BEDS`: miejsca na legowiska. `freeBed(zone)` woli łóżko w strefie gatunku. Każdy otwarty teren poza obozem trzyma co najmniej jednego swojego pacjenta.
   - `SPOTS`: ścieżka rozwoju. Każdy punkt ma cenę w monetach (opcjonalnie też w serduszkach) i efekt: nowe legowisko, stację, plecak, buty, drogowskaz, mostek z `openPond`, latarnię, furtkę w żywopłocie z `openGlade`, grzybową lampkę. Kupienie odblokowuje nowe gatunki i limit pacjentów.
+  - Pomocnicy terenów (`workers`, `addWorker(zone)`): uczeń opiekuna kupowany jako punkt budowy, po jednym na teren (obóz 420 przed mostkiem, staw 780 przed furtką, polana 1400). Sam kładzie spać i karmi mieszkańców swojego terenu i nosi lekarstwa jego pacjentom. Monety z takiego terenu same lecą do opiekuna. Stany: idle, go, bring, tuck.
   - Mieszkańcy mają stany: toBed, idle, eating, toSleep, sleeping, leaving, helpGo/helpWork/helpBring/helpBack. Pomagają od 1 serduszka, potem odpoczywają 10–16 s.
   - `route()` prowadzi przez przednią i tylną bramę zagrody, przez mostek i przez przejście w żywopłocie (`GAP`). `bound()` nie wpuszcza do strumyka (z=-9), dopóki nie ma mostka, a za żywopłot (koło `GLADE_C`, r=5), dopóki nie ma furtki.
-  - Zapis: localStorage `fable-shelter-save-v3`. Jeśli zmieniasz format zapisu, podbij wersję klucza.
+  - Zapis: localStorage `fable-shelter-save-v3` z polem `ver` (teraz 2). Jeśli zmieniasz format zapisu, podbij wersję klucza. Wyjątek: wstawienie punktów do `SPOTS` obsługuje `migrateBought` (zapis bez `ver` przesuwa licznik zakupów za punkty pomocników). Testy, które wgrywają zapis bez `ver`, też przez to przechodzą.
   - Siatka bezpieczeństwa: co 1 s usuwa „zabłąkane” lekarstwa, czyli takie, które nie leżą na tacy, nie są w rękach opiekuna i nie lecą. Pod `?debug` ostrzega o tym w konsoli. Błąd zgłoszony przez użytkownika: fiolki same się przesuwają albo pojawiają daleko. Do tej pory nie odtworzony.
 - `props.ts`: proste meshe stacji i rekwizytów (kociołek, źródełko, zioła, jagody, lilia, legowiska, mostek, latarnia, kosz, plecak, drogowskaz, scenografia stawu) i cząsteczki `Fx`.
 - `icons.ts`: ikonki rysowane na canvasie: choroby, lekarstwa, punkty budowy, dymki, serduszka.
@@ -45,6 +46,7 @@ npm run build      # tsc --noEmit + vite build -> dist/
 - Ulepszenia opiekuna widać na nim samym (plecak, buty), a nie jako skrzynki w świecie.
 - Rozbudowa świata: teren 2 to staw za strumykiem. Mostek kosztuje monety i serduszka z adopcji. Każdy kolejny teren przynosi nowe gatunki i nowe lekarstwo (przy stawie fioletowy nektar z lilii). Teren 3 to wrzosowa polana na wschód, za żywopłotem: furtka (850 monet, 10 serduszek), ul ze złotym miodem, legowiska z mchu, grzybowa lampka i gatunki leszy, wilkołaczek, skrzat, sówka (zrobione w nocy 15.10.2026, scalone przez użytkownika).
 - Ceny mają rosnąć tak, żeby kolejna rzecz wymagała kilku pacjentów, a nie dwóch.
+- Starsze tereny mają się automatyzować przez pomocników, a gracz zajmuje się najnowszym terenem i kolejnymi progami. Powód: w środku gry było kilkanaście osób do obsłużenia naraz (opinia użytkownika z 15.10.2026).
 
 ## Haki debug (URL i konsola)
 - `?reset=1` czyści zapis. `?debug` włącza ostrzeżenia. `?dtmax=0.4` pozwala grze iść w wolnej przeglądarce testowej. `?eyes=closed|half` zamyka powieki.
@@ -69,7 +71,7 @@ node viewer/eyes.mjs nessie                      # oczy + powieki -> src/lids.js
 Skrypty Playwright na Chromium z swiftshader. Robią zrzuty do `tools/out/`.
 ```
 npm run build && npx vite preview --port 4173     # w katalogu głównym
-cd tools && node tests/care.mjs                   # też: pond, prog, lids, helpers, vials, glade
+cd tools && node tests/care.mjs                   # też: pond, prog, lids, helpers, vials, glade, workers
 ```
 W środowisku chmurowym Claude Chromium leży w `/opt/pw-browsers`, a Playwright jest przypięty do 1.56.0, żeby pasował. Lokalnie może być potrzebne `npx playwright install chromium`.
 - Windows (u użytkownika): pobieranie `chromium-1194` urwało się bez `chrome.exe`. Kompletny jest `chromium-1243`, więc wszystkie skrypty przyjmują `CHROME_PATH` (`%LOCALAPPDATA%\ms-playwright\chromium-1243\chrome-win64\chrome.exe`).

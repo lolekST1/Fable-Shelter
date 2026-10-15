@@ -758,9 +758,36 @@ export function drawMushroom(g: CanvasRenderingContext2D, x: number, y: number, 
   g.restore();
 }
 
-export type SpotIcon = 'cauldron' | 'spring' | 'herbs' | 'backpack' | 'shoes' | 'sign' | 'bed' | 'berry' | 'bridge' | 'lily' | 'lilybed' | 'lantern' | 'gate' | 'mossbed' | 'mushroom';
+/** the keeper's apprentice in a sun hat: hire a helper for this area */
+export function drawHelper(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  g.fillStyle = '#8fc9e8';
+  g.beginPath();
+  g.ellipse(x, y + r * 0.55, r * 0.42, r * 0.38, 0, Math.PI, 0);
+  g.fill();
+  g.fillStyle = '#ffd9b8';
+  g.beginPath();
+  g.arc(x, y + r * 0.02, r * 0.34, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#f2d39b';
+  g.beginPath();
+  g.ellipse(x, y - r * 0.22, r * 0.62, r * 0.16, 0, 0, Math.PI * 2);
+  g.fill();
+  g.beginPath();
+  g.ellipse(x, y - r * 0.32, r * 0.34, r * 0.24, 0, Math.PI, 0);
+  g.fill();
+  g.fillStyle = '#3a2a20';
+  for (const dx of [-0.13, 0.13]) {
+    g.beginPath();
+    g.arc(x + dx * r, y + r * 0.05, r * 0.05, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.restore();
+}
+
+export type SpotIcon = 'cauldron' | 'spring' | 'herbs' | 'backpack' | 'shoes' | 'sign' | 'bed' | 'berry' | 'bridge' | 'lily' | 'lilybed' | 'lantern' | 'gate' | 'mossbed' | 'mushroom' | 'helper';
 export function drawSpotIcon(g: CanvasRenderingContext2D, icon: SpotIcon, x: number, y: number, r: number) {
-  ({ cauldron: drawCauldron, spring: drawSpring, herbs: drawHerbs, backpack: drawBackpack, shoes: drawShoe, sign: drawSign, bed: drawBed, berry: drawBerry, bridge: drawBridge, lily: drawLily, lilybed: drawLilyBed, lantern: drawLantern, gate: drawGate, mossbed: drawMossBed, mushroom: drawMushroom })[icon](g, x, y, r);
+  ({ cauldron: drawCauldron, spring: drawSpring, herbs: drawHerbs, backpack: drawBackpack, shoes: drawShoe, sign: drawSign, bed: drawBed, berry: drawBerry, bridge: drawBridge, lily: drawLily, lilybed: drawLilyBed, lantern: drawLantern, gate: drawGate, mossbed: drawMossBed, mushroom: drawMushroom, helper: drawHelper })[icon](g, x, y, r);
 }
 
 function bubbleBase(g: CanvasRenderingContext2D) {

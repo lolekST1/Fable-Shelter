@@ -87,6 +87,8 @@ const HEDGE: [number, number][] = Array.from({ length: 9 }, (_, i) => {
 });
 const HEDGE_GAP = (i: number) => Math.abs(i - 4) <= 2;
 const ZONE_BEDS: Record<Zone, [number, number][]> = { camp: BEDS, pond: POND_BEDS, glade: GLADE_BEDS };
+/** where each area's hired helper waits between jobs */
+const WORKER_HOME: Record<Zone, THREE.Vector3> = { camp: new THREE.Vector3(3.4, 0, 5.4), pond: new THREE.Vector3(2.8, 0, -11.2), glade: new THREE.Vector3(13.0, 0, 3.6) };
 
 interface Flight { obj: THREE.Object3D; from: THREE.Vector3; to: () => THREE.Vector3; t: number; dur: number; arc: number; done: () => void }
 
@@ -132,6 +134,18 @@ interface Resident {
 
 interface Coin { m: THREE.Mesh; v: THREE.Vector3; t: number; magnet: boolean }
 
+/** a hired helper (the keeper's apprentice) that looks after one area: cures its patients, feeds and tucks in its residents */
+interface Worker {
+  zone: Zone;
+  c: Creature;
+  home: THREE.Vector3;
+  slot: THREE.Object3D;
+  state: 'idle' | 'go' | 'bring' | 'tuck';
+  path: THREE.Vector3[];
+  job: { station?: Station; patient?: Patient; resident?: Resident; item?: THREE.Group } | null;
+  t: number;
+}
+
 interface SpotDef {
   icon: SpotIcon;
   price: number;
@@ -152,17 +166,24 @@ const SPOTS: SpotDef[] = [
   { icon: 'shoes', price: 280, at: [-1.7, 5.6], apply: (g, i) => { g.giveShoes(i); g.unlock('kraken'); } },
   { icon: 'sign', price: 330, at: [-4.2, 7.2], apply: (g, i) => { g.addSign(-4.2, 7.2, i); g.unlock('jednorozec'); } },
   { icon: 'bed', price: 380, at: BEDS[5], apply: (g, i) => { g.addBed(i); g.unlock('bazyliszek'); } },
+  // each area gets its own helper before the next one opens, so the keeper can leave it running
+  { icon: 'helper', price: 420, at: [WORKER_HOME.camp.x, WORKER_HOME.camp.z], apply: (g, i) => void g.addWorker('camp', i) },
   // the pond beyond the brook
   { icon: 'bridge', price: 450, hearts: 3, at: [0, -7.4], apply: (g, i) => g.openPond(i) },
   { icon: 'lilybed', price: 500, at: POND_BEDS[1], apply: (g, i) => { g.addBed(i, 'pond'); g.unlock('nessie'); } },
   { icon: 'lantern', price: 600, hearts: 6, at: [-0.4, -18.4], apply: (g, i) => { g.addLantern(-0.4, -18.4, i); g.unlock('swietlik'); } },
   { icon: 'lilybed', price: 700, at: POND_BEDS[2], apply: (g, i) => { g.addBed(i, 'pond'); g.unlock('wodnik'); } },
+  { icon: 'helper', price: 780, at: [WORKER_HOME.pond.x, WORKER_HOME.pond.z], apply: (g, i) => void g.addWorker('pond', i) },
   // the heather glade through the hedge
   { icon: 'gate', price: 850, hearts: 10, at: [Math.cos(GLADE_A) * 9.3, Math.sin(GLADE_A) * 9.3], apply: (g, i) => g.openGlade(i) },
   { icon: 'mossbed', price: 950, at: GLADE_BEDS[1], apply: (g, i) => { g.addBed(i, 'glade'); g.unlock('wilkolaczek'); } },
   { icon: 'mushroom', price: 1100, hearts: 13, at: [18.6, -0.4], apply: (g, i) => { g.addMushroom(18.6, -0.4, i); g.unlock('skrzat'); } },
   { icon: 'mossbed', price: 1250, at: GLADE_BEDS[2], apply: (g, i) => { g.addBed(i, 'glade'); g.unlock('sowka'); } },
+  { icon: 'helper', price: 1400, at: [WORKER_HOME.glade.x, WORKER_HOME.glade.z], apply: (g, i) => void g.addWorker('glade', i) },
 ];
+
+/** saves from before the helpers counted purchases without them: shift the count past the inserted helper spots */
+const migrateBought = (n: number) => n + (n >= 9 ? 1 : 0) + (n >= 13 ? 1 : 0);
 
 interface ActiveSpot {
   def: SpotDef;
@@ -192,6 +213,8 @@ export class Game {
   stations: Station[] = [];
   patients: Patient[] = [];
   residents: Resident[] = [];
+  /** hired helpers, one per area: they run the area on their own so the keeper can move on */
+  workers: Worker[] = [];
   beds: Bed[] = [];
   /** species that can show up as patients */
   species: string[] = ['chmurnik'];
@@ -275,13 +298,14 @@ export class Game {
   // ------------------------------------------------------------ save / load
 
   private load() {
-    let data: { coins?: number; bought?: number; hearts?: number; residents?: { name: string; hearts: number }[] } | null = null;
+    let data: { ver?: number; coins?: number; bought?: number; hearts?: number; residents?: { name: string; hearts: number }[] } | null = null;
     try {
       if (new URLSearchParams(location.search).has('reset')) localStorage.removeItem(SAVE_KEY);
       data = JSON.parse(localStorage.getItem(SAVE_KEY) ?? 'null');
     } catch { /* storage blocked: start fresh */ }
     if (!data) return;
-    const n = Math.min(SPOTS.length, Math.max(0, data.bought ?? 0));
+    const bought = Math.max(0, data.bought ?? 0);
+    const n = Math.min(SPOTS.length, (data.ver ?? 1) < 2 ? migrateBought(bought) : bought);
     for (let i = 0; i < n; i++) SPOTS[i].apply(this, true);
     this.bought = n;
     this.setCoins(Math.max(0, data.coins ?? 0), false);
@@ -294,6 +318,7 @@ export class Game {
   private save() {
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({
+        ver: 2,
         coins: this.coins,
         bought: this.bought,
         hearts: this.hearts,
@@ -362,7 +387,7 @@ export class Game {
       this.flights.some((f) => f.obj === o) ? 'flight'
         : this.stations.some((s) => s.tray.includes(o as THREE.Group)) ? 'tray'
           : this.carry.includes(o as THREE.Group) ? 'carry'
-            : this.residents.some((r) => r.job?.item === o) ? 'job' : 'stray';
+            : this.residents.some((r) => r.job?.item === o) || this.workers.some((w) => w.job?.item === o) ? 'job' : 'stray';
     const out: [number, string, number, number, number, string][] = [];
     this.d.scene.traverse((o) => {
       if (o.userData.kind === undefined || !(o as THREE.Group).isGroup) return;
@@ -376,6 +401,7 @@ export class Game {
   private findStrays(): THREE.Group[] {
     const ok = new Set<THREE.Object3D>([...this.flights.map((f) => f.obj), ...this.stations.flatMap((s) => s.tray), ...this.carry]);
     for (const r of this.residents) if (r.job?.item) ok.add(r.job.item);
+    for (const w of this.workers) if (w.job?.item) ok.add(w.job.item);
     const out: THREE.Group[] = [];
     this.d.scene.traverse((o) => {
       if (o.userData.kind === undefined || !(o as THREE.Group).isGroup || ok.has(o)) return;
@@ -1155,7 +1181,7 @@ export class Game {
         }
         // sleepy: stand on its bed for a moment to plump it up, then it goes to sleep
         if (r.need === 'sleep') {
-          const on = Math.hypot(k.x - r.bed.pos.x, k.z - r.bed.pos.z) < 0.6;
+          const on = [k, ...this.workers.map((w) => w.c.root.position)].some((p) => Math.hypot(p.x - r.bed.pos.x, p.z - r.bed.pos.z) < 0.6);
           r.bed.fluff = on ? r.bed.fluff + dt : Math.max(0, r.bed.fluff - dt * 2);
           r.bed.mesh.scale.set(1 + Math.sin(this.t * 20) * 0.04 * (on ? 1 : 0), 1, 1);
           if (r.bed.fluff >= 1) {
@@ -1364,6 +1390,7 @@ export class Game {
     }
 
     this.updateResidents(dt);
+    this.updateWorkers(dt);
 
     // basket: standing next to it tips the pile in, top item first
     const b = this.basket.position;
@@ -1396,6 +1423,11 @@ export class Game {
         }
         c.m.rotation.y += dt * 4;
         if (c.t > 0.6 && Math.hypot(c.m.position.x - k.x, c.m.position.z - k.z) < 2.2) c.magnet = true;
+        // an area with a hired helper runs on its own: its coins come to the keeper wherever the keeper is
+        if (c.t > 1.5 && this.workers.length) {
+          const z = this.zone(c.m.position);
+          if (this.workers.some((w) => w.zone === (z === 'pen' ? 'camp' : z))) c.magnet = true;
+        }
       } else {
         const target = k.clone().setY(0.9);
         c.m.position.lerp(target, Math.min(1, dt * 12));
@@ -1472,6 +1504,118 @@ export class Game {
     if (this.saveT > 5) {
       this.saveT = 0;
       this.save();
+    }
+  }
+
+  /** hire the helper for one area: the keeper's apprentice appears by its post */
+  async addWorker(zone: Zone, instant: boolean) {
+    const home = WORKER_HOME[zone].clone();
+    const c = await this.d.spawnCreature('opiekun', 0.85);
+    c.setTint(0xc8f0ff);
+    c.root.position.copy(home);
+    this.d.scene.add(c.root);
+    const slot = new THREE.Object3D();
+    slot.position.set(0, 0.95, 0.15);
+    c.attach(slot);
+    this.workers.push({ zone, c, home, slot, state: 'idle', path: [], job: null, t: 0 });
+    if (!instant) {
+      this.fx.emit('star', home.clone().setY(0.8), 30, { speed: 3, up: 2, life: 1 });
+      this.d.sfx.build();
+      c.hop();
+    }
+  }
+
+  /** the next useful thing in the worker's area: tuck in a sleepy resident, feed a hungry one, cure a patient */
+  private findWork(w: Worker): boolean {
+    const pos = w.c.root.position;
+    const nearest = (kind: Medicine) => this.stations.filter((s) => s.kind === kind && s.tray.length).sort((a, b) => a.pos.distanceTo(pos) - b.pos.distanceTo(pos))[0];
+    const front = (s: Station) => s.pos.clone().add(new THREE.Vector3(-0.2, 0, 0.8));
+    const mine = this.residents.filter((r) => r.bed.zone === w.zone && r.state === 'idle');
+    const sleepy = mine.find((r) => r.need === 'sleep');
+    if (sleepy) {
+      w.job = { resident: sleepy };
+      w.path = this.route(pos, sleepy.bed.pos);
+    } else {
+      const hungry = mine.find((r) => r.need === 'food' && !r.fedIncoming);
+      const berries = hungry && nearest('berry');
+      const p = this.patients.find((p) => (p.sp.zone ?? 'camp') === w.zone && (p.state === 'waiting' || p.state === 'arriving') && !p.claimed && nearest(p.sp.cure));
+      if (hungry && berries) {
+        hungry.fedIncoming = true;
+        w.job = { station: berries, resident: hungry };
+        w.path = this.route(pos, front(berries));
+      } else if (p) {
+        p.claimed = true;
+        const st = nearest(p.sp.cure)!;
+        w.job = { station: st, patient: p };
+        w.path = this.route(pos, front(st));
+      } else return false;
+    }
+    w.state = 'go';
+    return true;
+  }
+
+  /** give up the worker's job and release whatever it reserved */
+  private dropWork(w: Worker) {
+    const j = w.job;
+    if (!j) return;
+    if (j.patient) j.patient.claimed = false;
+    if (j.resident && j.station) j.resident.fedIncoming = false;
+    if (j.item) {
+      this.fx.emit('dust', j.item.getWorldPosition(new THREE.Vector3()), 5, { speed: 0.6, up: 0.8, g: 2, life: 0.4 });
+      j.item.parent?.remove(j.item);
+    }
+    w.job = null;
+  }
+
+  private updateWorkers(dt: number) {
+    const gone = (p: Patient) => !this.patients.includes(p) || p.state === 'cured' || p.state === 'leaving' || p.state === 'incoming';
+    for (const w of this.workers) {
+      const c = w.c, pos = c.root.position, j = w.job;
+      c.update(dt);
+      w.t -= dt;
+      if (w.state === 'idle') {
+        if (w.t <= 0) {
+          w.t = 0.5;
+          if (this.findWork(w)) continue;
+        }
+        this.walk(c, w.home, 1.2, dt);
+        continue;
+      }
+      // the job went away under it (someone else cured the patient, the resident ate or left)
+      const lost = !j || (j.patient ? gone(j.patient) : !this.residents.includes(j.resident!) || j.resident!.need !== (j.station ? 'food' : 'sleep'));
+      if (lost && w.state !== 'tuck') { this.dropWork(w); w.state = 'idle'; continue; }
+      if (w.state === 'go') {
+        if (!this.follow(c, w.path, 1.9, dt)) continue;
+        if (!j!.station) { w.state = 'tuck'; w.t = 4; continue; } // standing on the bed plumps it up
+        const st = j!.station;
+        if (!st.tray.length) { this.dropWork(w); w.state = 'idle'; continue; }
+        const v = st.tray.pop()!;
+        this.fly(v, () => w.slot.getWorldPosition(new THREE.Vector3()), 0.25, 0.5, () => {
+          if (w.job?.item !== v) { this.d.scene.remove(v); return; }
+          w.slot.add(v);
+          v.position.set(0, 0, 0);
+          v.rotation.set(0, 0, 0);
+          v.scale.setScalar(1.6);
+        });
+        j!.item = v;
+        w.state = 'bring';
+        w.path = [];
+      } else if (w.state === 'tuck') {
+        if (lost || w.t <= 0) { w.job = null; w.state = 'idle'; }
+      } else if (w.state === 'bring') {
+        const tgt = (j!.patient ?? j!.resident!).c.root.position;
+        if (!w.path.length) w.path = this.route(pos, tgt);
+        w.path[w.path.length - 1].copy(tgt);
+        this.follow(c, w.path, 1.9, dt);
+        if (pos.distanceTo(tgt) < 1.1 && j!.item?.parent === w.slot) {
+          const v = j!.item;
+          j!.item = undefined;
+          if (j!.patient) { j!.patient.claimed = false; this.deliver(v, j!.patient); }
+          else this.feed(j!.resident!, v);
+          w.job = null;
+          w.state = 'idle';
+        }
+      }
     }
   }
 
