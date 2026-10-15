@@ -28,8 +28,8 @@ export interface GameDeps {
 
 /** generated 3D models for the props, and how wide each stands; the simple stand-in shows until (unless) it loads */
 const PROP_MODEL: Record<string, [string, number]> = {
-  pink: ['prop_kociolek', 1.15], blue: ['prop_zrodelko', 1.25], green: ['prop_ziola', 1.1], berry: ['prop_krzak', 1.1], purple: ['prop_lilia', 1.3], gold: ['prop_ul', 1.0],
-  camp: ['prop_legowisko', 1.15], pond: ['prop_legowiskolisc', 1.15], glade: ['prop_legowiskomech', 1.15], basket: ['prop_kosz', 0.95],
+  pink: ['prop_kociolek', 1.15], blue: ['prop_zrodelko', 1.25], green: ['prop_ziola', 1.1], purple: ['prop_lilia', 1.3],
+  camp: ['prop_legowisko', 1.15], pond: ['prop_legowiskolisc', 1.15], basket: ['prop_kosz', 0.95],
 };
 
 /** how a resident helps around the camp once it feels at home (has at least one heart):
@@ -468,6 +468,7 @@ export class Game {
 
   /** put the generated 3D model on a prop once it has loaded (see PROP_MODEL); keep the stand-in otherwise */
   private dress(target: THREE.Object3D, key: string) {
+    if (!PROP_MODEL[key]) return; // beehive, berry bush, moss bed: straw, leaves and moss came out as crumpled foil, the hand-made ones stay
     const [name, width] = PROP_MODEL[key];
     this.d.loadProp(name).then((m) => dressUp(target, m, width), () => { /* no model yet: the stand-in stays */ });
   }

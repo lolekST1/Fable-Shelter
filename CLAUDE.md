@@ -29,7 +29,7 @@ npm run build      # tsc --noEmit + vite build -> dist/
   - `route()` prowadzi przez przednią i tylną bramę zagrody, przez mostek i przez przejście w żywopłocie (`GAP`). `bound()` nie wpuszcza do strumyka (z=-9), dopóki nie ma mostka, a za żywopłot (koło `GLADE_C`, r=5), dopóki nie ma furtki.
   - Zapis: localStorage `fable-shelter-save-v3` z polem `ver` (teraz 2). Jeśli zmieniasz format zapisu, podbij wersję klucza. Wyjątek: wstawienie punktów do `SPOTS` obsługuje `migrateBought` (zapis bez `ver` przesuwa licznik zakupów za punkty pomocników). Testy, które wgrywają zapis bez `ver`, też przez to przechodzą.
   - Siatka bezpieczeństwa: co 1 s usuwa „zabłąkane” lekarstwa, czyli takie, które nie leżą na tacy, nie są w rękach opiekuna i nie lecą. Pod `?debug` ostrzega o tym w konsoli. Błąd zgłoszony przez użytkownika: fiolki same się przesuwają albo pojawiają daleko. Do tej pory nie odtworzony.
-- `props.ts`: proste meshe stacji i rekwizytów (kociołek, źródełko, zioła, jagody, lilia, legowiska, mostek, latarnia, kosz, plecak, drogowskaz, scenografia stawu) i cząsteczki `Fx`.
+- `props.ts`: proste meshe stacji i rekwizytów. Część z nich podmieniają modele 3D `prop_*.glb.txt` przez `dressUp` (lista w `PROP_MODEL` w `game.ts`: kociołek, źródełko, zioła, lilia, legowiska obozu i stawu, kosz). Ul, krzak jagód i legowisko z mchu zostały ręcznie zbudowane, bo słoma, liście i mech wyszły w Pixal3D jak zgnieciona folia. Reszta pliku: (kociołek, źródełko, zioła, jagody, lilia, legowiska, mostek, latarnia, kosz, plecak, drogowskaz, scenografia stawu) i cząsteczki `Fx`.
 - `icons.ts`: ikonki rysowane na canvasie: choroby, lekarstwa, punkty budowy, dymki, serduszka.
 - `creature.ts`: stworek z modelu GLB. Ma waddle przy chodzeniu, `twitch`, tint, malowane powieki (shader `uShut`, kształt z `lids.json`).
 - `world.ts`: teren, płot z dwiema bramami, krzaki, `Obstacles`.
@@ -63,6 +63,7 @@ node viewer/preview.mjs tools/work/nessie_game.glb   # 4 widoki -> tools/out/
 node viewer/eyes.mjs nessie                      # oczy + powieki -> src/lids.json, podgląd tools/out/eyes_nessie.png
 ```
 - Parametry dla HY3: weld → simplify (ratio 0.04, error 0.002; zmienisz przez `RATIO=0.03`) → tekstury 1024 → webp q82 → bez tangentów.
+- Rekwizyty: `TEX=512 ./models/optimize.sh surowy.glb prop_x pixal`, potem `node models/upright.mjs work/prop_x_game.glb work/prop_x_game.glb [kątX kątZ]`, który prostuje przechył z ujęcia z góry (szuka od -40° do -10°; kociołek z bańkami trzeba było podać ręcznie: -28 0), a na koniec ponowne `base64` do `public/models`. Model rekwizytu musi stać na y=0 i być wyśrodkowany, bo `dressUp` go tylko skaluje.
 - Pixal3D: decymację robi się w ComfyUI (DecimateMesh 25000). Futrzaste kształty (surowa siatka powyżej ~10 mln trójkątów) wychodzą po decymacji jak zgnieciona folia, a pomaga `241.resolution=512` i 40000 trójkątów. Jego mapa AO jest zepsuta i daje czarne plamy, więc `noao.mjs` ją usuwa. Strona materiału (double side) jest brana z pliku.
 - Po wykryciu oczu sprawdź podgląd. Jeśli złapało nozdrza albo plamki, zmień parametry `nazwa:próg:ymax:wypełnienie:skala`.
 - Podmiana modelu zastępczego na docelowy: wrzuć `.glb.txt`, usuń `model`/`base` z wpisu w `SPECIES` i wygeneruj powieki.
