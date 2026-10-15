@@ -470,7 +470,7 @@ export class Game {
 
   /** put the generated 3D model on a prop once it has loaded (see PROP_MODEL); keep the stand-in otherwise */
   private dress(target: THREE.Object3D, key: string) {
-    if (!PROP_MODEL[key]) return; // beehive, berry bush, moss bed: straw, leaves and moss came out as crumpled foil, the hand-made ones stay
+    if (!PROP_MODEL[key]) return; // berry bush, moss bed: leaves and moss came out as crumpled foil even at 40000 faces, the hand-made ones stay
     const [name, width] = PROP_MODEL[key];
     this.d.loadProp(name).then((m) => dressUp(target, m, width), () => { /* no model yet: the stand-in stays */ });
   }
