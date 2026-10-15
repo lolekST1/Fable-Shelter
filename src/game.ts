@@ -68,10 +68,10 @@ export const SPECIES: Record<string, Species> = {
   sowka: { height: 1.0, ailment: 'dizzy', cure: 'gold', tint: 0xe8d8ff, coins: 12, skill: { carry: 'cure' }, zone: 'glade' },
   bazyliszek: { height: 1.0, ailment: 'stone', cure: 'green', tint: 0xbfc4c8, coins: 8, skill: { carry: 'berry' } },
   // snowy hill creatures (stand-in models, tinted, until their own are made)
-  yeti: { height: 1.2, ailment: 'snowball', cure: 'cocoa', tint: 0xc8dcff, coins: 13, skill: { boost: 'cocoa' }, zone: 'snow', model: 'chmurnik', base: 0xf4f8ff },
-  renifer: { height: 1.2, ailment: 'nose', cure: 'cocoa', tint: 0xffd0c0, coins: 13, skill: { carry: 'berry' }, zone: 'snow', model: 'jednorozec', base: 0xc8986a },
-  balwanek: { height: 1.1, ailment: 'melt', cure: 'blue', tint: 0xd8f0ff, coins: 14, skill: { boost: 'blue' }, zone: 'snow', model: 'grzybolak', base: 0xffffff },
-  pingwinek: { height: 0.95, ailment: 'slide', cure: 'cocoa', tint: 0xc0d0ff, coins: 14, skill: { carry: 'cure' }, zone: 'snow', model: 'sowka', base: 0x5a6680 },
+  yeti: { height: 1.2, ailment: 'snowball', cure: 'cocoa', tint: 0xc8dcff, coins: 13, skill: { boost: 'cocoa' }, zone: 'snow' },
+  renifer: { height: 1.2, ailment: 'nose', cure: 'cocoa', tint: 0xffd0c0, coins: 13, skill: { carry: 'berry' }, zone: 'snow' },
+  balwanek: { height: 1.1, ailment: 'melt', cure: 'blue', tint: 0xd8f0ff, coins: 14, skill: { boost: 'blue' }, zone: 'snow' },
+  pingwinek: { height: 0.95, ailment: 'slide', cure: 'cocoa', tint: 0xc0d0ff, coins: 14, skill: { carry: 'cure' }, zone: 'snow' },
 };
 
 /** the album's pages, one per area, in the order the species turn up; a full page pays its reward (in coins) once */
