@@ -1009,11 +1009,12 @@ export class Game {
         }
         if (!this.walk(c, r.target, 0.6, dt)) { /* strolling */ } else if (pos.distanceTo(k) < 3) c.lookAt(k.x, k.z);
         // once it feels at home it helps out between its own needs
-        if (!r.need && r.hearts >= 1) {
+        // the rest after a job runs down even while it waits for food or sleep, so it helps right after being cared for
+        if (r.hearts >= 1) {
           r.helpT -= dt;
-          if (r.helpT <= 0) {
-            r.helpT = 10 + Math.random() * 6;
-            if (this.findJob(r)) continue;
+          if (r.helpT <= 0 && !r.need) {
+            r.helpT = 2; // nothing useful to do yet: look again soon
+            if (this.findJob(r)) { r.helpT = 10 + Math.random() * 6; continue; }
           }
         }
         if (!r.need) {
