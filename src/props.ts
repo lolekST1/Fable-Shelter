@@ -480,6 +480,37 @@ export function lanternMesh(): THREE.Group {
   return g;
 }
 
+/** the shelter house: a cottage built into a giant tree stump, mossy roof, round door at its front (+z) */
+export function shelterHouseMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const bark = new THREE.MeshStandardMaterial({ color: 0x9a6a42, roughness: 0.9 });
+  const stump = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.4, 1.7, 24), bark);
+  stump.position.y = 0.85;
+  const roof = new THREE.Mesh(new THREE.SphereGeometry(1.45, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), mats.moss);
+  roof.scale.y = 0.65;
+  roof.position.y = 1.65;
+  const door = new THREE.Mesh(new THREE.CircleGeometry(0.42, 20), new THREE.MeshStandardMaterial({ color: 0x6b4428, roughness: 0.8 }));
+  door.position.set(0, 0.5, 1.39);
+  const heart = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), new THREE.MeshStandardMaterial({ color: 0xff7aa0, emissive: 0xff4f80, emissiveIntensity: 0.4 }));
+  heart.position.set(0, 1.12, 1.33);
+  const glow = new THREE.MeshStandardMaterial({ color: 0xfff3b0, emissive: 0xffd34d, emissiveIntensity: 0.9 });
+  for (const a of [-0.7, 0.7]) {
+    const w = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), glow);
+    w.position.set(Math.sin(a) * 1.36, 0.95, Math.cos(a) * 1.36);
+    w.rotation.y = a;
+    g.add(w);
+  }
+  const shroom = new THREE.MeshStandardMaterial({ color: 0xff7a59, roughness: 0.6 });
+  for (const [x, z] of [[0.5, 0.6], [-0.6, 0.3], [0.1, -0.7]]) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), shroom);
+    m.position.set(x, 2.05 + (x * x + z * z < 0.5 ? 0.1 : -0.05), z);
+    g.add(m);
+  }
+  stump.castShadow = roof.castShadow = true;
+  g.add(stump, roof, door, heart);
+  return g;
+}
+
 /** a soft round moss bed for the glade residents */
 export function mossBedMesh(): THREE.Group {
   const g = new THREE.Group();

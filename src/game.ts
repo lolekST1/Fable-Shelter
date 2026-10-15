@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { Creature } from './creature';
 import type { Sfx } from './sfx';
 import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, drawAilment, drawBerry, drawCoin, drawHeart, drawMoon, drawSpotIcon, needCanvas } from './icons';
-import { Fx, Station, backpackMesh, basketMesh, bedMesh, bridgeMesh, coinGeo, coinMat, dressUp, gateArchMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh } from './props';
+import { Fx, Station, backpackMesh, basketMesh, bedMesh, bridgeMesh, coinGeo, coinMat, dressUp, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh } from './props';
 
 /**
  * Fable Shelter loop:
@@ -29,7 +29,7 @@ export interface GameDeps {
 /** generated 3D models for the props, and how wide each stands; the simple stand-in shows until (unless) it loads */
 const PROP_MODEL: Record<string, [string, number]> = {
   pink: ['prop_kociolek', 1.15], blue: ['prop_zrodelko', 1.25], green: ['prop_ziola', 1.1], purple: ['prop_lilia', 1.3], gold: ['prop_ul', 1.05],
-  camp: ['prop_legowisko', 1.15], pond: ['prop_legowiskolisc', 1.15], basket: ['prop_kosz', 0.95],
+  camp: ['prop_legowisko', 1.15], pond: ['prop_legowiskolisc', 1.15], basket: ['prop_kosz', 0.95], house: ['prop_domek', 3.0],
 };
 
 /** how a resident helps around the camp once it feels at home (has at least one heart):
@@ -97,6 +97,14 @@ const HEDGE: [number, number][] = Array.from({ length: 9 }, (_, i) => {
 });
 const HEDGE_GAP = (i: number) => Math.abs(i - 4) <= 2;
 const ZONE_BEDS: Record<Zone, [number, number][]> = { camp: BEDS, pond: POND_BEDS, glade: GLADE_BEDS };
+/** the shelter house at the west edge of the camp, its door facing the camp (south-east): adopters come out of it */
+const HOUSE = new THREE.Vector3(-9.2, 0, -1.4);
+const HOUSE_FACING = Math.PI / 4;
+const HOUSE_DOOR = HOUSE.clone().add(new THREE.Vector3(Math.sin(HOUSE_FACING) * 1.9, 0, Math.cos(HOUSE_FACING) * 1.9));
+/** who comes to adopt: model name and height; a recoloured keeper stands in until a model exists */
+const ADOPTERS: [string, number][] = [['dziewczynka', 0.8], ['chlopiec', 0.8], ['babcia', 0.95], ['dziadek', 1.0]];
+/** extra coins (each worth 2) when the keeper is there to say goodbye */
+const FAREWELL_BONUS = 8;
 /** where each area's hired helper waits between jobs */
 const WORKER_HOME: Record<Zone, THREE.Vector3> = { camp: new THREE.Vector3(3.4, 0, 5.4), pond: new THREE.Vector3(2.8, 0, -11.2), glade: new THREE.Vector3(13.0, 0, 3.6) };
 
@@ -125,7 +133,7 @@ interface Resident {
   hearts: number;
   need: 'food' | 'sleep' | null;
   needT: number;
-  state: 'toBed' | 'idle' | 'eating' | 'toSleep' | 'sleeping' | 'leaving' | 'helpGo' | 'helpWork' | 'helpBring' | 'helpBack';
+  state: 'toBed' | 'idle' | 'eating' | 'toSleep' | 'sleeping' | 'awaiting' | 'leaving' | 'helpGo' | 'helpWork' | 'helpBring' | 'helpBack';
   /** waypoints still to walk */
   path: THREE.Vector3[];
   helpT: number;
@@ -143,6 +151,9 @@ interface Resident {
 }
 
 interface Coin { m: THREE.Mesh; v: THREE.Vector3; t: number; magnet: boolean }
+
+/** someone from the shelter house come to take a four-heart resident home */
+interface Adopter { c: Creature; r: Resident; state: 'come' | 'hug' | 'go'; path: THREE.Vector3[]; t: number }
 
 /** a hired helper (the keeper's apprentice) that looks after one area: cures its patients, feeds and tucks in its residents */
 interface Worker {
@@ -225,6 +236,7 @@ export class Game {
   residents: Resident[] = [];
   /** hired helpers, one per area: they run the area on their own so the keeper can move on */
   workers: Worker[] = [];
+  adopters: Adopter[] = [];
   beds: Bed[] = [];
   /** species that can show up as patients */
   species: string[] = ['chmurnik'];
@@ -299,6 +311,11 @@ export class Game {
     this.basket.position.set(2.4, 0, 6.3);
     d.scene.add(this.basket);
     this.dress(this.basket, 'basket');
+    const house = shelterHouseMesh();
+    house.position.copy(HOUSE);
+    house.rotation.y = HOUSE_FACING;
+    d.scene.add(house);
+    this.dress(house, 'house');
 
     this.load();
     this.refreshSpots();
@@ -456,7 +473,7 @@ export class Game {
     for (const p of this.patients) out.push([p.c.root.position.x, p.c.root.position.z, 0.42]);
     for (const r of this.residents) if (r.state !== 'sleeping' && r.state !== 'toSleep') out.push([r.c.root.position.x, r.c.root.position.z, 0.32]);
     for (const o of this.props) out.push([o.position.x, o.position.z, 0.25]);
-    out.push([this.basket.position.x, this.basket.position.z, 0.42]);
+    out.push([this.basket.position.x, this.basket.position.z, 0.42], [HOUSE.x, HOUSE.z, 1.45]);
     for (const h of this.hedge) if (h.parent) out.push([h.position.x, h.position.z, 0.55]);
     return out;
   }
@@ -787,6 +804,7 @@ export class Game {
         this.spots.every((s) => s.pos.distanceTo(seat) > 1.6) &&
         this.props.every((o) => o.position.distanceTo(seat) > 1.4) &&
         this.basket.position.distanceTo(seat) > 1.4 &&
+        HOUSE.distanceTo(seat) > 3 &&
         this.beds.every((b) => b.pos.distanceTo(seat) > 1.3) &&
         this.patients.every((p) => p.seat.distanceTo(seat) > 1.8) &&
         seat.distanceTo(this.d.keeper.root.position) > 1.5;
@@ -1146,26 +1164,85 @@ export class Game {
     this.drawNeed(r);
   }
 
+  /** four hearts: it waits by its bed while someone comes from the shelter house to take it home */
   private adopt(r: Resident) {
-    r.state = 'leaving';
+    r.state = 'awaiting';
     r.need = null;
-    r.bed.owner = null;
     r.bed.ring.visible = false;
     r.c.eyesShut = undefined;
     r.c.hop();
-    this.d.sfx.heal();
+    this.dropJob(r);
+    this.drawNeed(r);
     this.d.sfx.build();
+    void this.callAdopter(r);
+  }
+
+  private async callAdopter(r: Resident) {
+    const [name, h] = ADOPTERS[Math.floor(Math.random() * ADOPTERS.length)];
+    let c: Creature;
+    try {
+      c = await this.d.spawnCreature(name, h);
+    } catch {
+      // no model of this person yet: a recoloured keeper stands in
+      c = await this.d.spawnCreature('opiekun', h);
+      c.setTint([0xffd0e0, 0xd0f0ff, 0xfff0b0, 0xd8ffd0][Math.floor(Math.random() * 4)]);
+    }
+    c.root.position.copy(HOUSE_DOOR);
+    this.d.scene.add(c.root);
+    this.fx.emit('dust', HOUSE_DOOR.clone().setY(0.4), 10, { speed: 1, up: 1, g: 2, life: 0.6 });
+    this.adopters.push({ c, r, state: 'come', path: this.route(HOUSE_DOOR, r.c.root.position), t: 0 });
+  }
+
+  /** the adopter and the resident meet: the adoption heart, coins, a bonus if the keeper came to say goodbye */
+  private farewell(r: Resident) {
+    const bonus = this.d.keeper.root.position.distanceTo(r.c.root.position) < 3;
+    r.state = 'leaving';
+    r.bed.owner = null;
+    r.c.hop();
+    this.d.sfx.heal();
     const at = r.c.root.position.clone().setY(r.c.height * 0.7);
-    this.fx.emit('heart', at, 30, { speed: 2.2, up: 2.5, g: 1, life: 1.6, size: 1.8 });
+    this.fx.emit('heart', at, bonus ? 45 : 30, { speed: 2.2, up: 2.5, g: 1, life: 1.6, size: 1.8 });
     this.fx.emit('star', at, 20, { speed: 2.4, up: 2, life: 1.1 });
-    this.dropCoins(at, ADOPT_COINS);
+    this.dropCoins(at, ADOPT_COINS + (bonus ? FAREWELL_BONUS : 0));
     this.setHearts(this.hearts + 1);
     for (const sp of this.spots) this.drawSpot(sp);
-    // off to a new home: out through the gate and down toward the edge of the meadow
-    this.dropJob(r);
-    const home = { camp: new THREE.Vector3((Math.random() - 0.5) * 4, 0, 13), pond: new THREE.Vector3(POND_C.x + (Math.random() - 0.5) * 6, 0, -24), glade: new THREE.Vector3(GLADE_C.x + 9, 0, GLADE_C.z + (Math.random() - 0.5) * 4) };
-    r.path = this.route(r.c.root.position, home[r.bed.zone]);
+    r.path = this.route(r.c.root.position, HOUSE_DOOR);
     this.save();
+  }
+
+  private updateAdopters(dt: number) {
+    for (let i = this.adopters.length - 1; i >= 0; i--) {
+      const a = this.adopters[i], c = a.c, r = a.r, pos = c.root.position;
+      c.update(dt);
+      a.t += dt;
+      if (a.state === 'come') {
+        if (!this.residents.includes(r)) { a.state = 'go'; a.path = this.route(pos, HOUSE_DOOR); continue; }
+        a.path[a.path.length - 1].copy(r.c.root.position);
+        this.follow(c, a.path, 1.8, dt);
+        if (pos.distanceTo(r.c.root.position) < 0.9) {
+          a.state = 'hug';
+          a.t = 0;
+          c.walk = 0;
+          c.lookAt(r.c.root.position.x, r.c.root.position.z);
+          r.c.lookAt(pos.x, pos.z);
+          c.hop();
+          r.c.hop();
+          this.d.sfx.pop(4);
+        }
+      } else if (a.state === 'hug') {
+        if (Math.random() < dt * 8) this.fx.emit('heart', pos.clone().lerp(r.c.root.position, 0.5).setY(1.1), 1, { speed: 0.4, up: 0.8, g: -0.2, life: 1.2, size: 1.3 });
+        if (a.t > 1.5) {
+          this.farewell(r);
+          a.state = 'go';
+          a.path = this.route(pos, HOUSE_DOOR);
+        }
+      } else if (this.follow(c, a.path, 2.0, dt)) {
+        // home through the shelter house door
+        this.fx.emit('dust', pos.clone().setY(0.4), 8, { speed: 0.8, up: 0.8, g: 2, life: 0.5 });
+        this.d.scene.remove(c.root);
+        this.adopters.splice(i, 1);
+      }
+    }
   }
 
   private updateResidents(dt: number) {
@@ -1301,6 +1378,10 @@ export class Game {
         }
       } else if (r.state === 'helpBack') {
         if (this.follow(c, r.path, 1.7, dt)) { r.state = 'idle'; r.wanderT = 0; }
+      } else if (r.state === 'awaiting') {
+        // waiting by its bed for the adopter, bouncing a little with excitement
+        this.walk(c, nearBed, 0.6, dt);
+        if (Math.random() < dt * 0.6) c.hop();
       } else if (r.state === 'leaving') {
         if (Math.random() < dt * 4) this.fx.emit('heart', pos.clone().setY(c.height * 0.8), 1, { speed: 0.3, up: 0.6, g: -0.2, life: 1.2, size: 1.3 });
         if (this.follow(c, r.path, 2.0, dt)) {
@@ -1420,6 +1501,7 @@ export class Game {
 
     this.updateResidents(dt);
     this.updateWorkers(dt);
+    this.updateAdopters(dt);
 
     // basket: standing next to it tips the pile in, top item first
     const b = this.basket.position;
