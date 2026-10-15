@@ -409,6 +409,7 @@ export class Game {
   /** extra circles the keeper should not walk through */
   circles(): [number, number, number][] {
     const out: [number, number, number][] = [];
+    if (this.pondOpen) out.push([POND_C.x, POND_C.z, 2.45]); // the pond water itself
     for (const s of this.stations) out.push([s.pos.x, s.pos.z, 0.55], [s.pos.x + 0.82, s.pos.z + 0.05, 0.3]);
     for (const p of this.patients) out.push([p.c.root.position.x, p.c.root.position.z, 0.42]);
     for (const r of this.residents) if (r.state !== 'sleeping' && r.state !== 'toSleep') out.push([r.c.root.position.x, r.c.root.position.z, 0.32]);
