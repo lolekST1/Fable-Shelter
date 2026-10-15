@@ -168,5 +168,12 @@ Krzak jagód: `a round bush full of shiny red berries, chunky cute shapes,` + st
 Legowisko: `a round plush pet bed in soft lilac with a small white pillow, chunky cute shapes,` + styl rekwizytów
 Kosz: `a woven wicker basket with a round rim, chunky cute shapes,` + styl rekwizytów
 
+## FLUX 3 Image Klein a Z-Image Turbo (porównanie 16.10.2026)
+Te same prompty, po 3 obrazy na postać: yeti, renifer, bałwanek, pingwinek, krzak, legowisko z mchu. Arkusz: `D:\ComfyUI-Shared\output\FS\porownanie\porownanie_zimage_vs_flux3.jpg`. FLUX 3 Klein w wersji distilled (int8, 15 kroków, bez „upsamplera” promptu), workflow w ComfyUI: `image_flux3_klein_distilled-tworzenie obrazów (szybki, 15 kroków)`.
+- Czas: podobny, ok. 40 s za 3 obrazy 1024×1024 na RTX 4060 (z wczytaniem modelu).
+- FLUX 3 dokładniej trzyma się promptu (małe różki yeti, uśmiech z zębami, żółty szalik z warkoczem) i daje wyraźną fakturę filcu, jak prawdziwa maskotka. Rekwizyty wychodzą gładkie i proste, co dobrze pasuje do Pixal3D.
+- Z-Image ma bardziej puchate futro, rumieńce i miękkie światło, czyli ten sam styl co 20 gatunków, które już są w grze. Tło jest jaśniejsze i bardziej szare.
+- Wniosek: stworki dalej w Z-Image, żeby nowe pasowały do starych. FLUX 3 warto brać do rekwizytów i do edycji obrazu (tył i bok z referencji), bo ma też tryb edycji.
+
 ## Nazwy plików
 Zapisuj wybrane do `D:\ComfyUI-Shared\output\FS` jak dotąd, np. `Nessie-image-turbo_00003.png`, `nessie_tył_00001.png`, `nessie_lewy_00001.png`, a modele `nessie.glb`. Resztę przejrzę, wybiorę i oznaczę `WYBRANY`.
