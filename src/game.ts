@@ -28,7 +28,7 @@ export interface GameDeps {
 
 /** generated 3D models for the props, and how wide each stands; the simple stand-in shows until (unless) it loads */
 const PROP_MODEL: Record<string, [string, number]> = {
-  pink: ['prop_kociolek', 1.15], blue: ['prop_zrodelko', 1.25], green: ['prop_ziola', 1.1], purple: ['prop_lilia', 1.3],
+  pink: ['prop_kociolek', 1.15], blue: ['prop_zrodelko', 1.25], green: ['prop_ziola', 1.1], purple: ['prop_lilia', 1.3], gold: ['prop_ul', 1.05],
   camp: ['prop_legowisko', 1.15], pond: ['prop_legowiskolisc', 1.15], basket: ['prop_kosz', 0.95],
 };
 
