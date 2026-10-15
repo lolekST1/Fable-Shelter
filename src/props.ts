@@ -536,34 +536,35 @@ export function gladeScenery(cx: number, cz: number, r: number): THREE.Group {
   heath.rotation.x = -Math.PI / 2;
   heath.position.set(cx, 0.004, cz);
   g.add(heath);
-  const bloom = [0xc084e8, 0xd9a6f2, 0xa66bd6, 0xf0c6ff].map((c) => new THREE.MeshLambertMaterial({ color: c }));
-  const ball = new THREE.SphereGeometry(0.09, 8, 6);
-  for (let i = 0; i < 160; i++) {
-    const a = i * 2.399, rr = Math.sqrt((i + 0.5) / 160) * r * 1.05;
-    const m = new THREE.Mesh(ball, bloom[i % bloom.length]);
-    m.position.set(cx + Math.cos(a) * rr, 0.06, cz + Math.sin(a) * rr);
-    m.scale.set(1 + (i % 3) * 0.3, 0.7, 1 + (i % 2) * 0.3);
-    g.add(m);
+  // instanced, so the whole glade costs a few draw calls on a phone
+  const bloom = [0xc084e8, 0xd9a6f2, 0xa66bd6, 0xf0c6ff];
+  const N = 160;
+  const heather = new THREE.InstancedMesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshLambertMaterial({ color: 0xffffff }), N);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), scl = new THREE.Vector3(), col = new THREE.Color();
+  for (let i = 0; i < N; i++) {
+    const a = i * 2.399, rr = Math.sqrt((i + 0.5) / N) * r * 1.05;
+    m4.compose(pos.set(cx + Math.cos(a) * rr, 0.06, cz + Math.sin(a) * rr), q.identity(), scl.set(1 + (i % 3) * 0.3, 0.7, 1 + (i % 2) * 0.3));
+    heather.setMatrixAt(i, m4);
+    heather.setColorAt(i, col.set(bloom[i % bloom.length]));
   }
-  const trunk = new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.9 });
-  const crown = [0x4f9e45, 0x5fae4f, 0x6aaf4f].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 }));
-  for (let i = 0; i < 11; i++) {
+  g.add(heather);
+  const T = 11;
+  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.14, 0.2, 1.2, 8), new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.9 }), T);
+  const crowns = new THREE.InstancedMesh(new THREE.SphereGeometry(0.7, 14, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }), T * 3);
+  crowns.castShadow = true;
+  const green = [0x4f9e45, 0x5fae4f, 0x6aaf4f];
+  for (let i = 0; i < T; i++) {
     const a = -1.9 + i * 0.38; // the back half of the rim, away from the gate
     const tx = cx + Math.cos(a) * (r + 1.4), tz = cz + Math.sin(a) * (r + 1.4);
-    const t = new THREE.Group();
-    const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 1.2, 8), trunk);
-    tr.position.y = 0.6;
-    t.add(tr);
+    const s = 0.9 + (i % 3) * 0.15;
+    trunks.setMatrixAt(i, m4.compose(pos.set(tx, 0.6 * s, tz), q.identity(), scl.setScalar(s)));
     for (let k = 0; k < 3; k++) {
-      const c = new THREE.Mesh(new THREE.SphereGeometry(0.7 - k * 0.12, 14, 10), crown[(i + k) % 3]);
-      c.position.set((k - 1) * 0.25, 1.5 + k * 0.42, (k % 2) * 0.2);
-      c.castShadow = true;
-      t.add(c);
+      const cs = s * (1 - k * 0.17);
+      crowns.setMatrixAt(i * 3 + k, m4.compose(pos.set(tx + (k - 1) * 0.25 * s, (1.5 + k * 0.42) * s, tz + (k % 2) * 0.2 * s), q.identity(), scl.setScalar(cs)));
+      crowns.setColorAt(i * 3 + k, col.set(green[(i + k) % 3]));
     }
-    t.position.set(tx, 0, tz);
-    t.scale.setScalar(0.9 + (i % 3) * 0.15);
-    g.add(t);
   }
+  g.add(trunks, crowns);
   return g;
 }
 
@@ -594,40 +595,39 @@ export function pondScenery(): THREE.Group {
   pond.rotation.x = -Math.PI / 2;
   pond.position.set(0.6, 0.016, -14.6);
   g.add(brook, pond);
-  const stone = new THREE.MeshStandardMaterial({ color: 0xa3abb5, roughness: 0.8 });
+  // stones, pads and reeds are instanced: a handful of draw calls instead of ~200
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), s = new THREE.Vector3();
+  const stones: THREE.Matrix4[] = [];
   for (let i = 0; i < 60; i++) {
     const x = -24 + i * 0.8 + Math.sin(i * 7.3) * 0.3;
     if (Math.abs(x) < 1) continue;
     for (const z of [-8.25, -9.75]) {
       if ((i * 13 + (z > -9 ? 1 : 0)) % 3 === 0) continue;
-      const s = new THREE.Mesh(new THREE.SphereGeometry(0.12 + ((i * 5) % 4) * 0.03, 8, 6), stone);
-      s.position.set(x, 0.05, z + Math.sin(i * 3.1) * 0.1);
-      s.scale.y = 0.6;
-      g.add(s);
+      const r = 0.12 + ((i * 5) % 4) * 0.03;
+      stones.push(m4.compose(p.set(x, 0.05, z + Math.sin(i * 3.1) * 0.1), q.identity(), s.set(r, r * 0.6, r)).clone());
     }
   }
-  const padMat = mats.leaf;
+  const stoneMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshStandardMaterial({ color: 0xa3abb5, roughness: 0.8 }), stones.length);
+  stones.forEach((m, i) => stoneMesh.setMatrixAt(i, m));
+  const pads = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.22, 0.22, 0.02, 14, 1, false, 0.3, Math.PI * 2 - 0.6), mats.leaf, 9);
   for (let i = 0; i < 9; i++) {
     const a = i * 2.1, r = 0.6 + (i % 4) * 0.45;
-    const lp = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.02, 14, 1, false, 0.3, Math.PI * 2 - 0.6), padMat);
-    lp.position.set(0.6 + Math.cos(a) * r, 0.03, -14.6 + Math.sin(a) * r);
-    lp.rotation.y = a;
-    g.add(lp);
+    pads.setMatrixAt(i, m4.compose(p.set(0.6 + Math.cos(a) * r, 0.03, -14.6 + Math.sin(a) * r), q.setFromEuler(e.set(0, a, 0)), s.set(1, 1, 1)));
   }
-  const reedMat = new THREE.MeshStandardMaterial({ color: 0x5f9e45, roughness: 0.9 });
-  const catMat = new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.9 });
+  const reeds: [number, number, number, number][] = [];
   for (let i = 0; i < 26; i++) {
     const a = i * 0.9 + 0.3, r = 2.75 + (i % 3) * 0.12;
     const x = 0.6 + Math.cos(a) * r, z = -14.6 + Math.sin(a) * r;
     if (z > -12.4 && Math.abs(x) < 2) continue; // keep the path from the bridge open
-    const h = 0.5 + (i % 4) * 0.12;
-    const reed = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, h, 5), reedMat);
-    reed.position.set(x, h / 2, z);
-    reed.rotation.z = Math.sin(i) * 0.12;
-    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.14, 6), catMat);
-    top.position.set(x, h, z);
-    g.add(reed, top);
+    reeds.push([x, z, 0.5 + (i % 4) * 0.12, Math.sin(i) * 0.12]);
   }
+  const stems = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.015, 0.02, 1, 5), new THREE.MeshStandardMaterial({ color: 0x5f9e45, roughness: 0.9 }), reeds.length);
+  const tops = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.035, 0.035, 0.14, 6), new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.9 }), reeds.length);
+  reeds.forEach(([x, z, h, tilt], i) => {
+    stems.setMatrixAt(i, m4.compose(p.set(x, h / 2, z), q.setFromEuler(e.set(0, 0, tilt)), s.set(1, h, 1)));
+    tops.setMatrixAt(i, m4.compose(p.set(x, h, z), q.identity(), s.set(1, 1, 1)));
+  });
+  g.add(stoneMesh, pads, stems, tops);
   return g;
 }
 

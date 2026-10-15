@@ -185,6 +185,7 @@ joy.onTap = (cx, cy) => {
 (window as unknown as { __strays: () => string[] }).__strays = () => game?.strays() ?? [];
 (window as unknown as { __items: () => unknown[] }).__items = () => game?.items() ?? [];
 (window as unknown as { __spots: () => unknown }).__spots = () => game?.spotsInfo();
+(window as unknown as { __calls: () => number }).__calls = () => renderer.info.render.calls;
 (window as unknown as { __hearts: (n: number) => void }).__hearts = (n) => game?.addHearts(n);
 (window as unknown as { __coins: (n: number) => void }).__coins = (n) => game?.addCoins(n);
 
