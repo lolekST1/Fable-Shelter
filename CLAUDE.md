@@ -25,6 +25,7 @@ npm run build      # tsc --noEmit + vite build -> dist/
   - `BEDS` / `POND_BEDS` / `GLADE_BEDS` / `SNOW_BEDS`: miejsca na legowiska. `freeBed(zone)` woli łóżko w strefie gatunku. Każdy otwarty teren poza obozem trzyma co najmniej jednego swojego pacjenta.
   - `SPOTS`: ścieżka rozwoju. Każdy punkt ma cenę w monetach (opcjonalnie też w serduszkach) i efekt: nowe legowisko, stację, plecak, buty, drogowskaz, mostek z `openPond`, latarnię, furtkę w żywopłocie z `openGlade`, grzybową lampkę. Kupienie odblokowuje nowe gatunki i limit pacjentów.
   - Pomocnicy terenów (`workers`, `addWorker(zone)`): uczeń opiekuna kupowany jako punkt budowy, po jednym na teren (obóz 420 przed mostkiem, staw 780 przed furtką, polana 1400). Sam kładzie spać i karmi mieszkańców swojego terenu i nosi lekarstwa jego pacjentom. Monety z takiego terenu same lecą do opiekuna. Stany: idle, go, bring, tuck.
+  - Ozdoby schroniska (`addDecor`, `cheer`): ostatnie 4 punkty `SPOTS` po pomocniku Śnieżnego wzgórza. Huśtawka 1800, fontanna z żabką 2100, karuzela z grzybków 2400, złoty pomnik opiekuna 2700 (130 serduszek). Każda ozdoba dokłada `DECOR_BONUS` (2) monety do każdego wyleczenia. Animują się same przez `userData.tick`, a `userData.r` mówi, jak szeroko opiekun je omija. Pomnik to model opiekuna w złotym materiale na postumencie.
   - Adopcja (`adopt` → `callAdopter` → `updateAdopters` → `farewell`): przy 4 serduszkach mieszkaniec czeka przy legowisku (`awaiting`), a z drzwi domku schroniska (`HOUSE`, na zachodnim skraju obozu) wychodzi osoba z `ADOPTERS` (dziewczynka, chłopiec, babcia, dziadek). Podchodzi, przytulają się (`hug`, 1,5 s), spadają monety i serduszko adopcji, po czym oboje wracają do domku. Jeśli opiekun stoi w promieniu 3 m, dostaje premię `FAREWELL_BONUS`. Gracz nic nie musi robić.
   - Mieszkańcy mają stany: toBed, idle, eating, toSleep, sleeping, awaiting (czeka na adopcję), leaving, helpGo/helpWork/helpBring/helpBack. Pomagają od 1 serduszka, potem odpoczywają 10–16 s.
   - `route()` prowadzi przez przednią i tylną bramę zagrody, przez mostek i przez przejścia w żywopłocie (`GAP`) i w zaspie (`SNOW_GAP`). `bound()` nie wpuszcza do strumyka (z=-9), dopóki nie ma mostka, za żywopłot (koło `GLADE_C`, r=5), dopóki nie ma furtki, a za zaspę (koło `SNOW_C`, r=5), dopóki nie ma łopaty. Oba tereny za skrajem łąki opisuje lista `RIMS`. Miejsca na wzgórzu liczy `onSnow(odCentrum, wBok)`.
@@ -51,6 +52,7 @@ npm run build      # tsc --noEmit + vite build -> dist/
 - Teren 4 to Śnieżne wzgórze na południowy zachód, za zaspą (zrobione 15.10.2026, wybór użytkownika): łopata (1600 monet, 90 serduszek), ognisko z kakao, legowiska z koca, duże ognisko (110 serduszek, 7 pacjentów) i pomocnik (2600). Gatunki: yeti (czka śnieżkami), renifer (miga nosem), bałwanek (topnieje, leczy go woda ze źródełka), pingwinek (kręci się w kółko). Na razie mają modele zastępcze z zabarwieniem, prompty są w `docs/PROMPTY.md`.
 - Progi serduszek od 15.10.2026: mostek 15, latarnia 30, furtka 50, lampka 70 (wcześniej 3/6/10/13, nic nie blokowały).
 - Jagody da się zebrać tylko wtedy, gdy któryś mieszkaniec jest głodny i opiekun nie niesie ich już dość. Powód: krzak stoi przy drodze do kociołka i zapychał ręce.
+- Po ostatnim terenie są ozdoby obozu jako cel na monety (16.10.2026, gałąź `noc/ozdoby`, do decyzji użytkownika). Powód: test całej gry pokazał, że po ostatnim zakupie przybywa ok. 330 monet na minutę i nie ma ich na co wydać. Każda ozdoba zajmuje automatycznemu graczowi 6–8 minut.
 - Starsze tereny mają się automatyzować przez pomocników, a gracz zajmuje się najnowszym terenem i kolejnymi progami. Powód: w środku gry było kilkanaście osób do obsłużenia naraz (opinia użytkownika z 15.10.2026).
 
 ## Haki debug (URL i konsola)
@@ -78,7 +80,7 @@ node viewer/eyes.mjs nessie                      # oczy + powieki -> src/lids.js
 Skrypty Playwright na Chromium z swiftshader. Robią zrzuty do `tools/out/`.
 ```
 npm run build && npx vite preview --port 4173     # w katalogu głównym
-cd tools && node tests/care.mjs                   # też: pond, prog, lids, helpers, vials, glade, snow, workers, water, adoption, album
+cd tools && node tests/care.mjs                   # też: pond, prog, lids, helpers, vials, glade, snow, workers, water, adoption, album, decor
 RUNS=2 CAREFUL=1 node tests/playthrough.mjs       # cała gra od zera, kilka minut na przejście; bez CAREFUL gracz idzie prosto przez krzaki
 ```
 W środowisku chmurowym Claude Chromium leży w `/opt/pw-browsers`, a Playwright jest przypięty do 1.56.0, żeby pasował. Lokalnie może być potrzebne `npx playwright install chromium`.
