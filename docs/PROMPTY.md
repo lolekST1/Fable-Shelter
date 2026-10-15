@@ -106,7 +106,14 @@ Do każdego dopisz akapit stylu z góry pliku.
 
 ---
 
-## Rekwizyty obozu (na później, gdy zechcesz podmienić proste kształty)
+## Rekwizyty z modeli 3D (zrobione 15.10.2026)
+Pliki: `D:\ComfyUI-Shared\output\FS\rekwizyty`. Pixal3D z `241.resolution=512` i 12000 trójkątów. Potem `TEX=512 optimize.sh … pixal` i `tools/models/upright.mjs`, który prostuje przechył z ujęcia z góry. Jeśli automat się pomyli, kąt podaje się ręcznie, np. kociołek `-28 0`. W grze `PROP_MODEL` w `game.ts`, a dopóki model się nie wczyta, widać prosty kształt.
+- Krzak jagód (drugie podejście, pierwsze dało kulę malin bez liści): `a small round leafy green bush with lots of shiny red berries growing between the leaves, chunky cute shapes,` + styl rekwizytów
+- Ul: `a cute straw beehive skep sitting on a short tree stump, a little round entrance with golden honey dripping, chunky cute shapes,` + styl rekwizytów
+- Legowisko z mchu: `a round cozy bed made of soft green moss with a few purple heather sprigs and a small white pillow, chunky cute shapes,` + styl rekwizytów
+- Kociołek, źródełko, zioła, legowisko, kosz, lilia i legowisko z liścia: prompty poniżej i w sekcji stawu.
+
+## Rekwizyty obozu
 
 Kociołek: `a round chubby iron cauldron on three short legs, bubbling pink potion inside, chunky cute shapes,` + styl rekwizytów
 Źródełko: `a small stone spring with a ring of round pebbles, clear blue water pool and a little stone spout, chunky cute shapes,` + styl rekwizytów
