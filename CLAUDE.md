@@ -43,12 +43,12 @@ npm run build      # tsc --noEmit + vite build -> dist/
 - Kosz na niepotrzebne lekarstwa stoi poza zagrodą, z dala od źródeł lekarstw. Stacje są po różnych stronach obozu.
 - Nie ma drugiego kociołka: był za tani i nic nie dawał.
 - Ulepszenia opiekuna widać na nim samym (plecak, buty), a nie jako skrzynki w świecie.
-- Rozbudowa świata: teren 2 to staw za strumykiem. Mostek kosztuje monety i serduszka z adopcji. Każdy kolejny teren przynosi nowe gatunki i nowe lekarstwo (przy stawie fioletowy nektar z lilii). Teren 3 to wrzosowa polana na wschód, za żywopłotem: furtka (850 monet, 10 serduszek), ul ze złotym miodem, legowiska z mchu, grzybowa lampka i gatunki leszy, wilkołaczek, skrzat, sówka (zrobione w nocy 15.10.2026 na gałęzi `teren-3`, czeka na decyzję użytkownika).
+- Rozbudowa świata: teren 2 to staw za strumykiem. Mostek kosztuje monety i serduszka z adopcji. Każdy kolejny teren przynosi nowe gatunki i nowe lekarstwo (przy stawie fioletowy nektar z lilii). Teren 3 to wrzosowa polana na wschód, za żywopłotem: furtka (850 monet, 10 serduszek), ul ze złotym miodem, legowiska z mchu, grzybowa lampka i gatunki leszy, wilkołaczek, skrzat, sówka (zrobione w nocy 15.10.2026, scalone przez użytkownika).
 - Ceny mają rosnąć tak, żeby kolejna rzecz wymagała kilku pacjentów, a nie dwóch.
 
 ## Haki debug (URL i konsola)
 - `?reset=1` czyści zapis. `?debug` włącza ostrzeżenia. `?dtmax=0.4` pozwala grze iść w wolnej przeglądarce testowej. `?eyes=closed|half` zamyka powieki.
-- `window.__game()` zwraca stan, `__keeper()` pozycję opiekuna, `__walk(x,z)` wysyła go w punkt. `__coins(n)` i `__hearts(n)` dodają monety i serduszka. `__strays()` pokazuje zabłąkane przedmioty, a `__items()` wszystkie fiolki z pozycją i właścicielem.
+- `window.__game()` zwraca stan, `__keeper()` pozycję opiekuna, `__walk(x,z)` wysyła go w punkt. `__coins(n)` i `__hearts(n)` dodają monety i serduszka. `__strays()` pokazuje zabłąkane przedmioty, a `__items()` wszystkie fiolki z pozycją i właścicielem, a `__spots()` liczbę zakupów i widoczne punkty budowy (pozycja, cena, serduszka).
 
 ## Modele i narzędzia (`tools/`)
 Modele leżą jako base64 w `public/models/<nazwa>.glb.txt`. Tak dało się je serwować z każdego hostingu, a `loadModel` w `main.ts` dekoduje je w przeglądarce. Oryginały high-poly są tylko u użytkownika na `D:`.

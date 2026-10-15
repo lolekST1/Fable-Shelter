@@ -351,6 +351,11 @@ export class Game {
     });
   }
 
+  /** debug/testing: purchases so far and the build spots on show as [index, x, z, price, hearts, paid] */
+  spotsInfo() {
+    return { bought: this.bought, total: SPOTS.length, spots: this.spots.map((s) => [s.index, +s.pos.x.toFixed(2), +s.pos.z.toFixed(2), s.def.price, s.def.hearts ?? 0, s.paid]) };
+  }
+
   /** debug/testing: every medicine item as [id, kind, x, y, z, owner] */
   items(): [number, string, number, number, number, string][] {
     const owner = (o: THREE.Object3D) =>
