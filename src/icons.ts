@@ -969,9 +969,9 @@ export function drawBonfire(g: CanvasRenderingContext2D, x: number, y: number, r
   g.restore();
 }
 
-export type SpotIcon = 'cauldron' | 'spring' | 'herbs' | 'backpack' | 'shoes' | 'sign' | 'bed' | 'berry' | 'bridge' | 'lily' | 'lilybed' | 'lantern' | 'gate' | 'mossbed' | 'mushroom' | 'helper' | 'shovel' | 'snowbed' | 'bonfire';
+export type SpotIcon = 'cauldron' | 'spring' | 'herbs' | 'backpack' | 'shoes' | 'sign' | 'bed' | 'berry' | 'bridge' | 'lily' | 'lilybed' | 'lantern' | 'gate' | 'mossbed' | 'mushroom' | 'helper' | 'shovel' | 'snowbed' | 'bonfire' | 'swing' | 'fountain' | 'carousel' | 'statue';
 export function drawSpotIcon(g: CanvasRenderingContext2D, icon: SpotIcon, x: number, y: number, r: number) {
-  ({ cauldron: drawCauldron, spring: drawSpring, herbs: drawHerbs, backpack: drawBackpack, shoes: drawShoe, sign: drawSign, bed: drawBed, berry: drawBerry, bridge: drawBridge, lily: drawLily, lilybed: drawLilyBed, lantern: drawLantern, gate: drawGate, mossbed: drawMossBed, mushroom: drawMushroom, helper: drawHelper, shovel: drawShovel, snowbed: drawSnowBed, bonfire: drawBonfire })[icon](g, x, y, r);
+  ({ cauldron: drawCauldron, spring: drawSpring, herbs: drawHerbs, backpack: drawBackpack, shoes: drawShoe, sign: drawSign, bed: drawBed, berry: drawBerry, bridge: drawBridge, lily: drawLily, lilybed: drawLilyBed, lantern: drawLantern, gate: drawGate, mossbed: drawMossBed, mushroom: drawMushroom, helper: drawHelper, shovel: drawShovel, snowbed: drawSnowBed, bonfire: drawBonfire, swing: drawSwing, fountain: drawFountain, carousel: drawCarousel, statue: drawStatue })[icon](g, x, y, r);
 }
 
 function bubbleBase(g: CanvasRenderingContext2D) {
@@ -1017,4 +1017,106 @@ export function needCanvas(c: HTMLCanvasElement, need: 'food' | 'sleep' | null, 
   // heart row
   const w = 34, x0 = 100 - ((max - 1) * w) / 2;
   for (let i = 0; i < max; i++) drawHeart(g, x0 + i * w, 216, 12, i < hearts ? '#ff5f86' : 'rgba(255,255,255,0.75)');
+}
+
+/** a swing on an A-frame */
+export function drawSwing(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  g.strokeStyle = '#a87c52';
+  g.lineWidth = r * 0.16;
+  g.lineCap = 'round';
+  g.beginPath();
+  g.moveTo(x - r * 0.8, y + r * 0.8);
+  g.lineTo(x - r * 0.55, y - r * 0.7);
+  g.lineTo(x + r * 0.55, y - r * 0.7);
+  g.lineTo(x + r * 0.8, y + r * 0.8);
+  g.stroke();
+  g.strokeStyle = '#d9b07a';
+  g.lineWidth = r * 0.06;
+  g.beginPath();
+  g.moveTo(x - r * 0.25, y - r * 0.7);
+  g.lineTo(x - r * 0.3, y + r * 0.3);
+  g.moveTo(x + r * 0.25, y - r * 0.7);
+  g.lineTo(x + r * 0.2, y + r * 0.3);
+  g.stroke();
+  g.fillStyle = '#ff9ec4';
+  g.beginPath();
+  g.ellipse(x - r * 0.05, y + r * 0.34, r * 0.38, r * 0.12, -0.05, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+}
+
+/** a stone fountain with a jet of water */
+export function drawFountain(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  g.strokeStyle = '#6cc8ff';
+  g.lineWidth = r * 0.12;
+  g.lineCap = 'round';
+  g.beginPath();
+  g.moveTo(x, y + r * 0.1);
+  g.quadraticCurveTo(x + r * 0.15, y - r * 0.95, x + r * 0.55, y - r * 0.05);
+  g.moveTo(x, y + r * 0.1);
+  g.quadraticCurveTo(x - r * 0.15, y - r * 0.95, x - r * 0.55, y - r * 0.05);
+  g.stroke();
+  g.fillStyle = '#a3abb5';
+  g.beginPath();
+  g.ellipse(x, y + r * 0.45, r * 0.85, r * 0.32, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#6cc8ff';
+  g.beginPath();
+  g.ellipse(x, y + r * 0.38, r * 0.62, r * 0.18, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#6fd36a';
+  g.beginPath();
+  g.arc(x, y + r * 0.2, r * 0.2, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+}
+
+/** a merry-go-round with a striped top */
+export function drawCarousel(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  const cols = ['#ff6fa0', '#6fc3ff', '#ffd34d', '#8be07a'];
+  for (let i = 0; i < 4; i++) {
+    g.fillStyle = cols[i];
+    g.beginPath();
+    g.moveTo(x, y - r * 0.85);
+    g.lineTo(x - r * 0.85 + (i * r * 1.7) / 4, y - r * 0.3);
+    g.lineTo(x - r * 0.85 + ((i + 1) * r * 1.7) / 4, y - r * 0.3);
+    g.closePath();
+    g.fill();
+  }
+  g.strokeStyle = '#ffc21a';
+  g.lineWidth = r * 0.1;
+  g.beginPath();
+  for (const dx of [-0.55, 0, 0.55]) { g.moveTo(x + dx * r, y - r * 0.3); g.lineTo(x + dx * r, y + r * 0.45); }
+  g.stroke();
+  g.fillStyle = '#c89a6a';
+  g.beginPath();
+  g.ellipse(x, y + r * 0.6, r * 0.9, r * 0.22, 0, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+}
+
+/** the keeper's golden statue on a pedestal */
+export function drawStatue(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  g.fillStyle = '#a3abb5';
+  g.fillRect(x - r * 0.5, y + r * 0.35, r, r * 0.5);
+  g.fillStyle = '#ffcf4a';
+  g.beginPath();
+  g.arc(x, y - r * 0.45, r * 0.32, 0, Math.PI * 2);
+  g.fill();
+  g.beginPath();
+  g.ellipse(x, y + r * 0.08, r * 0.32, r * 0.3, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#e8a91a';
+  g.beginPath();
+  g.ellipse(x, y - r * 0.62, r * 0.42, r * 0.13, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#fff6c8';
+  g.beginPath();
+  g.arc(x - r * 0.12, y - r * 0.5, r * 0.07, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
 }

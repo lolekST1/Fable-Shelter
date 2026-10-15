@@ -995,3 +995,144 @@ export class Fx {
     }
   }
 }
+
+// ------------------------------------------------------------ shelter decorations (the coin sink after the last area)
+// each sets userData.tick(t) for its idle animation and userData.r for how wide the keeper walks round it
+
+/** a swing on an A-frame with a plush cushion seat, swaying by itself */
+export function swingMesh(): THREE.Group {
+  const g = new THREE.Group();
+  for (const x of [-0.7, 0.7]) for (const z of [-0.35, 0.35]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.75, 8), mats.wood);
+    leg.position.set(x, 0.82, z * 0.55);
+    leg.rotation.x = z > 0 ? -0.22 : 0.22;
+    leg.castShadow = true;
+    g.add(leg);
+  }
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.6, 8), mats.darkWood);
+  bar.rotation.z = Math.PI / 2;
+  bar.position.y = 1.66;
+  g.add(bar);
+  const seat = new THREE.Group();
+  seat.position.y = 1.62;
+  for (const x of [-0.3, 0.3]) {
+    const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.15, 5), mats.twine);
+    rope.position.set(x, -0.58, 0);
+    seat.add(rope);
+  }
+  const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.12, 0.34), new THREE.MeshStandardMaterial({ color: 0xff9ec4, roughness: 1 }));
+  cushion.position.y = -1.18;
+  cushion.castShadow = true;
+  seat.add(cushion);
+  g.add(seat);
+  g.userData.tick = (t: number) => { seat.rotation.x = Math.sin(t * 1.6) * 0.45; };
+  g.userData.r = 0.75;
+  return g;
+}
+
+/** a round stone fountain with a frog in the middle spitting an arc of water */
+export function fountainMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.14, 10, 28), mats.stone);
+  rim.rotation.x = -Math.PI / 2;
+  rim.position.y = 0.22;
+  rim.castShadow = true;
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.86, 0.2, 28), mats.stone);
+  base.position.y = 0.1;
+  const water = new THREE.Mesh(new THREE.CircleGeometry(0.7, 28), new THREE.MeshStandardMaterial({ color: 0x6cc8ff, emissive: 0x2a8ad0, emissiveIntensity: 0.3, roughness: 0.1 }));
+  water.rotation.x = -Math.PI / 2;
+  water.position.y = 0.24;
+  const frogMat = new THREE.MeshStandardMaterial({ color: 0x6fd36a, roughness: 0.7 });
+  const frog = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 10), frogMat);
+  body.scale.set(1, 0.8, 1);
+  body.position.y = 0.42;
+  frog.add(body);
+  for (const x of [-0.1, 0.1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), frogMat);
+    eye.position.set(x, 0.6, 0.06);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), mats.ironDark);
+    pupil.position.set(x, 0.62, 0.12);
+    frog.add(eye, pupil);
+  }
+  g.add(base, rim, water, frog);
+  // droplets along a parabola out of the frog's mouth, falling back into the pool
+  const drops: THREE.Mesh[] = [];
+  const dropMat = new THREE.MeshStandardMaterial({ color: 0xbfe8ff, emissive: 0x6cc8ff, emissiveIntensity: 0.5, transparent: true, opacity: 0.85 });
+  for (let i = 0; i < 9; i++) {
+    const d = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), dropMat);
+    drops.push(d);
+    g.add(d);
+  }
+  g.userData.tick = (t: number) => {
+    frog.rotation.y = t * 0.4;
+    const dir = frog.rotation.y;
+    drops.forEach((d, i) => {
+      const p = (t * 0.9 + i / drops.length) % 1;
+      const h = p * 0.62;
+      d.position.set(Math.sin(dir) * h, 0.5 + p * 1.4 - p * p * 1.5, Math.cos(dir) * h);
+    });
+  };
+  g.userData.r = 0.9;
+  return g;
+}
+
+/** a little merry-go-round with three mushroom seats under a striped top */
+export function carouselMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.0, 0.16, 28), mats.wood);
+  base.position.y = 0.08;
+  base.castShadow = true;
+  g.add(base);
+  const spin = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.5, 10), new THREE.MeshStandardMaterial({ color: 0xffd34d, roughness: 0.4, metalness: 0.3 }));
+  pole.position.y = 0.9;
+  spin.add(pole);
+  const cols = [0xff6fa0, 0x6fc3ff, 0xffd34d, 0x8be07a];
+  for (let i = 0; i < 8; i++) {
+    const wedge = new THREE.Mesh(new THREE.ConeGeometry(1.05, 0.45, 3, 1, true, (i / 8) * Math.PI * 2, Math.PI / 4), new THREE.MeshStandardMaterial({ color: cols[i % 4], roughness: 0.8, side: THREE.DoubleSide }));
+    wedge.position.y = 1.78;
+    spin.add(wedge);
+  }
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), mats.honey);
+  ball.position.y = 2.06;
+  spin.add(ball);
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
+    const seat = new THREE.Group();
+    seat.position.set(Math.cos(a) * 0.62, 0, Math.sin(a) * 0.62);
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.13, 0.35, 10), mats.cloth);
+    stem.position.y = 0.33;
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: cols[i], roughness: 0.7 }));
+    cap.position.y = 0.48;
+    cap.castShadow = true;
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.3, 6), pole.material);
+    bar.position.y = 1.05;
+    seat.add(stem, cap, bar);
+    spin.add(seat);
+  }
+  g.add(spin);
+  g.userData.tick = (t: number) => {
+    spin.rotation.y = t * 0.8;
+    spin.children.forEach((c, i) => { if (i >= 10) c.position.y = 0.06 + Math.sin(t * 2.4 + i * 2) * 0.06; });
+  };
+  g.userData.r = 1.05;
+  return g;
+}
+
+/** the pedestal for the keeper's golden statue; the keeper model itself is put on top by the game */
+export function pedestalMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const step = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.68, 0.18, 24), mats.stone);
+  step.position.y = 0.09;
+  const block = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.5, 0.5, 24), mats.stone);
+  block.position.y = 0.43;
+  block.castShadow = true;
+  const plaque = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.16, 0.03), mats.honey);
+  plaque.position.set(0, 0.44, 0.48);
+  g.add(step, block, plaque);
+  g.userData.r = 0.65;
+  return g;
+}
+
+export const gold = new THREE.MeshStandardMaterial({ color: 0xffcf4a, emissive: 0x7a4a00, emissiveIntensity: 0.25, roughness: 0.3, metalness: 0.7 });

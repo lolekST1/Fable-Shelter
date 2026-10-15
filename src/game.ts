@@ -3,7 +3,7 @@ import type { Creature } from './creature';
 import type { Sfx } from './sfx';
 import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, drawAilment, drawBerry, drawCoin, drawHeart, drawMoon, drawSpotIcon, needCanvas } from './icons';
 import { Album } from './album';
-import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, coinGeo, coinMat, dressUp, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery } from './props';
+import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, carouselMesh, coinGeo, coinMat, dressUp, fountainMesh, gold, pedestalMesh, swingMesh, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery } from './props';
 
 /**
  * Fable Shelter loop:
@@ -244,7 +244,14 @@ const SPOTS: SpotDef[] = [
   { icon: 'bonfire', price: 2000, hearts: 110, at: SNOW_FIRE, apply: (g, i) => { g.addBonfire(SNOW_FIRE[0], SNOW_FIRE[1], i); g.unlock('balwanek'); } },
   { icon: 'snowbed', price: 2300, at: SNOW_BEDS[2], apply: (g, i) => { g.addBed(i, 'snow'); g.unlock('pingwinek'); } },
   { icon: 'helper', price: 2600, at: [WORKER_HOME.snow.x, WORKER_HOME.snow.z], apply: (g, i) => void g.addWorker('snow', i) },
+  // after the last area: decorations for the camp, each one makes every cure pay DECOR_BONUS more
+  { icon: 'swing', price: 2900, at: [7.0, 6.2], apply: (g, i) => g.addDecor('swing', 7.0, 6.2, i) },
+  { icon: 'fountain', price: 3300, at: [3.6, 9.2], apply: (g, i) => g.addDecor('fountain', 3.6, 9.2, i) },
+  { icon: 'carousel', price: 3800, at: [-7.4, -5.2], apply: (g, i) => g.addDecor('carousel', -7.4, -5.2, i) },
+  { icon: 'statue', price: 4400, hearts: 130, at: [-2.2, 9.6], apply: (g, i) => g.addDecor('statue', -2.2, 9.6, i) },
 ];
+
+const DECOR_BONUS = 2;
 
 /** saves from before the helpers counted purchases without them: shift the count past the inserted helper spots */
 const migrateBought = (n: number) => n + (n >= 9 ? 1 : 0) + (n >= 13 ? 1 : 0);
@@ -531,7 +538,7 @@ export class Game {
     for (const s of this.stations) out.push([s.pos.x, s.pos.z, 0.55], [s.pos.x + 0.82, s.pos.z + 0.05, 0.3]);
     for (const p of this.patients) out.push([p.c.root.position.x, p.c.root.position.z, 0.42]);
     for (const r of this.residents) if (r.state !== 'sleeping' && r.state !== 'toSleep') out.push([r.c.root.position.x, r.c.root.position.z, 0.32]);
-    for (const o of this.props) out.push([o.position.x, o.position.z, 0.25]);
+    for (const o of this.props) out.push([o.position.x, o.position.z, o.userData.r ?? 0.25]);
     out.push([this.basket.position.x, this.basket.position.z, 0.42], [HOUSE.x, HOUSE.z, 1.45]);
     for (const h of [...this.hedge, ...this.drift]) if (h.parent) out.push([h.position.x, h.position.z, 0.55]);
     return out;
@@ -646,6 +653,28 @@ export class Game {
     this.maxPatients = 6;
     if (!instant) this.popIn(g);
   }
+
+  /** a camp decoration: it plays by itself (userData.tick) and every cure pays a little more */
+  addDecor(kind: 'swing' | 'fountain' | 'carousel' | 'statue', x: number, z: number, instant: boolean) {
+    const g = { swing: swingMesh, fountain: fountainMesh, carousel: carouselMesh, statue: pedestalMesh }[kind]();
+    g.position.set(x, 0, z);
+    if (kind === 'statue') {
+      // the keeper in gold, a little bigger than life
+      this.d.loadProp('opiekun').then((m) => {
+        m.traverse((o) => { if ((o as THREE.Mesh).isMesh) { (o as THREE.Mesh).material = gold; o.castShadow = true; } });
+        const h = new THREE.Box3().setFromObject(m).getSize(new THREE.Vector3()).y;
+        m.scale.setScalar(1.25 / h);
+        m.position.y = 0.68;
+        g.add(m);
+      }, () => { /* no model: the empty pedestal stays */ });
+    }
+    this.d.scene.add(g);
+    this.props.push(g);
+    this.cheer++;
+    if (!instant) this.popIn(g);
+  }
+  /** decorations bought so far */
+  cheer = 0;
 
   addLantern(x: number, z: number, instant: boolean) {
     const g = lanternMesh();
@@ -903,7 +932,7 @@ export class Game {
       const clear =
         this.stations.every((c) => c.pos.distanceTo(seat) > 2) &&
         this.spots.every((s) => s.pos.distanceTo(seat) > 1.6) &&
-        this.props.every((o) => o.position.distanceTo(seat) > 1.4) &&
+        this.props.every((o) => o.position.distanceTo(seat) > 1.4 + (o.userData.r ?? 0)) &&
         this.basket.position.distanceTo(seat) > 2.6 && // the keeper must not tip the cures into the basket on the way
         HOUSE.distanceTo(seat) > 3 &&
         this.beds.every((b) => b.pos.distanceTo(seat) > 1.3) &&
@@ -1140,7 +1169,7 @@ export class Game {
     this.d.sfx.heal();
     const at = p.c.root.position.clone().setY(p.c.height * 0.7);
     this.fx.emit('star', at, 26, { speed: 2.6, up: 2.2, life: 1.1 });
-    this.dropCoins(at, p.sp.coins);
+    this.dropCoins(at, p.sp.coins + this.cheer * DECOR_BONUS);
     if (this.step === 1) this.step = 2;
   }
 
@@ -1563,6 +1592,7 @@ export class Game {
     const k = keeper.root.position;
     this.fx.update(dt);
     for (const s of this.stations) s.update(dt);
+    for (const o of this.props) o.userData.tick?.(this.t);
     for (const o of this.d.scene.children) {
       if (o.userData.pop === undefined) continue;
       const e = Math.min(1, (this.t - o.userData.pop) / 0.5);
