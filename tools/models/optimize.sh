@@ -3,7 +3,7 @@
 #   models/optimize.sh in.glb name [hy3|pixal]
 # Writes work/<name>_game.glb and public/models/<name>.glb.txt (base64, what the game loads).
 # hy3: weld + simplify (raw HY3 meshes are ~500k faces). pixal: already decimated in ComfyUI
-# (DecimateMesh 25000), so no simplify; its AO map is broken and gets removed.
+# (DecimateMesh 25000), so no simplify; its AO map is broken and gets removed. TEX=512 for small props.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 IN=$1; NAME=$2; KIND=${3:-hy3}
@@ -17,7 +17,7 @@ else
   $GT weld "$IN" "$T.a.glb"
   $GT simplify "$T.a.glb" "$T.b.glb" --ratio "${RATIO:-0.04}" --error 0.002
 fi
-$GT resize "$T.b.glb" "$T.c.glb" --width 1024 --height 1024
+$GT resize "$T.b.glb" "$T.c.glb" --width "${TEX:-1024}" --height "${TEX:-1024}"
 $GT webp "$T.c.glb" "$T.d.glb" --quality 82
 node models/notan.mjs "$T.d.glb" "${T}_game.glb"
 rm -f "$T".[abcd].glb

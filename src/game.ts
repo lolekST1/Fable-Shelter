@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { Creature } from './creature';
 import type { Sfx } from './sfx';
 import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, drawAilment, drawBerry, drawCoin, drawHeart, drawMoon, drawSpotIcon, needCanvas } from './icons';
-import { Fx, Station, backpackMesh, basketMesh, bedMesh, bridgeMesh, coinGeo, coinMat, gateArchMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh } from './props';
+import { Fx, Station, backpackMesh, basketMesh, bedMesh, bridgeMesh, coinGeo, coinMat, dressUp, gateArchMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh } from './props';
 
 /**
  * Fable Shelter loop:
@@ -22,7 +22,15 @@ export interface GameDeps {
   sfx: Sfx;
   shadowTex: THREE.Texture;
   spawnCreature: (name: string, height: number) => Promise<Creature>;
+  /** a generated prop model (public/models/<name>.glb.txt); rejects if there is none */
+  loadProp: (name: string) => Promise<THREE.Object3D>;
 }
+
+/** generated 3D models for the props, and how wide each stands; the simple stand-in shows until (unless) it loads */
+const PROP_MODEL: Record<string, [string, number]> = {
+  pink: ['prop_kociolek', 1.15], blue: ['prop_zrodelko', 1.25], green: ['prop_ziola', 1.1], berry: ['prop_krzak', 1.1], purple: ['prop_lilia', 1.3], gold: ['prop_ul', 1.0],
+  camp: ['prop_legowisko', 1.15], pond: ['prop_legowiskolisc', 1.15], glade: ['prop_legowiskomech', 1.15], basket: ['prop_kosz', 0.95],
+};
 
 /** how a resident helps around the camp once it feels at home (has at least one heart):
  *  boost a station (it brews twice as fast for a while) or carry things for the keeper */
@@ -288,6 +296,7 @@ export class Game {
     this.basket = basketMesh();
     this.basket.position.set(2.4, 0, 6.3);
     d.scene.add(this.basket);
+    this.dress(this.basket, 'basket');
 
     this.load();
     this.refreshSpots();
@@ -457,6 +466,12 @@ export class Game {
 
   // ------------------------------------------------------------ things the progression adds
 
+  /** put the generated 3D model on a prop once it has loaded (see PROP_MODEL); keep the stand-in otherwise */
+  private dress(target: THREE.Object3D, key: string) {
+    const [name, width] = PROP_MODEL[key];
+    this.d.loadProp(name).then((m) => dressUp(target, m, width), () => { /* no model yet: the stand-in stays */ });
+  }
+
   unlock(name: string) {
     if (!this.species.includes(name)) this.species.push(name);
   }
@@ -466,12 +481,14 @@ export class Game {
     const s = new Station(kind, new THREE.Vector3(x, 0, z), brew, this.d.shadowTex);
     this.d.scene.add(s.group);
     this.stations.push(s);
+    this.dress(s.body, kind);
     if (!instant) this.popIn(s.group);
   }
 
   addBed(instant: boolean, zone: Zone = 'camp') {
     const [x, z] = ZONE_BEDS[zone][this.beds.filter((b) => b.zone === zone).length];
     const mesh = { camp: bedMesh, pond: lilyBedMesh, glade: mossBedMesh }[zone]();
+    this.dress(mesh, zone);
     mesh.position.set(x, 0, z);
     // pulsing ring around a bed that needs plumping up
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.74, 32), new THREE.MeshBasicMaterial({ color: 0x8f9bff, transparent: true, opacity: 0.8, depthWrite: false }));

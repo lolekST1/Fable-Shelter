@@ -109,6 +109,21 @@ export const coinMat = new THREE.MeshStandardMaterial({ color: 0xffc83d, metalne
 export const TRAY_MAX = 6;
 
 /**
+ * Swap a prop's simple stand-in for its generated 3D model: the stand-in's meshes are hidden and the model,
+ * scaled to `width` across, takes their place. Prop models come centred and standing on y = 0 (tools/models/upright.mjs).
+ * Stand-ins stay if the model is missing.
+ */
+export function dressUp(target: THREE.Object3D, model: THREE.Object3D, width: number) {
+  const size = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
+  model.traverse((o) => { if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  const fit = new THREE.Group();
+  fit.add(model);
+  fit.scale.setScalar(width / Math.max(size.x, size.z));
+  for (const c of target.children) c.visible = false;
+  target.add(fit);
+}
+
+/**
  * A station brews one kind of medicine and sets it out on a little tray beside it.
  * Pink: cauldron. Blue: stone spring with a dripping spout. Green: planter of herbs.
  */
@@ -122,6 +137,9 @@ export class Station {
   private anim: ((t: number) => void)[] = [];
   private t = Math.random() * 5;
 
+  /** the station itself without its tray, so a 3D model can replace it (see dressUp) */
+  body = new THREE.Group();
+
   constructor(public kind: Medicine, public pos: THREE.Vector3, public brewTime: number, shadowTex: THREE.Texture) {
     if (kind === 'pink') this.buildCauldron();
     else if (kind === 'blue') this.buildSpring();
@@ -129,6 +147,8 @@ export class Station {
     else if (kind === 'purple') this.buildLily();
     else if (kind === 'gold') this.buildHive();
     else this.buildBerryBush();
+    this.body.add(...this.group.children);
+    this.group.add(this.body);
     const board = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.08, 0.46), mats.wood);
     board.position.set(0.82, 0.18, 0.05);
     board.castShadow = true;

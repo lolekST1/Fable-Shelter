@@ -120,7 +120,7 @@ Promise.all(
   rain.group.visible = false;
   if (keeper)
     game = new Game({
-      scene, camera, keeper, sfx, shadowTex, spawnCreature,
+      scene, camera, keeper, sfx, shadowTex, spawnCreature, loadProp: async (name) => (await loadModel(name)).scene,
     });
   if (game) game.onFirstPickup = () => hint.classList.add('hidden');
   if (game?.restored) hint.classList.add('hidden');
