@@ -76,6 +76,36 @@ stylized 3D render, plush toy look, soft fuzzy fabric texture, pastel colors, co
 
 ---
 
+## Teren 3: Wrzosowa polana (na wschód od obozu, za żywopłotem)
+Modele zrobione 15.10.2026 przez Claude'a (Z-Image, potem Pixal3D, sam przód). Futrzaste kształty (leszy, sówka) wychodziły w Pixal3D jako „zgnieciona folia”, a pomogło `241.resolution=512` i `186.target_face_count=40000`.
+
+### Leszy (`leszy`)
+Choroba w grze: gubi liście jak drzewo jesienią.
+```
+cute little forest spirit creature, soft moss green fur with a few tiny leaves and two small mushrooms on its head, short twig antlers, round chubby body, gentle happy smile, standing straight, arms at sides,
+```
+
+### Wilkołaczek (`wilkolaczek`)
+Choroba w grze: wyje do księżyca w środku dnia (nutki).
+```
+cute baby werewolf pup creature, soft silver grey fur, big fluffy pointed ears, two tiny fangs in a happy grin, fluffy tail, round chubby body, standing straight on two feet, arms at sides,
+```
+
+### Skrzat (`skrzat`)
+Choroba w grze: kurczy się do połowy i wraca z piskiem.
+```
+cute tiny forest gnome creature, round chubby body with soft beige fur, big pointy red hat with white dots, short fluffy white beard, rosy round nose, cheerful face, standing straight, arms at sides,
+```
+
+### Sówka (`sowka`)
+Choroba w grze: zawroty głowy, nad głową krążą gwiazdki.
+```
+cute baby owl creature, soft caramel brown fluffy feathers, cream colored belly, tiny ear tufts, small round wings at both sides, round chubby body, wise happy face, standing straight on two little feet,
+```
+Do każdego dopisz akapit stylu z góry pliku.
+
+---
+
 ## Rekwizyty obozu (na później, gdy zechcesz podmienić proste kształty)
 
 Kociołek: `a round chubby iron cauldron on three short legs, bubbling pink potion inside, chunky cute shapes,` + styl rekwizytów

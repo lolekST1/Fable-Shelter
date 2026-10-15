@@ -50,11 +50,11 @@ export const SPECIES: Record<string, Species> = {
   nessie: { height: 1.2, ailment: 'fountain', cure: 'purple', tint: 0xc8f0ff, coins: 9, skill: { boost: 'purple' }, zone: 'pond' },
   swietlik: { height: 1.0, ailment: 'flicker', cure: 'purple', tint: 0x9a90b0, coins: 10, skill: { carry: 'cure' }, zone: 'pond' },
   wodnik: { height: 1.1, ailment: 'drip', cure: 'blue', tint: 0xc8dcff, coins: 10, skill: { boost: 'blue' }, zone: 'pond' },
-  // glade creatures (stand-in models until their own are made)
-  leszy: { height: 1.15, ailment: 'leaves', cure: 'gold', tint: 0xe6c88a, coins: 11, skill: { boost: 'green' }, zone: 'glade', model: 'grzybolak', base: 0x9fd77a },
-  wilkolaczek: { height: 1.1, ailment: 'howl', cure: 'gold', tint: 0xd0c8e8, coins: 11, skill: { carry: 'berry' }, zone: 'glade', model: 'chmurnik', base: 0xc8c8d0 },
-  skrzat: { height: 0.95, ailment: 'shrink', cure: 'green', tint: 0xd8f0c0, coins: 12, skill: { boost: 'gold' }, zone: 'glade', model: 'jednorozec', base: 0xffb0a0 },
-  sowka: { height: 1.0, ailment: 'dizzy', cure: 'gold', tint: 0xe8d8ff, coins: 12, skill: { carry: 'cure' }, zone: 'glade', model: 'feniks', base: 0xd8b088 },
+  // glade creatures
+  leszy: { height: 1.15, ailment: 'leaves', cure: 'gold', tint: 0xe6c88a, coins: 11, skill: { boost: 'green' }, zone: 'glade' },
+  wilkolaczek: { height: 1.1, ailment: 'howl', cure: 'gold', tint: 0xd0c8e8, coins: 11, skill: { carry: 'berry' }, zone: 'glade' },
+  skrzat: { height: 0.95, ailment: 'shrink', cure: 'green', tint: 0xd8f0c0, coins: 12, skill: { boost: 'gold' }, zone: 'glade' },
+  sowka: { height: 1.0, ailment: 'dizzy', cure: 'gold', tint: 0xe8d8ff, coins: 12, skill: { carry: 'cure' }, zone: 'glade' },
   bazyliszek: { height: 1.0, ailment: 'stone', cure: 'green', tint: 0xbfc4c8, coins: 8, skill: { carry: 'berry' } },
 };
 
