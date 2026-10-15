@@ -102,7 +102,7 @@ const HOUSE = new THREE.Vector3(-9.2, 0, -1.4);
 const HOUSE_FACING = Math.PI / 4;
 const HOUSE_DOOR = HOUSE.clone().add(new THREE.Vector3(Math.sin(HOUSE_FACING) * 1.9, 0, Math.cos(HOUSE_FACING) * 1.9));
 /** who comes to adopt: model name and height; a recoloured keeper stands in until a model exists */
-const ADOPTERS: [string, number][] = [['dziewczynka', 0.8], ['chlopiec', 0.8], ['babcia', 0.95], ['dziadek', 1.0]];
+const ADOPTERS: [string, number][] = [['dziewczynka', 1.2], ['chlopiec', 1.2], ['babcia', 1.4], ['dziadek', 1.45]];
 /** extra coins (each worth 2) when the keeper is there to say goodbye */
 const FAREWELL_BONUS = 8;
 /** where each area's hired helper waits between jobs */

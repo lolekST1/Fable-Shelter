@@ -106,6 +106,14 @@ Do każdego dopisz akapit stylu z góry pliku.
 
 ---
 
+## Osoby adoptujące i domek schroniska (zrobione 15.10.2026)
+Pliki: `D:\ComfyUI-Shared\output\FS\ludzie` i `...\rekwizyty\Domek-*`. Pixal3D z 40000 trójkątów. Osoby obrabiane jak stworki (tekstury 1024, oczy z `ymin`), domek jak rekwizyt.
+- Dziewczynka: `cute little girl character, two short pigtails, yellow raincoat, red rubber boots, big happy smile, standing straight, arms at sides,` + styl postaci
+- Chłopiec: `cute little boy character, messy brown hair, green striped sweater, blue shorts, sneakers, cheerful face, standing straight, arms at sides,` + styl postaci
+- Babcia: `cute chubby grandma character, grey hair in a bun, round glasses, lilac knitted cardigan, long skirt, warm smile, standing straight, arms at sides,` + styl postaci
+- Dziadek: `cute chubby grandpa character, white mustache, flat cap, brown vest over a white shirt, warm smile, standing straight, arms at sides,` + styl postaci
+- Domek: `a cozy magical animal shelter cottage built into a giant round tree stump, mossy roof with a few little mushrooms, round wooden front door with a pink heart sign above it, warm glowing round windows, a small lantern by the door, chunky cute shapes,` + styl rekwizytów
+
 ## Rekwizyty z modeli 3D (zrobione 15.10.2026)
 Pliki: `D:\ComfyUI-Shared\output\FS\rekwizyty`. Pixal3D z `241.resolution=512` i 12000 trójkątów. Potem `TEX=512 optimize.sh … pixal` i `tools/models/upright.mjs`, który prostuje przechył z ujęcia z góry. Jeśli automat się pomyli, kąt podaje się ręcznie, np. kociołek `-28 0`. W grze `PROP_MODEL` w `game.ts`, a dopóki model się nie wczyta, widać prosty kształt.
 - Krzak jagód (drugie podejście, pierwsze dało kulę malin bez liści): `a small round leafy green bush with lots of shiny red berries growing between the leaves, chunky cute shapes,` + styl rekwizytów
