@@ -31,6 +31,7 @@ npm run build      # tsc --noEmit + vite build -> dist/
   - Zapis: localStorage `fable-shelter-save-v3` z polem `ver` (teraz 2). Jeśli zmieniasz format zapisu, podbij wersję klucza. Wyjątek: wstawienie punktów do `SPOTS` obsługuje `migrateBought` (zapis bez `ver` przesuwa licznik zakupów za punkty pomocników). Testy, które wgrywają zapis bez `ver`, też przez to przechodzą.
   - Siatka bezpieczeństwa: co 1 s usuwa „zabłąkane” lekarstwa, czyli takie, które nie leżą na tacy, nie są w rękach opiekuna i nie lecą. Pod `?debug` ostrzega o tym w konsoli. Błąd zgłoszony przez użytkownika: fiolki same się przesuwają albo pojawiają daleko. Do tej pory nie odtworzony.
 - `props.ts`: proste meshe stacji i rekwizytów. Część z nich podmieniają modele 3D `prop_*.glb.txt` przez `dressUp` (lista w `PROP_MODEL` w `game.ts`: kociołek, źródełko, zioła, lilia, legowiska obozu i stawu, kosz). Ul ma model z drugiego podejścia (40000 trójkątów). Krzak jagód i legowisko z mchu: patrz Otwarte sprawy. Reszta pliku: (kociołek, źródełko, zioła, jagody, lilia, legowiska, mostek, latarnia, kosz, plecak, drogowskaz, scenografia stawu) i cząsteczki `Fx`.
+- `album.ts`: album adopcji (przycisk z książeczką pod wyciszeniem). Strona na teren (`ALBUM_PAGES` w `game.ts`), karta na gatunek: `?`, sylwetka (gatunek odblokowany) albo portret z liczbą adopcji. Portrety rysuje `portrait()` w `main.ts` w osobnym małym rendererze. Pełna strona raz daje monety, które same lecą do opiekuna. Zapis: pola `album` i `albumPaid` (stare zapisy zaczynają z pustym albumem). Nowy gatunek dopisz do odpowiedniej strony.
 - `icons.ts`: ikonki rysowane na canvasie: choroby, lekarstwa, punkty budowy, dymki, serduszka.
 - `creature.ts`: stworek z modelu GLB. Ma waddle przy chodzeniu, `twitch`, tint, malowane powieki (shader `uShut`, kształt z `lids.json`).
 - `world.ts`: teren, płot z dwiema bramami, krzaki, `Obstacles`.
@@ -50,6 +51,7 @@ npm run build      # tsc --noEmit + vite build -> dist/
 - Starsze tereny mają się automatyzować przez pomocników, a gracz zajmuje się najnowszym terenem i kolejnymi progami. Powód: w środku gry było kilkanaście osób do obsłużenia naraz (opinia użytkownika z 15.10.2026).
 
 ## Haki debug (URL i konsola)
+- `?speed=N` robi N kroków gry (po 1/30 s) na klatkę, `?norender` rysuje co 30. klatkę, a `window.__tick(dt)` (jeśli test go ustawi) jest wołany przed każdym krokiem. `__G()` zwraca obiekt `Game`. Tego używa test całej gry.
 - `?reset=1` czyści zapis. `?debug` włącza ostrzeżenia. `?dtmax=0.4` pozwala grze iść w wolnej przeglądarce testowej. `?eyes=closed|half` zamyka powieki.
 - `window.__game()` zwraca stan, `__keeper()` pozycję opiekuna, `__walk(x,z)` wysyła go w punkt. `__coins(n)` i `__hearts(n)` dodają monety i serduszka. `__strays()` pokazuje zabłąkane przedmioty, a `__items()` wszystkie fiolki z pozycją i właścicielem, a `__spots()` liczbę zakupów i widoczne punkty budowy (pozycja, cena, serduszka). `__calls()` podaje liczbę wywołań rysowania na klatkę (15.10.2026: obóz 88, polana 91). Dekoracje w wielu kopiach rób jako `InstancedMesh`.
 
@@ -73,12 +75,16 @@ node viewer/eyes.mjs nessie                      # oczy + powieki -> src/lids.js
 Skrypty Playwright na Chromium z swiftshader. Robią zrzuty do `tools/out/`.
 ```
 npm run build && npx vite preview --port 4173     # w katalogu głównym
-cd tools && node tests/care.mjs                   # też: pond, prog, lids, helpers, vials, glade, workers, water, adoption
+cd tools && node tests/care.mjs                   # też: pond, prog, lids, helpers, vials, glade, workers, water, adoption, album
+RUNS=2 CAREFUL=1 node tests/playthrough.mjs       # cała gra od zera, kilka minut na przejście; bez CAREFUL gracz idzie prosto przez krzaki
 ```
 W środowisku chmurowym Claude Chromium leży w `/opt/pw-browsers`, a Playwright jest przypięty do 1.56.0, żeby pasował. Lokalnie może być potrzebne `npx playwright install chromium`.
 - Windows (u użytkownika): pobieranie `chromium-1194` urwało się bez `chrome.exe`. Kompletny jest `chromium-1243`, więc wszystkie skrypty przyjmują `CHROME_PATH` (`%LOCALAPPDATA%\ms-playwright\chromium-1243\chrome-win64\chrome.exe`).
 - Zapis testowy wgrywaj przez `page.addInitScript`. Zapis do `localStorage` z działającej gry nadpisze przy przeładowaniu `pagehide`.
 - Mieszkaniec pomaga tylko wtedy, gdy sam niczego nie potrzebuje, więc w teście ktoś musi go karmić i kłaść spać.
+
+## Tempo gry (test całej gry, 15.10.2026)
+Automatyczny gracz (szybszy od człowieka) przechodzi całą grę w 49–58 minut gry. Pierwsze 10 zakupów zajmuje po 1,5–2 min (5–15 wyleczeń), ostatnie po 4–5 min (25–40 wyleczeń). W grze jest ok. 170 adopcji na 350–400 wyleczeń. Progi serduszek (3/6/10/13) nigdy nie blokują, bo gracz ma ich wtedy 35/45/65/85. Po ostatnim zakupie przybywa ok. 330 monet na minutę i nie ma ich na co wydać. Pożegnania zajmują graczowi ok. 1/3 czasu. Krzak jagód leży na drodze do kociołka i napełnia ręce jagodami, więc nieuważny gracz częściej chodzi do kosza (w jednym przebiegu 4. zakup przyszedł dopiero po 10,8 min zamiast ok. 5).
 
 ## Otwarte sprawy
 - Krzak jagód i legowisko z mchu nie mają modeli 3D. Liście i mech wychodziły w Pixal3D jak zgnieciona folia, także przy 40000 trójkątów (15.10.2026). Można spróbować w Hunyuan3D albo z innym obrazkiem.
