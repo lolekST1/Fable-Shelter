@@ -107,7 +107,7 @@ Do każdego dopisz akapit stylu z góry pliku.
 ---
 
 ## Teren 4: Śnieżne wzgórze (na południowy zachód od obozu, za zaspą)
-W grze od 15.10.2026 na modelach zastępczych z zabarwieniem: yeti = chmurnik, renifer = jednorożec, bałwanek = grzybolak, pingwinek = sówka. Po zrobieniu modelu usuń `model`/`base` z wpisu w `SPECIES` i wygeneruj powieki.
+Modele zrobione 16.10.2026 w nocy (Z-Image Turbo, potem Pixal3D z samego przodu): yeti z `241.resolution=512` i 40000 trójkątów (futro), reszta 25000. Powieki z `ymax` 250–300, bo bez tego łapało kopytka albo guziki.
 
 ### Yeti-maluch (`yeti`)
 Choroba w grze: czka śnieżkami. Lekarstwo: gorące kakao.
@@ -154,6 +154,9 @@ Pliki: `D:\ComfyUI-Shared\output\FS\rekwizyty`. Pixal3D z `241.resolution=512` i
 - Krzak jagód (drugie podejście, pierwsze dało kulę malin bez liści): `a small round leafy green bush with lots of shiny red berries growing between the leaves, chunky cute shapes,` + styl rekwizytów
 - Ul: `a cute straw beehive skep sitting on a short tree stump, a little round entrance with golden honey dripping, chunky cute shapes,` + styl rekwizytów
 - Legowisko z mchu: `a round cozy bed made of soft green moss with a few purple heather sprigs and a small white pillow, chunky cute shapes,` + styl rekwizytów
+- Trzecie podejście (16.10.2026, udane): zamiast liści i mchu proste, gładkie bryły, wtedy Pixal3D nie robi zgniecionej folii. 12000 trójkątów, `241.resolution=512`.
+  - Krzak: `a small chubby round shrub made of a few big smooth rounded leaf clumps like soft green pillows, with big shiny red berries sitting on top, simple solid shapes, chunky cute shapes,` + styl rekwizytów
+  - Mech: `a round cozy pet bed shaped like a thick smooth green felt donut with a soft rounded rim, a small white pillow in the middle, two tiny purple flowers on the rim, simple solid shapes, chunky cute shapes,` + styl rekwizytów
 - Kociołek, źródełko, zioła, legowisko, kosz, lilia i legowisko z liścia: prompty poniżej i w sekcji stawu.
 
 ## Rekwizyty obozu
