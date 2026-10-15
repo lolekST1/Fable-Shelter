@@ -168,6 +168,12 @@ Krzak jagód: `a round bush full of shiny red berries, chunky cute shapes,` + st
 Legowisko: `a round plush pet bed in soft lilac with a small white pillow, chunky cute shapes,` + styl rekwizytów
 Kosz: `a woven wicker basket with a round rim, chunky cute shapes,` + styl rekwizytów
 
+## Rekwizyty z FLUX 3 Klein (16.10.2026)
+Styl rekwizytów jak wyżej, na końcu opisu `simple solid shapes,`. Pixal3D: 12000 trójkątów, `241.resolution=512`. Wysokie i chude rzeczy (drogowskaz, latarnia) `upright.mjs` przechyla za mocno, wtedy kąt ręcznie: `-10 0`.
+- Drogowskaz: `a wooden signpost on a short post with one arrow-shaped board pointing sideways and a pink heart painted on it, a small tuft of grass at its foot, chunky cute shapes, simple solid shapes,`
+- Latarnia: `a cute old-fashioned garden lantern on a short wooden post, a round glass lamp glowing warm yellow inside, a little pink heart on top, chunky cute shapes, simple solid shapes,`
+- Grzybowa lampka: `a big glowing toadstool mushroom lamp with an orange red cap covered in round glowing pale yellow dots and a thick cream stem, chunky cute shapes, simple solid shapes,`
+
 ## FLUX 3 Image Klein a Z-Image Turbo (porównanie 16.10.2026)
 Te same prompty, po 3 obrazy na postać: yeti, renifer, bałwanek, pingwinek, krzak, legowisko z mchu. Arkusz: `D:\ComfyUI-Shared\output\FS\porownanie\porownanie_zimage_vs_flux3.jpg`. FLUX 3 Klein w wersji distilled (int8, 15 kroków, bez „upsamplera” promptu), workflow w ComfyUI: `image_flux3_klein_distilled-tworzenie obrazów (szybki, 15 kroków)`.
 - Czas: podobny, ok. 40 s za 3 obrazy 1024×1024 na RTX 4060 (z wczytaniem modelu).
