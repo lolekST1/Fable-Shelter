@@ -35,7 +35,7 @@ export interface GameDeps {
 const PROP_MODEL: Record<string, [string, number, number?]> = {
   pink: ['prop_kociolek', 1.15], blue: ['prop_zrodelko', 1.25], green: ['prop_ziola', 1.1], purple: ['prop_lilia', 1.3], gold: ['prop_ul', 1.05],
   camp: ['prop_legowisko', 1.15], pond: ['prop_legowiskolisc', 1.15], basket: ['prop_kosz', 0.95], house: ['prop_domek', 3.0, -0.45],
-  berry: ['prop_krzak', 1.1], glade: ['prop_legowiskomech', 1.15], snow: ['prop_legowiskokoc', 1.15], cocoa: ['prop_ognisko', 1.2], bonfire: ['prop_duzeognisko', 1.6], pearl: ['prop_perla', 1.2], sea: ['prop_legowiskomuszla', 1.2], lighthouse: ['prop_latarniamorska', 0.9],
+  berry: ['prop_krzak', 1.1], glade: ['prop_legowiskomech', 1.15], snow: ['prop_legowiskokoc', 1.15], cocoa: ['prop_ognisko', 1.2], bonfire: ['prop_duzeognisko', 1.6], pearl: ['prop_perla', 1.2], sea: ['prop_legowiskomuszla', 1.2], lighthouse: ['prop_latarniamorska', 1.3],
   sign: ['prop_drogowskaz', 1.1], lantern: ['prop_latarnia', 0.8], mushroom: ['prop_lampka', 0.9],
 };
 
@@ -76,11 +76,11 @@ export const SPECIES: Record<string, Species> = {
   renifer: { height: 1.2, ailment: 'nose', cure: 'cocoa', tint: 0xffd0c0, coins: 13, skill: { carry: 'berry' }, zone: 'snow' },
   balwanek: { height: 1.1, ailment: 'melt', cure: 'blue', tint: 0xd8f0ff, coins: 14, skill: { boost: 'blue' }, zone: 'snow' },
   pingwinek: { height: 0.95, ailment: 'slide', cure: 'cocoa', tint: 0xc0d0ff, coins: 14, skill: { carry: 'cure' }, zone: 'snow' },
-  // the bay creatures (stand-in models, tinted, until their own are made)
+  // the bay creatures
   krabik: { height: 0.95, ailment: 'pinch', cure: 'pearl', tint: 0xffd0c0, coins: 15, skill: { boost: 'pearl' }, zone: 'sea' },
   foczka: { height: 1.0, ailment: 'sand', cure: 'blue', tint: 0xfff0d0, coins: 15, skill: { carry: 'berry' }, zone: 'sea' },
-  zolwik: { height: 1.0, ailment: 'hide', cure: 'pearl', tint: 0xd0ffe8, coins: 16, skill: { carry: 'cure' }, zone: 'sea', model: 'zabiksiaze', base: 0x8fe0c8 },
-  syrenka: { height: 1.05, ailment: 'tangle', cure: 'pearl', tint: 0xd8ffd8, coins: 16, skill: { boost: 'blue' }, zone: 'sea', model: 'nessie', base: 0x9fe8f0 },
+  zolwik: { height: 1.0, ailment: 'hide', cure: 'pearl', tint: 0xd0ffe8, coins: 16, skill: { carry: 'cure' }, zone: 'sea' },
+  syrenka: { height: 1.05, ailment: 'tangle', cure: 'pearl', tint: 0xd8ffd8, coins: 16, skill: { boost: 'blue' }, zone: 'sea' },
 };
 
 /** the album's pages, one per area, in the order the species turn up; a full page pays its reward (in coins) once */
@@ -150,7 +150,7 @@ const onSea = (out: number, side: number): [number, number] => [
 ];
 const SEA_BEDS: [number, number][] = [onSea(0.6, -2.4), onSea(2.0, -2.0), onSea(-0.6, -3.6)];
 const SEA_STATION = onSea(-1.8, -2.6);
-const SEA_LIGHT = onSea(3.4, -3.4);
+const SEA_LIGHT = onSea(2.8, -3.0);
 /** the dune is narrower than the drift: the shelter house stands close to its south end */
 const DUNE: [number, number][] = Array.from({ length: 9 }, (_, i) => {
   const a = SEA_A + (i - 4) * 0.065;
