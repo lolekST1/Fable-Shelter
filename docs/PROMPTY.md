@@ -23,6 +23,9 @@ the same character seen from the left side, side view profile, same proportions,
 
 ---
 
+Od 16.10.2026 tył i bok robi FLUX 3 Klein w trybie edycji (workflow `image_flux3_klein_distilled-przerabianie obrazów`, slot `11.image` = przód, `4.text` = prompt z góry, 16 kroków, ok. 15 s na obraz). Styl Z-Image zostaje bez zmian. Około połowy profili wychodzi w prawo, dlatego robię po 2 i wybieram ten, który patrzy w lewo.
+Gotowe widoki `<nazwa>_tył_…_WYBRANY.png` i `<nazwa>_lewy_…_WYBRANY.png` w `D:\ComfyUI-Shared\output\FS` mają wszystkie gatunki z Pixal3D (staw, polana, śnieg), więc można je przerobić w Hunyuan3D 3.0 z trzech widoków.
+
 ## Teren 2: Staw pod wierzbami
 
 ### Żabi książę (`zabiksiaze`)

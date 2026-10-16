@@ -92,4 +92,4 @@ Po zmianach (teren 4, progi 15/30/50/70/90/110, jagody tylko dla głodnych) cał
 
 ## Otwarte sprawy
 - Fiolki „chodzące same”: nie udało się odtworzyć. `tests/vials.mjs` sprawdza fiolki klatka po klatce (`__items()`) przez 100 rund w pełnym obozie i niczego nie znalazł. Podejrzenie: to fiolka niesiona na głowie przez pomagającego mieszkańca. Usunięto też martwy kod starego wynajętego krakena-pomocnika. Nadal potrzebny zrzut ekranu od użytkownika.
-- Gatunki stawu (zabiksiaze, nessie, wodnik, swietlik) mają modele z Pixal3D zrobione przez Claude'a (15.10.2026, tylko przód, bez Hunyuana). Użytkownik może je później poprawić w Hunyuan3D 3.0. Rekwizyty stawu są nadal prostymi kształtami.
+- Gatunki stawu, polany i śniegu mają modele z Pixal3D zrobione przez Claude'a (tylko z przodu). Widoki z tyłu i z boku do Hunyuan3D 3.0 są już gotowe (16.10.2026, FLUX 3 edit), patrz `docs/PROMPTY.md`.
