@@ -144,6 +144,16 @@ Do każdego dopisz akapit stylu z góry pliku.
 
 ---
 
+## Teren 5: Zatoczka nad morzem (zrobione 16.10.2026)
+Stworki w Z-Image Turbo (styl stworków z góry pliku), rekwizyty we FLUX 3 Klein (styl rekwizytów + `simple solid shapes,`). Pixal3D: stworki 25000 trójkątów, rekwizyty 12000 przy `241.resolution=512`.
+- Krabik (`krabik`, szczypie się w nos, perła): `cute baby crab creature, soft coral red plush body, two big round claws held up, short stubby legs, two big eyes on little stalks, round chubby body, happy face, standing,`
+- Foczka (`foczka`, kicha piaskiem, woda ze źródełka): `cute baby seal pup creature, soft fluffy white fur with light grey spots, big dark round eyes, tiny whiskers, small flippers at its sides, round chubby body, sitting upright, happy face,`
+- Żółwik (`zolwik`, chowa się w skorupę, perła): `cute baby sea turtle creature, soft mint green plush skin, a round teal shell on its back with a hexagon pattern, standing upright on two stubby feet, small flippers as arms, chubby, happy face,`
+- Syrenka (`syrenka`, plącze się w wodorostach, perła): `cute little fish-tailed sea creature, pastel turquoise scales, a big round tail fin curled at the bottom like feet, two small fin arms, a little pink starfish on its head, round chubby face, standing upright on its tail,`
+- Muszla z perłą (stacja): `a big open scallop shell with a glowing white pearl inside, sitting on a small round rock with a tuft of green seaweed, chunky cute shapes, simple solid shapes,`
+- Legowisko z muszli: `a round cozy pet bed made of a big pink scallop seashell lined with a soft cream cushion, chunky cute shapes, simple solid shapes,`
+- Latarnia morska: `a small cute red and white striped lighthouse with a round glowing yellow lamp on top and a little round door, chunky cute shapes, simple solid shapes,`
+
 ## Osoby adoptujące i domek schroniska (zrobione 15.10.2026)
 Pliki: `D:\ComfyUI-Shared\output\FS\ludzie` i `...\rekwizyty\Domek-*`. Pixal3D z 40000 trójkątów. Osoby obrabiane jak stworki (tekstury 1024, oczy z `ymin`), domek jak rekwizyt.
 - Dziewczynka: `cute little girl character, two short pigtails, yellow raincoat, red rubber boots, big happy smile, standing straight, arms at sides,` + styl postaci

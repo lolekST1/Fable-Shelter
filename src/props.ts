@@ -27,7 +27,23 @@ const mats = {
   flame: new THREE.MeshStandardMaterial({ color: 0xff8a2a, emissive: 0xff5a00, emissiveIntensity: 1, roughness: 0.5 }),
   flameCore: new THREE.MeshStandardMaterial({ color: 0xffe066, emissive: 0xffc000, emissiveIntensity: 1, roughness: 0.5 }),
   knit: new THREE.MeshStandardMaterial({ color: 0xe8435a, roughness: 1 }),
+  shell: new THREE.MeshStandardMaterial({ color: 0xffc2c8, roughness: 0.55, side: THREE.DoubleSide }),
+  pearl: new THREE.MeshStandardMaterial({ color: 0xfff6f8, emissive: 0xffd8e8, emissiveIntensity: 0.35, roughness: 0.15, metalness: 0.2 }),
+  sand: new THREE.MeshLambertMaterial({ color: 0xf4dca8 }),
 };
+
+/** a scallop shell: a flattened half dome with ribs, open side up, about `r` across the middle */
+function scallop(r: number, mat: THREE.Material) {
+  const geo = new THREE.SphereGeometry(r, 18, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    const a = Math.atan2(z, x);
+    pos.setY(i, pos.getY(i) * 0.45 * (1 + 0.08 * Math.cos(a * 9)));
+  }
+  geo.computeVertexNormals();
+  return new THREE.Mesh(geo, mat);
+}
 
 const leafGeo = (() => {
   const s = new THREE.Shape();
@@ -90,6 +106,16 @@ export function medicineMesh(kind: Medicine): THREE.Group {
     mallow.position.set(-0.015, 0.128, 0.01);
     mallow.rotation.y = 0.5;
     g.add(body, fill, band, handle, mallow);
+  } else if (kind === 'pearl') {
+    // a pearl in a little pink shell
+    const shell = scallop(0.085, mats.shell);
+    shell.position.y = 0.04;
+    const pearl = new THREE.Mesh(new THREE.SphereGeometry(0.05, 14, 10), mats.pearl);
+    pearl.position.y = 0.06;
+    const lid = scallop(0.085, mats.shell);
+    lid.rotation.x = Math.PI - 0.9;
+    lid.position.set(0, 0.07, -0.06);
+    g.add(shell, pearl, lid);
   } else if (kind === 'berry') {
     // a little cluster of red berries with a leaf
     const bm = new THREE.MeshStandardMaterial({ color: 0xe8435a, emissive: 0x7a1020, emissiveIntensity: 0.25, roughness: 0.35 });
@@ -170,6 +196,7 @@ export class Station {
     else if (kind === 'purple') this.buildLily();
     else if (kind === 'gold') this.buildHive();
     else if (kind === 'cocoa') this.buildCocoaFire();
+    else if (kind === 'pearl') this.buildPearlShell();
     else this.buildBerryBush();
     this.body.add(...this.group.children);
     this.group.add(this.body);
@@ -386,6 +413,31 @@ export class Station {
       flame.scale.set(1 + Math.sin(t * 13) * 0.08, 1 + Math.sin(t * 9) * 0.15, 1 + Math.cos(t * 11) * 0.08);
       core.scale.y = 1 + Math.sin(t * 15) * 0.2;
     });
+  }
+
+  private buildPearlShell() {
+    // a big open shell on a rock, a pearl glowing in it, a tuft of seaweed
+    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.42), mats.stone);
+    rock.scale.set(1.1, 0.5, 1);
+    rock.position.y = 0.16;
+    rock.castShadow = true;
+    const shell = scallop(0.48, mats.shell);
+    shell.position.y = 0.34;
+    const lid = scallop(0.48, mats.shell);
+    lid.rotation.x = Math.PI - 1.0;
+    lid.position.set(0, 0.42, -0.36);
+    const pearl = new THREE.Mesh(new THREE.SphereGeometry(0.15, 18, 14), mats.pearl);
+    pearl.position.y = 0.44;
+    const weed = new THREE.MeshStandardMaterial({ color: 0x3fa86a, roughness: 0.8 });
+    for (let i = 0; i < 4; i++) {
+      const s = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.035, 0.45, 6), weed);
+      s.position.set(0.42 + i * 0.05, 0.22, 0.2 - i * 0.08);
+      s.rotation.z = -0.3 + i * 0.15;
+      this.group.add(s);
+      this.anim.push((t) => { s.rotation.x = Math.sin(t * 1.4 + i) * 0.15; });
+    }
+    this.group.add(rock, shell, lid, pearl);
+    this.anim.push((t) => { pearl.scale.setScalar(1 + Math.sin(t * 2.2) * 0.05); lid.rotation.x = Math.PI - 1.0 - Math.sin(t * 0.9) * 0.08; });
   }
 
   private buildBerryBush() {
@@ -1162,6 +1214,135 @@ export function glowSprite(color: number, size: number): THREE.Sprite {
   s.scale.setScalar(size);
   s.visible = false;
   return s;
+}
+
+// ------------------------------------------------------------ the bay (terrain 5)
+
+/** a big shell lined with a cushion: the bay residents' bed */
+export function shellBedMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const shell = scallop(0.55, mats.shell);
+  shell.position.y = 0.2;
+  shell.castShadow = true;
+  const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.42, 0.08, 24), mats.cloth);
+  pad.position.y = 0.1;
+  const pillow = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }));
+  pillow.scale.set(1.3, 0.45, 0.8);
+  pillow.position.set(0, 0.16, -0.2);
+  g.add(shell, pad, pillow);
+  return g;
+}
+
+/** a little striped lighthouse: more patients find their way to the bay (its lamp glows at night) */
+export function lighthouseMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const red = new THREE.MeshStandardMaterial({ color: 0xe8435a, roughness: 0.6 });
+  const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
+  for (let k = 0; k < 4; k++) {
+    const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.28 - k * 0.03, 0.31 - k * 0.03, 0.4, 16), k % 2 ? white : red);
+    seg.position.y = 0.2 + k * 0.4;
+    seg.castShadow = true;
+    g.add(seg);
+  }
+  const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.26, 12), new THREE.MeshStandardMaterial({ color: 0xfff3b0, emissive: 0xffd34d, emissiveIntensity: 0.8 }));
+  lamp.position.y = 1.73;
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.27, 0.3, 12), red);
+  roof.position.y = 2.01;
+  g.add(lamp, roof);
+  return g;
+}
+
+/** a wooden boardwalk arch with a life ring: the way over the dune to the bay, spanning along z */
+export function boardwalkGateMesh(): THREE.Group {
+  const g = new THREE.Group();
+  for (const z of [-0.9, 0.9]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.6, 8), mats.darkWood);
+    post.position.set(0, 0.8, z);
+    post.castShadow = true;
+    g.add(post);
+  }
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 2.0), mats.wood);
+  bar.position.y = 1.6;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.07, 10, 20), new THREE.MeshStandardMaterial({ color: 0xff6a4a, roughness: 0.6 }));
+  ring.rotation.y = Math.PI / 2;
+  ring.position.set(0.1, 1.3, 0);
+  for (let i = 0; i < 5; i++) {
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.05, 1.6), i % 2 ? mats.wood : mats.darkWood);
+    plank.position.set(-0.8 + i * 0.42, 0.03, 0);
+    g.add(plank);
+  }
+  g.add(bar, ring);
+  return g;
+}
+
+/** a sand dune of round mounds; returns each mound so the middle ones can be cleared */
+export function duneMounds(points: [number, number][]): THREE.Group[] {
+  return points.map(([x, z], i) => {
+    const b = new THREE.Group();
+    for (let k = 0; k < 3; k++) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 10), mats.sand);
+      m.position.set(((k * 7 + i) % 3 - 1) * 0.25, 0.2 + k * 0.1, ((k + i) % 2 - 0.5) * 0.3);
+      m.scale.set(1.25, 0.6, 1);
+      m.castShadow = true;
+      b.add(m);
+    }
+    // a tuft of beach grass on top
+    const grass = new THREE.MeshStandardMaterial({ color: 0x9cbf5a, roughness: 0.9 });
+    for (let k = 0; k < 3; k++) {
+      const blade = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.45, 5), grass);
+      blade.position.set(-0.1 + k * 0.1, 0.6, 0);
+      blade.rotation.z = -0.35 + k * 0.35;
+      b.add(blade);
+    }
+    b.position.set(x, 0, z);
+    return b;
+  });
+}
+
+/** the bay: a sandy beach (circle of radius r), the sea beyond it on the far side, rocks and starfish */
+export function seaScenery(cx: number, cz: number, r: number, away: number): THREE.Group {
+  const g = new THREE.Group();
+  const ox = Math.cos(away), oz = Math.sin(away);
+  const sand = new THREE.Mesh(new THREE.CircleGeometry(r + 0.6, 48), mats.sand);
+  sand.rotation.x = -Math.PI / 2;
+  sand.position.set(cx, 0.006, cz);
+  // the sea: a big disc further out; the beach covers its near edge, so it reads as a shore
+  const sea = new THREE.Mesh(new THREE.CircleGeometry(r + 6, 48), new THREE.MeshStandardMaterial({ color: 0x5cc0e8, emissive: 0x1f7fb8, emissiveIntensity: 0.25, roughness: 0.15, transparent: true, opacity: 0.95 }));
+  sea.rotation.x = -Math.PI / 2;
+  sea.position.set(cx + ox * (r + 5.5), 0.004, cz + oz * (r + 5.5));
+  // a line of foam where the sea meets the sand
+  const foam = new THREE.Mesh(new THREE.RingGeometry(r + 0.45, r + 0.75, 48, 1, away - 1.2, 2.4), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
+  foam.rotation.x = -Math.PI / 2;
+  foam.position.set(cx, 0.008, cz);
+  foam.scale.set(1, 1, 1);
+  g.add(sea, sand, foam);
+  g.userData.tick = (t: number) => { (foam.material as THREE.MeshBasicMaterial).opacity = 0.45 + Math.sin(t * 1.3) * 0.25; };
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), scl = new THREE.Vector3(), col = new THREE.Color();
+  // round rocks along the far half of the rim
+  const R = 9;
+  const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.4), new THREE.MeshStandardMaterial({ color: 0xb0a898, roughness: 0.9 }), R);
+  rocks.castShadow = true;
+  for (let i = 0; i < R; i++) {
+    const a = away - 1.6 + i * 0.4;
+    rocks.setMatrixAt(i, m4.compose(pos.set(cx + Math.cos(a) * (r + 0.2), 0.1, cz + Math.sin(a) * (r + 0.2)), q.setFromEuler(new THREE.Euler(i, i * 2, 0)), scl.setScalar(0.7 + (i % 3) * 0.35)));
+  }
+  // little starfish and shells dotted over the sand
+  const S = 14;
+  const star = new THREE.Shape();
+  for (let k = 0; k < 10; k++) {
+    const a = (k / 10) * Math.PI * 2 - Math.PI / 2, rr = k % 2 ? 0.05 : 0.13;
+    if (k === 0) star.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); else star.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+  }
+  const starGeo = new THREE.ShapeGeometry(star);
+  starGeo.rotateX(-Math.PI / 2);
+  const stars = new THREE.InstancedMesh(starGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), S);
+  for (let i = 0; i < S; i++) {
+    const a = i * 2.399, rr = Math.sqrt((i + 0.5) / S) * r * 0.9;
+    stars.setMatrixAt(i, m4.compose(pos.set(cx + Math.cos(a) * rr, 0.012, cz + Math.sin(a) * rr), q.setFromEuler(new THREE.Euler(0, i, 0)), scl.setScalar(1 + (i % 3) * 0.3)));
+    stars.setColorAt(i, col.set([0xff8a6a, 0xffb84d, 0xff9ec4][i % 3]));
+  }
+  g.add(rocks, stars);
+  return g;
 }
 
 export const gold = new THREE.MeshStandardMaterial({ color: 0xffcf4a, emissive: 0x7a4a00, emissiveIntensity: 0.25, roughness: 0.3, metalness: 0.7 });

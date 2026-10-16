@@ -4,7 +4,8 @@ import type { Sfx } from './sfx';
 import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, drawAilment, drawBerry, drawCoin, drawHeart, drawMoon, drawSpotIcon, needCanvas } from './icons';
 import { Album } from './album';
 import { Daily, type DailyState, today } from './daily';
-import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, carouselMesh, coinGeo, coinMat, dressUp, fountainMesh, gold, glowSprite, pedestalMesh, swingMesh, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery } from './props';
+import { Wardrobe, type WardrobeState, drawHanger, itemMesh } from './wardrobe';
+import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, carouselMesh, coinGeo, coinMat, dressUp, fountainMesh, gold, glowSprite, pedestalMesh, swingMesh, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery, shellBedMesh, lighthouseMesh, boardwalkGateMesh, duneMounds, seaScenery } from './props';
 
 /**
  * Fable Shelter loop:
@@ -34,14 +35,14 @@ export interface GameDeps {
 const PROP_MODEL: Record<string, [string, number, number?]> = {
   pink: ['prop_kociolek', 1.15], blue: ['prop_zrodelko', 1.25], green: ['prop_ziola', 1.1], purple: ['prop_lilia', 1.3], gold: ['prop_ul', 1.05],
   camp: ['prop_legowisko', 1.15], pond: ['prop_legowiskolisc', 1.15], basket: ['prop_kosz', 0.95], house: ['prop_domek', 3.0, -0.45],
-  berry: ['prop_krzak', 1.1], glade: ['prop_legowiskomech', 1.15], snow: ['prop_legowiskokoc', 1.15], cocoa: ['prop_ognisko', 1.2], bonfire: ['prop_duzeognisko', 1.6],
+  berry: ['prop_krzak', 1.1], glade: ['prop_legowiskomech', 1.15], snow: ['prop_legowiskokoc', 1.15], cocoa: ['prop_ognisko', 1.2], bonfire: ['prop_duzeognisko', 1.6], pearl: ['prop_perla', 1.2], sea: ['prop_legowiskomuszla', 1.2], lighthouse: ['prop_latarniamorska', 0.9],
   sign: ['prop_drogowskaz', 1.1], lantern: ['prop_latarnia', 0.8], mushroom: ['prop_lampka', 0.9],
 };
 
 /** how a resident helps around the camp once it feels at home (has at least one heart):
  *  boost a station (it brews twice as fast for a while) or carry things for the keeper */
 type Skill = { boost: Medicine } | { carry: 'cure' | 'berry' };
-type Zone = 'camp' | 'pond' | 'glade' | 'snow';
+type Zone = 'camp' | 'pond' | 'glade' | 'snow' | 'sea';
 interface Species {
   height: number; ailment: Ailment; cure: Medicine; tint: number; coins: number; skill: Skill;
   /** where it lives: the camp meadow, the pond beyond the brook, the heather glade east of the camp or the snowy hill south-west */
@@ -75,6 +76,11 @@ export const SPECIES: Record<string, Species> = {
   renifer: { height: 1.2, ailment: 'nose', cure: 'cocoa', tint: 0xffd0c0, coins: 13, skill: { carry: 'berry' }, zone: 'snow' },
   balwanek: { height: 1.1, ailment: 'melt', cure: 'blue', tint: 0xd8f0ff, coins: 14, skill: { boost: 'blue' }, zone: 'snow' },
   pingwinek: { height: 0.95, ailment: 'slide', cure: 'cocoa', tint: 0xc0d0ff, coins: 14, skill: { carry: 'cure' }, zone: 'snow' },
+  // the bay creatures (stand-in models, tinted, until their own are made)
+  krabik: { height: 0.95, ailment: 'pinch', cure: 'pearl', tint: 0xffd0c0, coins: 15, skill: { boost: 'pearl' }, zone: 'sea' },
+  foczka: { height: 1.0, ailment: 'sand', cure: 'blue', tint: 0xfff0d0, coins: 15, skill: { carry: 'berry' }, zone: 'sea' },
+  zolwik: { height: 1.0, ailment: 'hide', cure: 'pearl', tint: 0xd0ffe8, coins: 16, skill: { carry: 'cure' }, zone: 'sea', model: 'zabiksiaze', base: 0x8fe0c8 },
+  syrenka: { height: 1.05, ailment: 'tangle', cure: 'pearl', tint: 0xd8ffd8, coins: 16, skill: { boost: 'blue' }, zone: 'sea', model: 'nessie', base: 0x9fe8f0 },
 };
 
 /** the album's pages, one per area, in the order the species turn up; a full page pays its reward (in coins) once */
@@ -83,6 +89,7 @@ const ALBUM_PAGES: { zone: Zone; icon: SpotIcon; reward: number; species: string
   { zone: 'pond', icon: 'lilybed', reward: 250, species: ['zabiksiaze', 'nessie', 'swietlik', 'wodnik'] },
   { zone: 'glade', icon: 'mossbed', reward: 350, species: ['leszy', 'wilkolaczek', 'skrzat', 'sowka'] },
   { zone: 'snow', icon: 'snowbed', reward: 450, species: ['yeti', 'renifer', 'balwanek', 'pingwinek'] },
+  { zone: 'sea', icon: 'shellbed', reward: 550, species: ['krabik', 'foczka', 'zolwik', 'syrenka'] },
 ];
 
 const PICK_R = 1.4;
@@ -131,9 +138,27 @@ const DRIFT: [number, number][] = Array.from({ length: 9 }, (_, i) => {
   const a = SNOW_A + (i - 4) * 0.0825;
   return [Math.cos(a) * 10.6, Math.sin(a) * 10.6];
 });
-const ZONE_BEDS: Record<Zone, [number, number][]> = { camp: BEDS, pond: POND_BEDS, glade: GLADE_BEDS, snow: SNOW_BEDS };
+/** the bay west-north-west of the camp, behind the shelter house and a sand dune: a beach circle, the sea beyond it.
+ *  The brook (z -9) runs into the sea across its far part, which nobody crosses, so everything stands south of it. */
+const SEA_A = -2.6;
+export const SEA_C = new THREE.Vector3(Math.cos(SEA_A) * 15, 0, Math.sin(SEA_A) * 15);
+export const SEA_R = 5;
+const SEA_GAP = new THREE.Vector3(Math.cos(SEA_A) * 10.45, 0, Math.sin(SEA_A) * 10.45);
+/** on the beach, relative to its middle (x away from the camp, z sideways), like onSnow */
+const onSea = (out: number, side: number): [number, number] => [
+  SEA_C.x + Math.cos(SEA_A) * out - Math.sin(SEA_A) * side, SEA_C.z + Math.sin(SEA_A) * out + Math.cos(SEA_A) * side,
+];
+const SEA_BEDS: [number, number][] = [onSea(0.6, -2.4), onSea(2.0, -2.0), onSea(-0.6, -3.6)];
+const SEA_STATION = onSea(-1.8, -2.6);
+const SEA_LIGHT = onSea(3.4, -3.4);
+/** the dune is narrower than the drift: the shelter house stands close to its south end */
+const DUNE: [number, number][] = Array.from({ length: 9 }, (_, i) => {
+  const a = SEA_A + (i - 4) * 0.065;
+  return [Math.cos(a) * 10.6, Math.sin(a) * 10.6];
+});
+const ZONE_BEDS: Record<Zone, [number, number][]> = { camp: BEDS, pond: POND_BEDS, glade: GLADE_BEDS, snow: SNOW_BEDS, sea: SEA_BEDS };
 /** the open areas beyond the meadow edge (glade, snowy hill): middle, radius, the angle of the way in */
-const RIMS = [{ zone: 'glade' as const, c: GLADE_C, r: GLADE_R, a: GLADE_A, gap: GAP }, { zone: 'snow' as const, c: SNOW_C, r: SNOW_R, a: SNOW_A, gap: SNOW_GAP }];
+const RIMS = [{ zone: 'glade' as const, c: GLADE_C, r: GLADE_R, a: GLADE_A, gap: GAP }, { zone: 'snow' as const, c: SNOW_C, r: SNOW_R, a: SNOW_A, gap: SNOW_GAP }, { zone: 'sea' as const, c: SEA_C, r: SEA_R, a: SEA_A, gap: SEA_GAP }];
 const angleTo = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 /** the shelter house at the west edge of the camp, its door facing the camp (south-east): adopters come out of it */
 const HOUSE = new THREE.Vector3(-9.2, 0, -1.4);
@@ -144,7 +169,7 @@ const ADOPTERS: [string, number][] = [['dziewczynka', 1.2], ['chlopiec', 1.2], [
 /** extra coins (each worth 2) when the keeper is there to say goodbye */
 const FAREWELL_BONUS = 8;
 /** where each area's hired helper waits between jobs */
-const WORKER_HOME: Record<Zone, THREE.Vector3> = { camp: new THREE.Vector3(3.4, 0, 5.4), pond: new THREE.Vector3(2.8, 0, -11.2), glade: new THREE.Vector3(13.0, 0, 3.6), snow: new THREE.Vector3(onSnow(-1.6, 2.2)[0], 0, onSnow(-1.6, 2.2)[1]) };
+const WORKER_HOME: Record<Zone, THREE.Vector3> = { camp: new THREE.Vector3(3.4, 0, 5.4), pond: new THREE.Vector3(2.8, 0, -11.2), glade: new THREE.Vector3(13.0, 0, 3.6), snow: new THREE.Vector3(onSnow(-1.6, 2.2)[0], 0, onSnow(-1.6, 2.2)[1]), sea: new THREE.Vector3(onSea(-2.4, -0.4)[0], 0, onSea(-2.4, -0.4)[1]) };
 
 interface Flight { obj: THREE.Object3D; from: THREE.Vector3; to: () => THREE.Vector3; t: number; dur: number; arc: number; done: () => void }
 
@@ -256,8 +281,14 @@ const SPOTS: SpotDef[] = [
   // after the last area: decorations for the camp, each one makes every cure pay DECOR_BONUS more
   { icon: 'swing', price: 1800, at: [7.0, 6.2], apply: (g, i) => g.addDecor('swing', 7.0, 6.2, i) },
   { icon: 'fountain', price: 2100, at: [3.6, 9.2], apply: (g, i) => g.addDecor('fountain', 3.6, 9.2, i) },
-  { icon: 'carousel', price: 2400, at: [-7.4, -5.2], apply: (g, i) => g.addDecor('carousel', -7.4, -5.2, i) },
+  { icon: 'carousel', price: 2400, at: [7.4, -4.6], apply: (g, i) => g.addDecor('carousel', 7.4, -4.6, i) },
   { icon: 'statue', price: 2700, hearts: 130, at: [-2.2, 9.6], apply: (g, i) => g.addDecor('statue', -2.2, 9.6, i) },
+  // the bay over the dune
+  { icon: 'boardwalk', price: 3000, hearts: 150, at: [Math.cos(SEA_A) * 9.3, Math.sin(SEA_A) * 9.3], apply: (g, i) => g.openSea(i) },
+  { icon: 'shellbed', price: 3300, at: SEA_BEDS[1], apply: (g, i) => { g.addBed(i, 'sea'); g.unlock('foczka'); } },
+  { icon: 'lighthouse', price: 3700, hearts: 170, at: SEA_LIGHT, apply: (g, i) => { g.addLighthouse(SEA_LIGHT[0], SEA_LIGHT[1], i); g.unlock('zolwik'); } },
+  { icon: 'shellbed', price: 4100, at: SEA_BEDS[2], apply: (g, i) => { g.addBed(i, 'sea'); g.unlock('syrenka'); } },
+  { icon: 'helper', price: 4600, at: [WORKER_HOME.sea.x, WORKER_HOME.sea.z], apply: (g, i) => void g.addWorker('sea', i) },
 ];
 
 const DECOR_BONUS = 2;
@@ -300,8 +331,10 @@ export class Game {
   pondOpen = false;
   gladeOpen = false;
   snowOpen = false;
+  seaOpen = false;
   private hedge: THREE.Group[] = [];
   private drift: THREE.Group[] = [];
+  private dune: THREE.Group[] = [];
   carry: THREE.Group[] = [];
   capacity = 4;
   maxPatients = 1;
@@ -348,6 +381,12 @@ export class Game {
   private album: Album;
   /** the request of the day (see daily.ts) */
   daily: Daily;
+  /** the keeper's wardrobe in the shelter house (see wardrobe.ts) and what it has on */
+  wardrobe!: Wardrobe;
+  private wearing: THREE.Object3D[] = [];
+  private trail?: string;
+  private trailT = 0;
+  private atDoor = false;
   private savedDaily?: DailyState;
 
   constructor(private d: GameDeps) {
@@ -401,6 +440,11 @@ export class Game {
     d.scene.add(...this.hedge);
     d.scene.add(snowScenery(SNOW_C.x, SNOW_C.z, SNOW_R, SNOW_A));
     this.drift = driftMounds(DRIFT);
+    const sea = seaScenery(SEA_C.x, SEA_C.z, SEA_R, SEA_A);
+    d.scene.add(sea);
+    this.props.push(sea); // for its foam animation (userData.tick)
+    this.dune = duneMounds(DUNE);
+    d.scene.add(...this.dune);
     d.scene.add(...this.drift);
     this.basket = basketMesh();
     this.basket.position.set(2.4, 0, 6.3);
@@ -411,6 +455,24 @@ export class Game {
     house.rotation.y = HOUSE_FACING;
     d.scene.add(house);
     this.dress(house, 'house');
+    // the wardrobe: a coat hanger sign over the house door; standing at the door opens it
+    this.wardrobe = new Wardrobe(
+      (price) => { if (this.coins < price) return false; this.setCoins(this.coins - price); this.d.sfx.pay(); this.save(); return true; },
+      (worn) => this.wear(worn),
+      () => this.coins,
+    );
+    const hc = document.createElement('canvas');
+    hc.width = hc.height = 128;
+    const hg = hc.getContext('2d')!;
+    hg.fillStyle = '#ffffff';
+    hg.beginPath(); hg.arc(64, 64, 58, 0, Math.PI * 2); hg.fill();
+    drawHanger(hg, 64, 66, 42);
+    const ht = new THREE.CanvasTexture(hc);
+    ht.colorSpace = THREE.SRGBColorSpace;
+    const hanger = new THREE.Sprite(new THREE.SpriteMaterial({ map: ht }));
+    hanger.scale.setScalar(0.6);
+    hanger.position.copy(HOUSE_DOOR).setY(2.1);
+    d.scene.add(hanger);
 
     this.load();
     if (new URLSearchParams(location.search).has('rare')) this.variantChance = 1;
@@ -423,7 +485,7 @@ export class Game {
   // ------------------------------------------------------------ save / load
 
   private load() {
-    let data: { ver?: number; coins?: number; bought?: number; hearts?: number; residents?: { name: string; hearts: number; v?: number }[]; album?: Record<string, number>; albumPaid?: number[]; daily?: DailyState } | null = null;
+    let data: { ver?: number; coins?: number; bought?: number; hearts?: number; residents?: { name: string; hearts: number; v?: number }[]; album?: Record<string, number>; albumPaid?: number[]; daily?: DailyState; wardrobe?: WardrobeState } | null = null;
     try {
       if (new URLSearchParams(location.search).has('reset')) localStorage.removeItem(SAVE_KEY);
       data = JSON.parse(localStorage.getItem(SAVE_KEY) ?? 'null');
@@ -438,6 +500,7 @@ export class Game {
     for (const r of data.residents ?? []) if (SPECIES[r.name]) void this.spawnResident(r.name, r.hearts, !!r.v);
     this.album.load(data.album, data.albumPaid);
     this.savedDaily = data.daily;
+    this.wardrobe.load(data.wardrobe);
     this.restored = true;
     if (n > 0) this.step = 4;
   }
@@ -454,6 +517,7 @@ export class Game {
         album: this.album.counts,
         albumPaid: this.album.paid,
         daily: this.daily.state ?? undefined,
+        wardrobe: this.wardrobe.state,
       }));
     } catch { /* ignore */ }
   }
@@ -578,7 +642,7 @@ export class Game {
     for (const w of [...this.workers, ...this.adopters]) out.push([w.c.root.position.x, w.c.root.position.z, 0.35]);
     for (const o of this.props) out.push([o.position.x, o.position.z, o.userData.r ?? 0.25]);
     out.push([this.basket.position.x, this.basket.position.z, 0.42], [HOUSE.x, HOUSE.z, 1.45]);
-    for (const h of [...this.hedge, ...this.drift]) if (h.parent) out.push([h.position.x, h.position.z, 0.55]);
+    for (const h of [...this.hedge, ...this.drift, ...this.dune]) if (h.parent) out.push([h.position.x, h.position.z, 0.55]);
     return out;
   }
 
@@ -601,7 +665,7 @@ export class Game {
   }
 
   addStation(kind: Medicine, x: number, z: number, instant: boolean) {
-    const brew = { pink: 2.6, blue: 3.0, green: 3.4, berry: 2.2, purple: 3.2, gold: 3.4, cocoa: 3.4 }[kind];
+    const brew = { pink: 2.6, blue: 3.0, green: 3.4, berry: 2.2, purple: 3.2, gold: 3.4, cocoa: 3.4, pearl: 3.6 }[kind];
     const s = new Station(kind, new THREE.Vector3(x, 0, z), brew, this.d.shadowTex);
     this.d.scene.add(s.group);
     this.stations.push(s);
@@ -611,7 +675,7 @@ export class Game {
 
   addBed(instant: boolean, zone: Zone = 'camp') {
     const [x, z] = ZONE_BEDS[zone][this.beds.filter((b) => b.zone === zone).length];
-    const mesh = { camp: bedMesh, pond: lilyBedMesh, glade: mossBedMesh, snow: snowBedMesh }[zone]();
+    const mesh = { camp: bedMesh, pond: lilyBedMesh, glade: mossBedMesh, snow: snowBedMesh, sea: shellBedMesh }[zone]();
     this.dress(mesh, zone);
     mesh.position.set(x, 0, z);
     // pulsing ring around a bed that needs plumping up
@@ -672,6 +736,34 @@ export class Game {
     if (!instant) this.popIn(arch);
   }
 
+  /** clear the middle of the sand dune and lay a boardwalk: the bay opens with its pearl shell and a first shell bed */
+  openSea(instant: boolean) {
+    this.dune.forEach((h, i) => {
+      if (!HEDGE_GAP(i)) return;
+      if (!instant) this.fx.emit('dust', h.position.clone().setY(0.5), 12, { speed: 1.4, up: 1.2, g: 2, life: 0.8 });
+      h.parent?.remove(h);
+    });
+    const arch = boardwalkGateMesh();
+    arch.position.copy(SEA_GAP);
+    arch.rotation.y = -SEA_A;
+    this.d.scene.add(arch);
+    this.seaOpen = true;
+    this.addStation('pearl', SEA_STATION[0], SEA_STATION[1], instant);
+    this.addBed(instant, 'sea');
+    this.unlock('krabik');
+    if (!instant) this.popIn(arch);
+  }
+
+  addLighthouse(x: number, z: number, instant: boolean) {
+    const g = lighthouseMesh();
+    this.dress(g, 'lighthouse');
+    g.position.set(x, 0, z);
+    this.d.scene.add(g);
+    this.props.push(g);
+    this.maxPatients = 8;
+    if (!instant) this.popIn(g);
+  }
+
   addBonfire(x: number, z: number, instant: boolean) {
     const g = bonfireMesh();
     this.dress(g, 'bonfire');
@@ -715,7 +807,7 @@ export class Game {
     if (!instant) this.popIn(g);
   }
   private newDay(saved?: DailyState) {
-    const zone: Zone = this.snowOpen ? 'snow' : this.gladeOpen ? 'glade' : this.pondOpen ? 'pond' : 'camp';
+    const zone: Zone = this.seaOpen ? 'sea' : this.snowOpen ? 'snow' : this.gladeOpen ? 'glade' : this.pondOpen ? 'pond' : 'camp';
     const pool = this.species.filter((n) => (SPECIES[n].zone ?? 'camp') === zone);
     this.daily.ensure(saved, pool, 50 + this.bought * 15);
   }
@@ -728,6 +820,17 @@ export class Game {
     this.dropCoins(at, Math.round(this.daily.state!.reward / 2), true); // a coin is worth 2
     this.d.sfx.build();
     this.save();
+  }
+
+  /** put the wardrobe things on the keeper: hat and neck ones as meshes, the trail as particles while walking */
+  private wear(worn: WardrobeState['worn']) {
+    for (const o of this.wearing) o.parent?.remove(o);
+    this.wearing = [];
+    for (const id of [worn.head, worn.neck]) {
+      const m = id ? itemMesh(id) : null;
+      if (m) { this.d.keeper.attach(m); this.wearing.push(m); }
+    }
+    this.trail = worn.trail;
   }
 
   /** decorations bought so far */
@@ -791,7 +894,7 @@ export class Game {
     if (k.z > -9) {
       // the meadow, plus the glade and the snowy hill once their ways in are open; outside all, back onto the nearest edge
       const r = Math.hypot(k.x, k.z);
-      const open = RIMS.filter((m) => (m.zone === 'glade' ? this.gladeOpen : this.snowOpen));
+      const open = RIMS.filter((m) => ({ glade: this.gladeOpen, snow: this.snowOpen, sea: this.seaOpen })[m.zone]);
       // before the way in, the meadow ends in front of the hedge or drift (a hard edge, so big steps can't slip through)
       const shut = RIMS.some((m) => !open.includes(m) && angleTo(Math.atan2(k.z, k.x), m.a) < 0.42);
       const edge = shut ? 9.9 : 11;
@@ -993,7 +1096,7 @@ export class Game {
     // usually someone the keeper already carries the cure for, so a full pile is rarely useless;
     // otherwise favour the newest species so a fresh station gets used
     // every open area beyond the camp (pond, glade) keeps one patient of its own
-    const open: Zone[] = ['camp', ...(this.pondOpen ? ['pond' as const] : []), ...(this.gladeOpen ? ['glade' as const] : []), ...(this.snowOpen ? ['snow' as const] : [])];
+    const open: Zone[] = ['camp', ...(this.pondOpen ? ['pond' as const] : []), ...(this.gladeOpen ? ['glade' as const] : []), ...(this.snowOpen ? ['snow' as const] : []), ...(this.seaOpen ? ['sea' as const] : [])];
     const zoneOf = (n: string) => SPECIES[n].zone ?? 'camp';
     const lonely = open.find((z) => z !== 'camp' && !this.patients.some((p) => (p.sp.zone ?? 'camp') === z && p.state !== 'cured' && p.state !== 'leaving'));
     const pool = this.species.filter((n) => (lonely ? zoneOf(n) === lonely : open.includes(zoneOf(n))));
@@ -1015,6 +1118,11 @@ export class Game {
         theta = (Math.random() - 0.5) * 2.4;
         const rr = 1.6 + Math.random() * 2.8;
         seat = new THREE.Vector3(GLADE_C.x + Math.cos(theta) * rr, 0, GLADE_C.z + Math.sin(theta) * rr);
+      } else if (zone === 'sea') {
+        // on the beach, coming up out of the sea; only the part south of the brook
+        theta = SEA_A + (Math.random() - 0.5) * 2.4;
+        const rr = 1.4 + Math.random() * 3;
+        seat = new THREE.Vector3(SEA_C.x + Math.cos(theta) * rr, 0, Math.max(-7.4, SEA_C.z + Math.sin(theta) * rr));
       } else if (zone === 'snow') {
         // in the snow, coming down from the pines on the far side
         theta = SNOW_A + (Math.random() - 0.5) * 2.4;
@@ -1026,6 +1134,9 @@ export class Game {
         // nor from the south-west, where the snowy hill and its drift are
         const snowT = Math.atan2(SNOW_C.x, SNOW_C.z);
         if (Math.abs(theta - snowT) < 0.45) theta = theta > snowT ? snowT + 0.45 : snowT - 0.45;
+        // nor from the west-north-west, where the bay and its dune are
+        const seaT = Math.atan2(SEA_C.x, SEA_C.z);
+        if (Math.abs(theta - seaT) < 0.4) theta = theta > seaT ? seaT + 0.4 : seaT - 0.4;
         const rr = 5 + Math.random() * 4;
         seat = new THREE.Vector3(Math.sin(theta) * rr, 0, Math.cos(theta) * rr);
       }
@@ -1043,6 +1154,7 @@ export class Game {
     const exit = zone === 'pond' ? new THREE.Vector3(POND_C.x + Math.cos(theta) * 12, 0, POND_C.z - 6 + Math.sin(theta) * 4)
       : zone === 'glade' ? new THREE.Vector3(GLADE_C.x + Math.cos(theta) * 9, 0, GLADE_C.z + Math.sin(theta) * 9)
       : zone === 'snow' ? new THREE.Vector3(SNOW_C.x + Math.cos(theta) * 9, 0, SNOW_C.z + Math.sin(theta) * 9)
+      : zone === 'sea' ? new THREE.Vector3(SEA_C.x + Math.cos(theta) * 9, 0, Math.max(-8, SEA_C.z + Math.sin(theta) * 9))
         : new THREE.Vector3(Math.sin(theta) * 13, 0, Math.cos(theta) * 13);
     const c = await this.d.spawnCreature(sp.model ?? name, sp.height);
     c.root.position.copy(exit);
@@ -1226,6 +1338,36 @@ export class Game {
           if (Math.random() < dt * 10) this.fx.emit('flake', c.root.position.clone().setY(0.1), 1, { speed: 0.8, up: 0.4, g: 2, life: 0.5 });
         }
         break;
+      case 'pinch':
+        // its claw keeps pinching its own nose: it jumps and little stars fly
+        if (p.fxT <= 0) {
+          p.fxT = 2.2 + Math.random();
+          c.twitch(1.2);
+          c.hop();
+          this.fx.emit('star', head.clone().addScaledVector(toCam, 0.3), 8, { speed: 1.2, dir: toCam, spread: 0.7, up: 1, g: 2, life: 0.6, size: 0.8 });
+          if (loud) this.d.sfx.squeak();
+        }
+        break;
+      case 'sand':
+        // sneezes clouds of sand
+        if (p.fxT <= 0) {
+          p.fxT = 2.4 + Math.random();
+          c.twitch(1);
+          this.fx.emit('dust', head.clone().addScaledVector(toCam, 0.3), 18, { speed: 1.8, dir: toCam, spread: 0.5, up: 0.6, g: 2, life: 0.9, size: 1.2 });
+          if (loud) this.d.sfx.sneeze();
+        }
+        break;
+      case 'hide':
+        // keeps hiding in its shell: squashes down, then peeks out again
+        if (p.fxT <= 0) { p.fxT = 3 + Math.random(); if (loud) this.d.sfx.squeak(); }
+        c.root.scale.set(1, p.fxT > 1.6 ? 0.55 : 1, 1);
+        break;
+      case 'tangle':
+        // tangled in seaweed: wriggles about, green bits flying off
+        c.root.rotation.z = Math.sin(this.t * 7) * 0.12;
+        if (Math.random() < dt * 4) this.fx.emit('leaf', c.root.position.clone().setY(h * (0.3 + Math.random() * 0.5)), 1, { speed: 0.6, up: 0.6, g: 2, life: 0.9 });
+        if (p.fxT <= 0) { p.fxT = 2.8 + Math.random(); c.twitch(0.8); if (loud) this.d.sfx.shiver(); }
+        break;
       case 'stone':
         // slowly turning to stone: stiff, grey, crumbling pebbles
         if (Math.random() < dt * 1.2) this.fx.emit('pebble', c.root.position.clone().setY(h * (0.3 + Math.random() * 0.5)), 1, { speed: 0.5, up: 0.3, g: 6, life: 1.2 });
@@ -1264,6 +1406,7 @@ export class Game {
     p.state = 'cured';
     p.stateT = 0;
     p.c.root.scale.setScalar(1);
+    p.c.root.rotation.z = 0; // a tangled one stops wriggling
     p.c.setTint(p.variant ? variantTint(p.name) : p.sp.base ?? null);
     this.d.scene.remove(p.bubble);
     p.edge.remove();
@@ -1306,10 +1449,11 @@ export class Game {
     this.residents.push(r);
   }
 
-  private zone(v: THREE.Vector3): 'pen' | 'camp' | 'pond' | 'glade' | 'snow' {
+  private zone(v: THREE.Vector3): 'pen' | 'camp' | 'pond' | 'glade' | 'snow' | 'sea' {
     if (Math.hypot(v.x, v.z) < 3.6) return 'pen';
     if (v.x > 10 && Math.hypot(v.x, v.z) > 10.6) return 'glade';
     if (Math.hypot(v.x - SNOW_C.x, v.z - SNOW_C.z) < SNOW_R + 1.5 && Math.hypot(v.x, v.z) > 10.6) return 'snow';
+    if (Math.hypot(v.x - SEA_C.x, v.z - SEA_C.z) < SEA_R + 1.5 && Math.hypot(v.x, v.z) > 10.6 && v.z > -9) return 'sea';
     return v.z < -9 ? 'pond' : 'camp';
   }
 
@@ -1743,6 +1887,18 @@ export class Game {
       if (e >= 1) { o.scale.setScalar(1); delete o.userData.pop; }
     }
 
+    // the wardrobe opens when the keeper comes to the house door (and again only after walking away)
+    const atDoor = Math.hypot(k.x - HOUSE_DOOR.x, k.z - HOUSE_DOOR.z) < 0.8;
+    if (atDoor && !this.atDoor && this.step >= 4) this.wardrobe.open();
+    this.atDoor = atDoor || (this.atDoor && Math.hypot(k.x - HOUSE_DOOR.x, k.z - HOUSE_DOOR.z) < 1.6);
+    if (this.trail && keeper.walk > 0.3) {
+      this.trailT -= dt;
+      if (this.trailT <= 0) {
+        this.trailT = 0.14;
+        const kind = ({ hearts: 'heart', bubbles: 'bubble', stars: 'star' } as const)[this.trail as 'hearts' | 'bubbles' | 'stars'];
+        this.fx.emit(kind, k.clone().setY(0.25), 1, { speed: 0.3, up: 0.7, g: kind === 'bubble' ? -0.4 : 0.6, life: 0.9, size: kind === 'heart' ? 1.1 : 0.8 });
+      }
+    }
     if (this.shoes && keeper.walk > 0.3) {
       this.dustT -= dt;
       if (this.dustT <= 0) {
@@ -1783,7 +1939,7 @@ export class Game {
     // patients
     this.spawnT -= dt;
     const active = this.patients.filter((p) => p.state !== 'cured' && p.state !== 'leaving').length;
-    if (!this.spawning && active < this.maxPatients + (this.pondOpen ? 1 : 0) + (this.gladeOpen ? 1 : 0) + (this.snowOpen ? 1 : 0) && this.spawnT <= 0) {
+    if (!this.spawning && active < this.maxPatients + (this.pondOpen ? 1 : 0) + (this.gladeOpen ? 1 : 0) + (this.snowOpen ? 1 : 0) + (this.seaOpen ? 1 : 0) && this.spawnT <= 0) {
       this.spawnT = 3.5;
       void this.spawnPatient();
     }

@@ -19,7 +19,7 @@ const check = (ok, what) => { console.log(ok ? 'OK  ' : 'FAIL', what); if (!ok) 
 // 1. everything up to the snow helper bought: the swing is the next spot
 await run({ ver: 2, coins: 0, bought: 25, hearts: 120 }, async (p) => {
   const sp = await p.evaluate(() => window.__spots());
-  check(sp.total === 29 && sp.spots[0]?.[0] === 25 && sp.spots[0][3] === 1800, `swing spot next (${JSON.stringify(sp)})`);
+  check(sp.total === 34 && sp.spots[0]?.[0] === 25 && sp.spots[0][3] === 1800, `swing spot next (${JSON.stringify(sp)})`);
   check(await p.evaluate(() => window.__G().cheer) === 0, 'no decorations yet');
   await walk(p, 6.2, 7.6, 6000);
   await p.screenshot({ path: 'out/decor0.png', timeout: 150000 });
@@ -30,7 +30,7 @@ await run({ ver: 2, coins: 0, bought: 99, hearts: 140 }, async (p) => {
   check(await p.evaluate(() => window.__G().cheer) === 4, 'four decorations');
   const n = await p.evaluate(() => window.__G().circles().filter((c) => c[2] >= 0.6 && c[2] <= 1.1).length);
   check(n >= 4, `decorations block the way (${n} wide circles)`);
-  for (const [i, x, z] of [[1, 7.0, 6.2], [2, 3.6, 9.2], [3, -7.4, -5.2], [4, -2.2, 9.6]]) {
+  for (const [i, x, z] of [[1, 7.0, 6.2], [2, 3.6, 9.2], [3, 7.4, -4.6], [4, -2.2, 9.6]]) {
     await walk(p, x, z, 8000);
     const k = await p.evaluate(() => window.__keeper());
     check(Math.hypot(k[0] - x, k[1] - z) > 0.5, `keeper stays off decoration ${i} (at ${k.map((v) => v.toFixed(1))})`);

@@ -1,6 +1,6 @@
 /** Small hand-drawn canvas icons, so nothing in the game depends on text or emoji fonts. */
 
-export type Ailment = 'snow' | 'smoke' | 'sparks' | 'spores' | 'feathers' | 'bubbles' | 'confetti' | 'stone' | 'crown' | 'fountain' | 'drip' | 'flicker' | 'leaves' | 'shrink' | 'howl' | 'dizzy' | 'snowball' | 'nose' | 'melt' | 'slide';
+export type Ailment = 'snow' | 'smoke' | 'sparks' | 'spores' | 'feathers' | 'bubbles' | 'confetti' | 'stone' | 'crown' | 'fountain' | 'drip' | 'flicker' | 'leaves' | 'shrink' | 'howl' | 'dizzy' | 'snowball' | 'nose' | 'melt' | 'slide' | 'pinch' | 'sand' | 'hide' | 'tangle';
 
 /** a musical note (for howling) */
 function note(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
@@ -357,6 +357,71 @@ export function drawAilment(g: CanvasRenderingContext2D, kind: Ailment, x: numbe
     g.lineTo(ax - r * 0.2, ay - r * 0.12);
     g.lineTo(ax + r * 0.02, ay + r * 0.32);
     g.fill();
+  } else if (kind === 'pinch') {
+    // pinching its own nose: a red claw with little pain stars
+    g.fillStyle = '#ff6a4a';
+    g.beginPath();
+    g.moveTo(x - r * 0.1, y + r * 0.7);
+    g.quadraticCurveTo(x - r * 0.75, y + r * 0.1, x - r * 0.35, y - r * 0.6);
+    g.lineTo(x - r * 0.05, y - r * 0.15);
+    g.lineTo(x + r * 0.35, y - r * 0.55);
+    g.quadraticCurveTo(x + r * 0.55, y + r * 0.2, x - r * 0.1, y + r * 0.7);
+    g.fill();
+    g.fillStyle = '#ffd34d';
+    for (const [dx, dy] of [[0.62, -0.62], [0.78, 0.05]]) {
+      g.beginPath();
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2, rr = (k % 2 ? 0.07 : 0.18) * r;
+        g.lineTo(x + dx * r + Math.cos(a) * rr, y + dy * r + Math.sin(a) * rr);
+      }
+      g.fill();
+    }
+  } else if (kind === 'sand') {
+    // sneezing sand: a sandy puff with grains
+    g.fillStyle = '#f0d090';
+    for (const [dx, dy, s] of [[-0.3, 0.1, 0.42], [0.2, -0.15, 0.38], [0.35, 0.3, 0.3], [-0.05, 0.4, 0.3]]) {
+      g.beginPath();
+      g.arc(x + dx * r, y + dy * r, s * r, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.fillStyle = '#b8894a';
+    for (const [dx, dy] of [[-0.7, -0.4], [-0.5, -0.75], [0.7, -0.6], [0.85, 0.1], [-0.85, 0.35]]) {
+      g.beginPath();
+      g.arc(x + dx * r, y + dy * r, r * 0.07, 0, Math.PI * 2);
+      g.fill();
+    }
+  } else if (kind === 'hide') {
+    // hiding in its shell: a shell with two eyes peeking out
+    g.fillStyle = '#3fa8a0';
+    g.beginPath();
+    g.ellipse(x, y + r * 0.15, r * 0.8, r * 0.55, 0, Math.PI, 0);
+    g.closePath();
+    g.fill();
+    g.strokeStyle = '#2a7a74';
+    g.lineWidth = r * 0.08;
+    g.beginPath();
+    g.moveTo(x - r * 0.35, y + r * 0.15); g.lineTo(x - r * 0.2, y - r * 0.3);
+    g.moveTo(x + r * 0.35, y + r * 0.15); g.lineTo(x + r * 0.2, y - r * 0.3);
+    g.stroke();
+    g.fillStyle = '#1f2a3a';
+    g.fillRect(x - r * 0.75, y + r * 0.15, r * 1.5, r * 0.32);
+    g.fillStyle = '#ffffff';
+    for (const dx of [-0.2, 0.2]) {
+      g.beginPath();
+      g.arc(x + dx * r, y + r * 0.31, r * 0.11, 0, Math.PI * 2);
+      g.fill();
+    }
+  } else if (kind === 'tangle') {
+    // tangled in seaweed: wavy green strands
+    g.strokeStyle = '#3fa86a';
+    g.lineWidth = r * 0.17;
+    g.lineCap = 'round';
+    for (const dx of [-0.45, 0, 0.45]) {
+      g.beginPath();
+      g.moveTo(x + dx * r, y + r * 0.8);
+      g.bezierCurveTo(x + dx * r + r * 0.35, y + r * 0.3, x + dx * r - r * 0.35, y - r * 0.2, x + dx * r + r * 0.1, y - r * 0.8);
+      g.stroke();
+    }
   } else {
     // hiccup bubbles
     for (const [dx, dy, s] of [[-0.3, 0.3, 0.5], [0.42, -0.05, 0.36], [0.05, -0.62, 0.26]]) {
@@ -394,7 +459,7 @@ export function drawCoin(g: CanvasRenderingContext2D, x: number, y: number, r: n
 }
 
 /** things the keeper can carry: three medicines and berries for the residents */
-export type Medicine = 'pink' | 'blue' | 'green' | 'berry' | 'purple' | 'gold' | 'cocoa';
+export type Medicine = 'pink' | 'blue' | 'green' | 'berry' | 'purple' | 'gold' | 'cocoa' | 'pearl';
 
 /** hot cocoa: a mug with steam and a marshmallow */
 export function drawCocoa(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
@@ -425,6 +490,36 @@ export function drawCocoa(g: CanvasRenderingContext2D, x: number, y: number, r: 
   g.fill();
   g.fillStyle = '#ffffff';
   g.fillRect(x - r * 0.12, y - r * 0.45, r * 0.2, r * 0.14);
+  g.restore();
+}
+
+/** a pearl in an open pink shell */
+export function drawPearl(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  g.fillStyle = '#ffc2c8';
+  g.beginPath();
+  g.ellipse(x, y + r * 0.2, r * 0.85, r * 0.5, 0, 0, Math.PI);
+  g.closePath();
+  g.fill();
+  g.beginPath();
+  g.ellipse(x, y - r * 0.05, r * 0.8, r * 0.55, 0, Math.PI * 1.05, Math.PI * 1.95);
+  g.closePath();
+  g.fill();
+  g.strokeStyle = '#e898a8';
+  g.lineWidth = r * 0.06;
+  for (const dx of [-0.45, 0, 0.45]) {
+    g.beginPath();
+    g.moveTo(x, y + r * 0.2);
+    g.lineTo(x + dx * r, y + r * 0.62);
+    g.stroke();
+  }
+  const grd = g.createRadialGradient(x - r * 0.1, y + r * 0.05, r * 0.05, x, y + r * 0.15, r * 0.32);
+  grd.addColorStop(0, '#ffffff');
+  grd.addColorStop(1, '#f0d8e8');
+  g.fillStyle = grd;
+  g.beginPath();
+  g.arc(x, y + r * 0.15, r * 0.3, 0, Math.PI * 2);
+  g.fill();
   g.restore();
 }
 
@@ -606,9 +701,10 @@ export function drawMedicine(g: CanvasRenderingContext2D, m: Medicine, x: number
   else if (m === 'purple') drawVial(g, x, y, r, '#a46cff');
   else if (m === 'gold') drawHoney(g, x, y, r);
   else if (m === 'cocoa') drawCocoa(g, x, y, r);
+  else if (m === 'pearl') drawPearl(g, x, y, r);
   else drawBerry(g, x, y, r);
 }
-export const MED_COLOR: Record<Medicine, string> = { pink: '#ff5fa8', blue: '#4fb4ff', green: '#59c25a', berry: '#e8435a', purple: '#a46cff', gold: '#f5b301', cocoa: '#9a5b34' };
+export const MED_COLOR: Record<Medicine, string> = { pink: '#ff5fa8', blue: '#4fb4ff', green: '#59c25a', berry: '#e8435a', purple: '#a46cff', gold: '#f5b301', cocoa: '#9a5b34', pearl: '#e898b8' };
 
 /** a cauldron silhouette, for the build spot that makes one */
 export function drawCauldron(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
@@ -969,9 +1065,9 @@ export function drawBonfire(g: CanvasRenderingContext2D, x: number, y: number, r
   g.restore();
 }
 
-export type SpotIcon = 'cauldron' | 'spring' | 'herbs' | 'backpack' | 'shoes' | 'sign' | 'bed' | 'berry' | 'bridge' | 'lily' | 'lilybed' | 'lantern' | 'gate' | 'mossbed' | 'mushroom' | 'helper' | 'shovel' | 'snowbed' | 'bonfire' | 'swing' | 'fountain' | 'carousel' | 'statue';
+export type SpotIcon = 'cauldron' | 'spring' | 'herbs' | 'backpack' | 'shoes' | 'sign' | 'bed' | 'berry' | 'bridge' | 'lily' | 'lilybed' | 'lantern' | 'gate' | 'mossbed' | 'mushroom' | 'helper' | 'shovel' | 'snowbed' | 'bonfire' | 'swing' | 'fountain' | 'carousel' | 'statue' | 'boardwalk' | 'shellbed' | 'lighthouse';
 export function drawSpotIcon(g: CanvasRenderingContext2D, icon: SpotIcon, x: number, y: number, r: number) {
-  ({ cauldron: drawCauldron, spring: drawSpring, herbs: drawHerbs, backpack: drawBackpack, shoes: drawShoe, sign: drawSign, bed: drawBed, berry: drawBerry, bridge: drawBridge, lily: drawLily, lilybed: drawLilyBed, lantern: drawLantern, gate: drawGate, mossbed: drawMossBed, mushroom: drawMushroom, helper: drawHelper, shovel: drawShovel, snowbed: drawSnowBed, bonfire: drawBonfire, swing: drawSwing, fountain: drawFountain, carousel: drawCarousel, statue: drawStatue })[icon](g, x, y, r);
+  ({ cauldron: drawCauldron, spring: drawSpring, herbs: drawHerbs, backpack: drawBackpack, shoes: drawShoe, sign: drawSign, bed: drawBed, berry: drawBerry, bridge: drawBridge, lily: drawLily, lilybed: drawLilyBed, lantern: drawLantern, gate: drawGate, mossbed: drawMossBed, mushroom: drawMushroom, helper: drawHelper, shovel: drawShovel, snowbed: drawSnowBed, bonfire: drawBonfire, swing: drawSwing, fountain: drawFountain, carousel: drawCarousel, statue: drawStatue, boardwalk: drawBoardwalk, shellbed: drawShellBed, lighthouse: drawLighthouse })[icon](g, x, y, r);
 }
 
 function bubbleBase(g: CanvasRenderingContext2D) {
@@ -1117,6 +1213,79 @@ export function drawStatue(g: CanvasRenderingContext2D, x: number, y: number, r:
   g.fillStyle = '#fff6c8';
   g.beginPath();
   g.arc(x - r * 0.12, y - r * 0.5, r * 0.07, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+}
+
+/** planks over a sand dune with a life ring: the way to the bay */
+export function drawBoardwalk(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  g.fillStyle = '#f0d090';
+  g.beginPath();
+  g.ellipse(x, y + r * 0.55, r * 0.95, r * 0.4, 0, Math.PI, 0);
+  g.fill();
+  g.fillStyle = '#c89a6a';
+  for (let i = 0; i < 4; i++) g.fillRect(x - r * 0.7 + i * r * 0.37, y + r * 0.2, r * 0.3, r * 0.5);
+  g.strokeStyle = '#ff6a4a';
+  g.lineWidth = r * 0.16;
+  g.beginPath();
+  g.arc(x + r * 0.2, y - r * 0.35, r * 0.32, 0, Math.PI * 2);
+  g.stroke();
+  g.strokeStyle = '#ffffff';
+  g.lineWidth = r * 0.16;
+  for (const a of [0.3, 1.9, 3.5, 5.1]) {
+    g.beginPath();
+    g.arc(x + r * 0.2, y - r * 0.35, r * 0.32, a, a + 0.35);
+    g.stroke();
+  }
+  g.restore();
+}
+
+/** a shell bed for the bay residents */
+export function drawShellBed(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  g.fillStyle = '#ffc2c8';
+  g.beginPath();
+  g.moveTo(x - r * 0.9, y + r * 0.1);
+  for (let i = 0; i <= 8; i++) {
+    const a = Math.PI + (i / 8) * Math.PI;
+    g.lineTo(x + Math.cos(a) * r * 0.9, y + r * 0.1 + Math.sin(a) * r * 0.7 + (i % 2 ? r * 0.08 : 0));
+  }
+  g.closePath();
+  g.fill();
+  g.fillStyle = '#f2e2c4';
+  g.beginPath();
+  g.ellipse(x, y + r * 0.2, r * 0.75, r * 0.32, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#ffffff';
+  g.beginPath();
+  g.ellipse(x - r * 0.15, y + r * 0.08, r * 0.28, r * 0.13, -0.2, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+}
+
+/** a striped lighthouse with a glowing lamp: more patients find the bay */
+export function drawLighthouse(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  g.fillStyle = 'rgba(255,211,77,0.55)';
+  g.beginPath();
+  g.moveTo(x, y - r * 0.6); g.lineTo(x + r * 0.95, y - r * 0.9); g.lineTo(x + r * 0.95, y - r * 0.35);
+  g.closePath();
+  g.fill();
+  for (let k = 0; k < 4; k++) {
+    g.fillStyle = k % 2 ? '#ffffff' : '#e8435a';
+    const w0 = r * (0.38 - k * 0.04), w1 = r * (0.34 - k * 0.04), y0 = y + r * 0.85 - k * r * 0.33;
+    g.beginPath();
+    g.moveTo(x - w0, y0); g.lineTo(x + w0, y0); g.lineTo(x + w1, y0 - r * 0.33); g.lineTo(x - w1, y0 - r * 0.33);
+    g.closePath();
+    g.fill();
+  }
+  g.fillStyle = '#ffd34d';
+  g.fillRect(x - r * 0.2, y - r * 0.72, r * 0.4, r * 0.22);
+  g.fillStyle = '#e8435a';
+  g.beginPath();
+  g.moveTo(x - r * 0.26, y - r * 0.72); g.lineTo(x, y - r * 0.98); g.lineTo(x + r * 0.26, y - r * 0.72);
+  g.closePath();
   g.fill();
   g.restore();
 }

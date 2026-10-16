@@ -9,7 +9,7 @@ if (eyesParam) Creature.forceShut = eyesParam === 'half' ? 0.5 : 1;
 import { blobShadowTexture, buildGround, buildSky, Rain, RainPuff, tintSky } from './world';
 import { Sfx } from './sfx';
 import { Joystick } from './joystick';
-import { Game, SNOW_C, SNOW_R } from './game';
+import { Game, SEA_C, SEA_R, SNOW_C, SNOW_R } from './game';
 import chmurnikData from './chmurnik.json';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -62,7 +62,7 @@ scene.add(rim);
 
 const shadowTex = blobShadowTexture();
 const clouds = buildSky(scene);
-const obstacles = buildGround(scene, shadowTex, [[SNOW_C.x, SNOW_C.z, SNOW_R + 0.7]]);
+const obstacles = buildGround(scene, shadowTex, [[SNOW_C.x, SNOW_C.z, SNOW_R + 0.7], [SEA_C.x, SEA_C.z, SEA_R + 0.7]]);
 const rain = new RainPuff(scene);
 const weather = new Rain(scene);
 const DAY_HEMI = new THREE.Color(0xdff3ff), NIGHT_HEMI = new THREE.Color(0x8ea4e0), DAY_SUN = new THREE.Color(0xfff1dc), NIGHT_SUN = new THREE.Color(0xa8bcff);
