@@ -35,6 +35,7 @@ npm run build      # tsc --noEmit + vite build -> dist/
   - Siatka bezpieczeństwa: co 1 s usuwa „zabłąkane” lekarstwa, czyli takie, które nie leżą na tacy, nie są w rękach opiekuna i nie lecą. Pod `?debug` ostrzega o tym w konsoli. Błąd zgłoszony przez użytkownika: fiolki same się przesuwają albo pojawiają daleko. Do tej pory nie odtworzony.
 - `props.ts`: proste meshe stacji i rekwizytów. Część z nich podmieniają modele 3D `prop_*.glb.txt` przez `dressUp` (lista w `PROP_MODEL` w `game.ts`: kociołek, źródełko, zioła, lilia, ul, krzak jagód, legowiska wszystkich terenów, kosz, ognisko z kakao, duże ognisko, drogowskaz, latarnia, grzybowa lampka, domek). Bez modeli są tylko mostek i bramy (furtka, łuk z kijków), bo opiekun chodzi po nich według ich kształtu. Rzeczy z `userData.fx` (bańki w kociołku i ognisku, pszczoły przy ulu) zostają widoczne obok modelu. Reszta pliku: (kociołek, źródełko, zioła, jagody, lilia, legowiska, mostek, latarnia, kosz, plecak, drogowskaz, scenografia stawu) i cząsteczki `Fx`.
 - `album.ts`: album adopcji (przycisk z książeczką pod wyciszeniem). Strona na teren (`ALBUM_PAGES` w `game.ts`), karta na gatunek: `?`, sylwetka (gatunek odblokowany) albo portret z liczbą adopcji. Portrety rysuje `portrait()` w `main.ts` w osobnym małym rendererze. Pełna strona raz daje monety, które same lecą do opiekuna. Zapis: pola `album` i `albumPaid` (stare zapisy zaczynają z pustym albumem). Nowy gatunek dopisz do odpowiedniej strony. Rzadkie odmiany mają klucz `nazwa*` i własną złotą naklejkę, która pokazuje się dopiero po adopcji i nie jest potrzebna do zapełnienia strony.
+- `daily.ts`: prośba dnia, czyli karta pod serduszkami. Jedno zadanie na dzień, wybrane z daty (`today()`): wylecz N stworków jednego gatunku z najnowszego terenu (portret i choroba), pożegnaj N stworków przy domku (serduszko na drzwiach, liczy się premia za pożegnanie) albo nakarm N mieszkańców samemu (jagody). Nagroda `50 + 15 × zakupy` leci do opiekuna. Zapis w polu `daily` (stare zapisy go nie mają). Karty nie ma w samouczku (`step < 4`), a o północy przychodzi nowe zadanie.
 - `icons.ts`: ikonki rysowane na canvasie: choroby, lekarstwa, punkty budowy, dymki, serduszka.
 - `creature.ts`: stworek z modelu GLB. Ma waddle przy chodzeniu, `twitch`, tint, malowane powieki (shader `uShut`, kształt z `lids.json`).
 - `world.ts`: teren, płot z dwiema bramami, krzaki, `Obstacles`. `buildGround(…, bare)` nie sadzi trawy ani kwiatków w podanych kołach (śnieg wzgórza).
@@ -59,7 +60,7 @@ npm run build      # tsc --noEmit + vite build -> dist/
 
 ## Haki debug (URL i konsola)
 - `?speed=N` robi N kroków gry (po 1/30 s) na klatkę, `?norender` rysuje co 30. klatkę, a `window.__tick(dt)` (jeśli test go ustawi) jest wołany przed każdym krokiem. `__G()` zwraca obiekt `Game`. Tego używa test całej gry.
-- `?reset=1` czyści zapis. `?debug` włącza ostrzeżenia. `?dtmax=0.4` pozwala grze iść w wolnej przeglądarce testowej. `?eyes=closed|half` zamyka powieki. `?rare` sprawia, że każdy pacjent jest rzadką odmianą.
+- `?reset=1` czyści zapis. `?debug` włącza ostrzeżenia. `?dtmax=0.4` pozwala grze iść w wolnej przeglądarce testowej. `?eyes=closed|half` zamyka powieki. `?rare` sprawia, że każdy pacjent jest rzadką odmianą. `?day=RRRR-MM-DD` udaje inną datę dla prośby dnia.
 - `window.__game()` zwraca stan, `__keeper()` pozycję opiekuna, `__walk(x,z)` wysyła go w punkt. `__coins(n)` i `__hearts(n)` dodają monety i serduszka. `__strays()` pokazuje zabłąkane przedmioty, a `__items()` wszystkie fiolki z pozycją i właścicielem, a `__spots()` liczbę zakupów i widoczne punkty budowy (pozycja, cena, serduszka). `__calls()` podaje liczbę wywołań rysowania na klatkę (15.10.2026: obóz 88, polana 91). Dekoracje w wielu kopiach rób jako `InstancedMesh`.
 
 ## Modele i narzędzia (`tools/`)
@@ -82,7 +83,7 @@ node viewer/eyes.mjs nessie                      # oczy + powieki -> src/lids.js
 Skrypty Playwright na Chromium z swiftshader. Robią zrzuty do `tools/out/`.
 ```
 npm run build && npx vite preview --port 4173     # w katalogu głównym
-cd tools && node tests/care.mjs                   # też: pond, prog, lids, helpers, vials, glade, snow, workers, water, adoption, album, decor, collide, variant
+cd tools && node tests/care.mjs                   # też: pond, prog, lids, helpers, vials, glade, snow, workers, water, adoption, album, decor, collide, variant, daily
 RUNS=2 CAREFUL=1 node tests/playthrough.mjs       # cała gra od zera, kilka minut na przejście; bez CAREFUL gracz idzie prosto przez krzaki
 ```
 W środowisku chmurowym Claude Chromium leży w `/opt/pw-browsers`, a Playwright jest przypięty do 1.56.0, żeby pasował. Lokalnie może być potrzebne `npx playwright install chromium`.

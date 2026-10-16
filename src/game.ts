@@ -3,6 +3,7 @@ import type { Creature } from './creature';
 import type { Sfx } from './sfx';
 import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, drawAilment, drawBerry, drawCoin, drawHeart, drawMoon, drawSpotIcon, needCanvas } from './icons';
 import { Album } from './album';
+import { Daily, type DailyState, today } from './daily';
 import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, carouselMesh, coinGeo, coinMat, dressUp, fountainMesh, gold, pedestalMesh, swingMesh, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery } from './props';
 
 /**
@@ -337,6 +338,9 @@ export class Game {
   private strayT = 1;
   private tmp = new THREE.Vector3();
   private album: Album;
+  /** the request of the day (see daily.ts) */
+  daily: Daily;
+  private savedDaily?: DailyState;
 
   constructor(private d: GameDeps) {
     this.fx = new Fx(d.scene);
@@ -352,6 +356,7 @@ export class Game {
         return d.portrait(SPECIES[name].model ?? name, key === name ? SPECIES[name].base ?? null : variantTint(name));
       },
     );
+    this.daily = new Daily((name) => d.portrait(SPECIES[name].model ?? name, SPECIES[name].base ?? null), (name) => SPECIES[name].ailment);
     for (let i = 0; i < 10; i++) {
       const s = new THREE.Object3D();
       s.position.set(0, 0.5 + i * 0.3, 0.4);
@@ -401,6 +406,7 @@ export class Game {
 
     this.load();
     if (new URLSearchParams(location.search).has('rare')) this.variantChance = 1;
+    if (this.step >= 4) this.newDay(this.savedDaily); // not during the first-steps tutorial
     this.refreshSpots();
     window.addEventListener('pagehide', () => this.save());
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.save(); });
@@ -409,7 +415,7 @@ export class Game {
   // ------------------------------------------------------------ save / load
 
   private load() {
-    let data: { ver?: number; coins?: number; bought?: number; hearts?: number; residents?: { name: string; hearts: number; v?: number }[]; album?: Record<string, number>; albumPaid?: number[] } | null = null;
+    let data: { ver?: number; coins?: number; bought?: number; hearts?: number; residents?: { name: string; hearts: number; v?: number }[]; album?: Record<string, number>; albumPaid?: number[]; daily?: DailyState } | null = null;
     try {
       if (new URLSearchParams(location.search).has('reset')) localStorage.removeItem(SAVE_KEY);
       data = JSON.parse(localStorage.getItem(SAVE_KEY) ?? 'null');
@@ -423,6 +429,7 @@ export class Game {
     this.setHearts(Math.max(0, data.hearts ?? 0));
     for (const r of data.residents ?? []) if (SPECIES[r.name]) void this.spawnResident(r.name, r.hearts, !!r.v);
     this.album.load(data.album, data.albumPaid);
+    this.savedDaily = data.daily;
     this.restored = true;
     if (n > 0) this.step = 4;
   }
@@ -438,6 +445,7 @@ export class Game {
         // added later; older saves just start with an empty album
         album: this.album.counts,
         albumPaid: this.album.paid,
+        daily: this.daily.state ?? undefined,
       }));
     } catch { /* ignore */ }
   }
@@ -695,6 +703,22 @@ export class Game {
     this.cheer++;
     if (!instant) this.popIn(g);
   }
+  private newDay(saved?: DailyState) {
+    const zone: Zone = this.snowOpen ? 'snow' : this.gladeOpen ? 'glade' : this.pondOpen ? 'pond' : 'camp';
+    const pool = this.species.filter((n) => (SPECIES[n].zone ?? 'camp') === zone);
+    this.daily.ensure(saved, pool, 50 + this.bought * 15);
+  }
+
+  /** a step of the request of the day; when it is done its coins fly to the keeper */
+  private dailyHit(kind: 'cure' | 'goodbye' | 'feed', name?: string) {
+    if (!this.daily.hit(kind, name)) return;
+    const at = this.d.keeper.root.position.clone().setY(1.2);
+    this.fx.emit('star', at, 40, { speed: 3, up: 2.5, life: 1.2 });
+    this.dropCoins(at, Math.round(this.daily.state!.reward / 2), true); // a coin is worth 2
+    this.d.sfx.build();
+    this.save();
+  }
+
   /** decorations bought so far */
   cheer = 0;
   /** chance that a new patient is a rare colour variant (tests set it to 1) */
@@ -1205,6 +1229,7 @@ export class Game {
     this.fx.emit('star', at, 26, { speed: 2.6, up: 2.2, life: 1.1 });
     this.dropCoins(at, (p.sp.coins + this.cheer * DECOR_BONUS) * (p.variant ? 2 : 1));
     if (this.step === 1) this.step = 2;
+    this.dailyHit('cure', p.name);
   }
 
   // ------------------------------------------------------------ residents
@@ -1415,6 +1440,7 @@ export class Game {
     this.fx.emit('star', at, 20, { speed: 2.4, up: 2, life: 1.1 });
     this.dropCoins(at, ADOPT_COINS + (bonus ? FAREWELL_BONUS : 0));
     this.setHearts(this.hearts + 1);
+    if (bonus) this.dailyHit('goodbye');
     for (const sp of this.spots) this.drawSpot(sp);
     // a new sticker in the album; a full page pays its reward, flying to the keeper
     for (const page of this.album.add(r.variant ? RARE(r.name) : r.name)) {
@@ -1499,7 +1525,7 @@ export class Game {
         // feeding: berries fly over when the keeper comes close
         if (r.need === 'food' && !r.fedIncoming && pos.distanceTo(k) < GIVE_R) {
           const v = this.takeFromArms('berry');
-          if (v) this.feed(r, v);
+          if (v) { this.feed(r, v); this.dailyHit('feed'); }
         }
         // sleepy: stand on its bed for a moment to plump it up, then it goes to sleep
         if (r.need === 'sleep') {
@@ -1848,6 +1874,7 @@ export class Game {
     this.saveT += dt;
     if (this.saveT > 5) {
       this.saveT = 0;
+      if (this.step >= 4 && this.daily.state?.day !== today()) this.newDay();
       this.save();
     }
   }
