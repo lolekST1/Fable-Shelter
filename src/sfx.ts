@@ -1,4 +1,4 @@
-/** Tiny synthesized sounds, no audio files to download. */
+/** Tiny synthesized sounds, plus the background music (the only audio files, loaded after the first tap). */
 export class Sfx {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
@@ -22,6 +22,45 @@ export class Sfx {
     this.muted = m;
     if (this.master) this.master.gain.value = m ? 0 : 1;
     try { localStorage.setItem('fable-shelter-muted', m ? '1' : '0'); } catch { /* ignore */ }
+  }
+
+  /** background music: the tracks play one after another and loop, crossfading over a few seconds; started once */
+  musicOn = false;
+  music(urls: string[], volume = 0.3) {
+    const c = this.ctx;
+    if (!c || this.musicOn || !urls.length) return;
+    this.musicOn = true;
+    const bus = c.createGain();
+    bus.gain.value = volume;
+    bus.connect(this.out);
+    const bufs = new Map<string, Promise<AudioBuffer>>();
+    const load = (u: string) => {
+      if (!bufs.has(u)) bufs.set(u, fetch(u).then((r) => r.arrayBuffer()).then((b) => c.decodeAudioData(b)));
+      return bufs.get(u)!;
+    };
+    const XF = 2.5;
+    let i = 0;
+    const play = async (at: number) => {
+      let buf: AudioBuffer;
+      try { buf = await load(urls[i++ % urls.length]); } catch { return; } // no music file: just the sounds
+      const t0 = Math.max(at, c.currentTime + 0.05), end = t0 + buf.duration;
+      const src = c.createBufferSource();
+      src.buffer = buf;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(1, t0 + XF);
+      g.gain.setValueAtTime(1, end - XF);
+      g.gain.linearRampToValueAtTime(0.0001, end);
+      src.connect(g).connect(bus);
+      src.start(t0);
+      src.stop(end);
+      // load the next track early and start it as this one fades out
+      void load(urls[i % urls.length]);
+      window.setTimeout(() => void play(end - XF), Math.max(0, (end - XF - c.currentTime - 1) * 1000));
+    };
+    void play(c.currentTime);
+    // quiet while the game is hidden (another tab, phone locked)
+    document.addEventListener('visibilitychange', () => { if (document.hidden) void c.suspend(); else void c.resume(); });
   }
 
   /** everything plays through one master volume so muting is instant */

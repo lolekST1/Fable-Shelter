@@ -162,8 +162,11 @@ const ray = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const joy = new Joystick(renderer.domElement);
-let walkTo: THREE.Vector3 | null = null;
-renderer.domElement.addEventListener('pointerdown', () => sfx.unlock());
+/** where a tap sent the keeper: the way there through the pen gates, the bridge and the ways into the areas */
+let walkTo: THREE.Vector3[] = [];
+const sendKeeper = (to: THREE.Vector3) => { walkTo = keeper && game ? game.route(keeper.root.position.clone(), to) : [to]; };
+const MUSIC = ['music/oboz1.mp3', 'music/oboz2.mp3'];
+renderer.domElement.addEventListener('pointerdown', () => { sfx.unlock(); sfx.music(MUSIC); });
 
 // sound on/off, remembered between visits
 const muteBtn = document.createElement('button');
@@ -187,7 +190,7 @@ muteBtn.addEventListener('click', () => {
 });
 document.body.appendChild(muteBtn);
 joy.onStart = () => {
-  walkTo = null;
+  walkTo = [];
   hint.classList.add('hidden');
 };
 joy.onTap = (cx, cy) => {
@@ -203,7 +206,7 @@ joy.onTap = (cx, cy) => {
     hint.classList.add('hidden');
   } else {
     const p = new THREE.Vector3();
-    if (ray.ray.intersectPlane(groundPlane, p)) walkTo = p;
+    if (ray.ray.intersectPlane(groundPlane, p)) sendKeeper(p);
   }
 };
 
@@ -211,7 +214,7 @@ joy.onTap = (cx, cy) => {
 (window as unknown as { __keeper: () => number[] | null }).__keeper = () => (keeper ? [keeper.root.position.x, keeper.root.position.z] : null);
 (window as unknown as { __game: () => unknown }).__game = () =>
   game && { coins: game.coins, carry: game.carry.length, patients: game.patients.map((p) => [p.state, +p.c.root.position.x.toFixed(2), +p.c.root.position.z.toFixed(2)]), tray: game.stations.map((c) => c.kind + c.tray.length), residents: game.residents.map((r) => [r.name, r.state, r.need, r.hearts, +r.c.root.position.x.toFixed(2), +r.c.root.position.z.toFixed(2), +r.bed.pos.x.toFixed(2), +r.bed.pos.z.toFixed(2)]), carryKinds: game.carry.map((v) => v.userData.kind), adopters: game.adopters.map((a) => [a.state, a.r.name, +a.c.root.position.x.toFixed(2), +a.c.root.position.z.toFixed(2)]), hearts: game.hearts, workers: game.workers.map((w) => [w.zone, w.state, +w.c.root.position.x.toFixed(2), +w.c.root.position.z.toFixed(2)]) };
-(window as unknown as { __walk: (x: number, z: number) => void }).__walk = (x, z) => { walkTo = new THREE.Vector3(x, 0, z); };
+(window as unknown as { __walk: (x: number, z: number) => void }).__walk = (x, z) => sendKeeper(new THREE.Vector3(x, 0, z));
 (window as unknown as { __strays: () => string[] }).__strays = () => game?.strays() ?? [];
 (window as unknown as { __items: () => unknown[] }).__items = () => game?.items() ?? [];
 (window as unknown as { __spots: () => unknown }).__spots = () => game?.spotsInfo();
@@ -228,11 +231,17 @@ function moveKeeper(dt: number) {
   const k = keeper.root.position;
   move.set(0, 0, 0);
   if (joy.active) move.set(joy.x, 0, joy.y); // camera looks straight down -z, so screen axes map to x / z
-  else if (walkTo) {
-    move.set(walkTo.x - k.x, 0, walkTo.z - k.z);
+  else if (walkTo.length) {
+    // waypoints are passed through (also when slipping past one round an obstacle), the last one is walked up to
+    while (walkTo.length > 1) {
+      const [a, b] = walkTo;
+      if (Math.hypot(k.x - a.x, k.z - a.z) < 0.5 || Math.hypot(k.x - b.x, k.z - b.z) < Math.hypot(a.x - b.x, a.z - b.z)) walkTo.shift();
+      else break;
+    }
+    move.set(walkTo[0].x - k.x, 0, walkTo[0].z - k.z);
     const d = move.length();
-    if (d < 0.08) walkTo = null;
-    else move.multiplyScalar(Math.min(1, d / 0.4) / d);
+    if (d < 0.08) walkTo = [];
+    else move.multiplyScalar((walkTo.length > 1 ? 1 : Math.min(1, d / 0.4)) / d);
   }
   const amount = Math.min(1, move.length());
   keeper.walk += (amount - keeper.walk) * Math.min(1, dt * 10);

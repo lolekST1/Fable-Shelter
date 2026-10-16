@@ -158,7 +158,12 @@ const DUNE: [number, number][] = Array.from({ length: 9 }, (_, i) => {
 });
 const ZONE_BEDS: Record<Zone, [number, number][]> = { camp: BEDS, pond: POND_BEDS, glade: GLADE_BEDS, snow: SNOW_BEDS, sea: SEA_BEDS };
 /** the open areas beyond the meadow edge (glade, snowy hill): middle, radius, the angle of the way in */
-const RIMS = [{ zone: 'glade' as const, c: GLADE_C, r: GLADE_R, a: GLADE_A, gap: GAP }, { zone: 'snow' as const, c: SNOW_C, r: SNOW_R, a: SNOW_A, gap: SNOW_GAP }, { zone: 'sea' as const, c: SEA_C, r: SEA_R, a: SEA_A, gap: SEA_GAP }];
+/** w: half the angle of the way in once it is open (the hedge, drift and dune keep standing on both sides of it) */
+const RIMS = [
+  { zone: 'glade' as const, c: GLADE_C, r: GLADE_R, a: GLADE_A, gap: GAP, w: 0.19 },
+  { zone: 'snow' as const, c: SNOW_C, r: SNOW_R, a: SNOW_A, gap: SNOW_GAP, w: 0.19 },
+  { zone: 'sea' as const, c: SEA_C, r: SEA_R, a: SEA_A, gap: SEA_GAP, w: 0.14 },
+];
 const angleTo = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 /** the shelter house at the west edge of the camp, its door facing the camp (south-east): adopters come out of it */
 const HOUSE = new THREE.Vector3(-9.2, 0, -1.4);
@@ -895,8 +900,9 @@ export class Game {
       // the meadow, plus the glade and the snowy hill once their ways in are open; outside all, back onto the nearest edge
       const r = Math.hypot(k.x, k.z);
       const open = RIMS.filter((m) => ({ glade: this.gladeOpen, snow: this.snowOpen, sea: this.seaOpen })[m.zone]);
-      // before the way in, the meadow ends in front of the hedge or drift (a hard edge, so big steps can't slip through)
-      const shut = RIMS.some((m) => !open.includes(m) && angleTo(Math.atan2(k.z, k.x), m.a) < 0.42);
+      // the meadow ends in front of the hedge, drift or dune (a hard edge, so big steps can't slip through); once a way
+      // in is open, only in front of it: beside it the barrier still stands (no pockets behind its ends, e.g. by the house)
+      const shut = RIMS.some((m) => { const d = angleTo(Math.atan2(k.z, k.x), m.a); return d < 0.42 && (!open.includes(m) || d > m.w); });
       const edge = shut ? 9.9 : 11;
       const dist = (m: (typeof RIMS)[number]) => Math.hypot(k.x - m.c.x, k.z - m.c.z);
       if (r > edge && !open.some((m) => dist(m) <= m.r)) {
@@ -1062,10 +1068,12 @@ export class Game {
     // nobody walks through the pond water, the shelter house, the keeper or a decoration: back onto the edge
     // and round it toward the target; a target inside one (a gate or a bed the keeper stands on) counts as reached at its edge
     const k = this.d.keeper.root.position;
-    const solids: [number, number, number][] = [[POND_C.x, POND_C.z, POND_SHORE], [HOUSE.x, HOUSE.z, 1.75]];
+    const solids: [number, number, number][] = [];
     // the keeper plumps a bed up by standing on it, so the way to a bed is never blocked by the keeper
     if (!this.beds.some((b) => Math.hypot(b.pos.x - target.x, b.pos.z - target.z) < 0.1)) solids.push([k.x, k.z, 0.6]);
     for (const o of this.props) if (o.userData.r) solids.push([o.position.x, o.position.z, o.userData.r + 0.3]);
+    // the house and the pond last: being pushed round the keeper must not end up inside them
+    solids.push([HOUSE.x, HOUSE.z, 1.75], [POND_C.x, POND_C.z, POND_SHORE]);
     for (const [cx, cz, r] of solids) {
       const wx = pos.x - cx, wz = pos.z - cz, wd = Math.hypot(wx, wz);
       if (wd >= r) continue;
@@ -1465,7 +1473,7 @@ export class Game {
    * Waypoints from one place to another without walking through the fence or the brook:
    * the pen has a front gate (to the camp) and a back gate (toward the bridge and the pond).
    */
-  private route(from: THREE.Vector3, to: THREE.Vector3): THREE.Vector3[] {
+  route(from: THREE.Vector3, to: THREE.Vector3): THREE.Vector3[] {
     const V = (x: number, z: number) => new THREE.Vector3(x, 0, z);
     const FO = V(0, 4.3), FI = V(0, 2.8), BI = V(0, -2.8), BO = V(0, -4.4), BS = V(0, -7.9), BN = V(0, -10.1);
     const zf = this.zone(from), zt = this.zone(to);
