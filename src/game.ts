@@ -221,7 +221,7 @@ interface Resident {
   toy?: THREE.Object3D;
 }
 
-interface Coin { m: THREE.Mesh; v: THREE.Vector3; t: number; magnet: boolean; /** flies to the keeper wherever the keeper is (rewards) */ toKeeper?: boolean }
+interface Coin { m: THREE.Mesh; v: THREE.Vector3; t: number; magnet: boolean; /** flies to the keeper wherever the keeper is (rewards) */ toKeeper?: boolean; value: number }
 
 /** someone from the shelter house come to take a four-heart resident home */
 interface Adopter { c: Creature; r: Resident; state: 'come' | 'hug' | 'go'; path: THREE.Vector3[]; t: number }
@@ -284,11 +284,11 @@ const SPOTS: SpotDef[] = [
   { icon: 'carousel', price: 2400, at: [7.4, -4.6], apply: (g, i) => g.addDecor('carousel', 7.4, -4.6, i) },
   { icon: 'statue', price: 2700, hearts: 130, at: [-2.2, 9.6], apply: (g, i) => g.addDecor('statue', -2.2, 9.6, i) },
   // the bay over the dune
-  { icon: 'boardwalk', price: 3000, hearts: 150, at: [Math.cos(SEA_A) * 9.3, Math.sin(SEA_A) * 9.3], apply: (g, i) => g.openSea(i) },
-  { icon: 'shellbed', price: 3300, at: SEA_BEDS[1], apply: (g, i) => { g.addBed(i, 'sea'); g.unlock('foczka'); } },
-  { icon: 'lighthouse', price: 3700, hearts: 170, at: SEA_LIGHT, apply: (g, i) => { g.addLighthouse(SEA_LIGHT[0], SEA_LIGHT[1], i); g.unlock('zolwik'); } },
-  { icon: 'shellbed', price: 4100, at: SEA_BEDS[2], apply: (g, i) => { g.addBed(i, 'sea'); g.unlock('syrenka'); } },
-  { icon: 'helper', price: 4600, at: [WORKER_HOME.sea.x, WORKER_HOME.sea.z], apply: (g, i) => void g.addWorker('sea', i) },
+  { icon: 'boardwalk', price: 2800, hearts: 150, at: [Math.cos(SEA_A) * 9.3, Math.sin(SEA_A) * 9.3], apply: (g, i) => g.openSea(i) },
+  { icon: 'shellbed', price: 2900, at: SEA_BEDS[1], apply: (g, i) => { g.addBed(i, 'sea'); g.unlock('foczka'); } },
+  { icon: 'lighthouse', price: 3000, hearts: 170, at: SEA_LIGHT, apply: (g, i) => { g.addLighthouse(SEA_LIGHT[0], SEA_LIGHT[1], i); g.unlock('zolwik'); } },
+  { icon: 'shellbed', price: 3200, at: SEA_BEDS[2], apply: (g, i) => { g.addBed(i, 'sea'); g.unlock('syrenka'); } },
+  { icon: 'helper', price: 3500, at: [WORKER_HOME.sea.x, WORKER_HOME.sea.z], apply: (g, i) => void g.addWorker('sea', i) },
 ];
 
 const DECOR_BONUS = 2;
@@ -1390,15 +1390,18 @@ export class Game {
     });
   }
 
+  /** n coins (each worth 2); a big reward shows at most 60, each worth more, so the screen does not fill with coins */
   private dropCoins(at: THREE.Vector3, n: number, magnet = false) {
-    for (let i = 0; i < n; i++) {
+    const shown = Math.min(n, 60);
+    for (let i = 0; i < shown; i++) {
+      const value = Math.floor((2 * n) / shown) + (i < (2 * n) % shown ? 1 : 0);
       const m = new THREE.Mesh(coinGeo, coinMat);
       m.castShadow = true;
       m.position.copy(at);
       const a = Math.random() * Math.PI * 2;
       const v = new THREE.Vector3(Math.cos(a) * (0.5 + Math.random() * 0.6), 3.5 + Math.random() * 1.5, Math.sin(a) * (0.5 + Math.random() * 0.6));
       this.d.scene.add(m);
-      this.ground.push({ m, v, t: magnet ? -i * 0.03 : 0, magnet: false, toKeeper: magnet });
+      this.ground.push({ m, v, t: magnet ? -i * 0.03 : 0, magnet: false, toKeeper: magnet, value });
     }
   }
 
@@ -2031,7 +2034,7 @@ export class Game {
         if (c.m.position.distanceTo(target) < 0.2) {
           this.d.scene.remove(c.m);
           this.ground.splice(i, 1);
-          this.setCoins(this.coins + 2);
+          this.setCoins(this.coins + c.value);
           this.d.sfx.coin(this.coins);
         }
       }
