@@ -1398,4 +1398,37 @@ export function seaScenery(cx: number, cz: number, r: number, away: number): THR
   return g;
 }
 
+/** a wooden chest with its lid up, full of coins: what the helpers earned while the game was closed */
+export function chestMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const wood = new THREE.MeshStandardMaterial({ color: 0xb8794a, roughness: 0.8 });
+  const band = new THREE.MeshStandardMaterial({ color: 0xffc83d, metalness: 0.6, roughness: 0.35, emissive: 0x7a4a00, emissiveIntensity: 0.2 });
+  const box = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.38, 0.46), wood);
+  box.position.y = 0.19;
+  box.castShadow = true;
+  const rim = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.06, 0.5), band);
+  rim.position.y = 0.36;
+  // the lid stands open, leaning back from the hinge at the back edge
+  const lid = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.42, 0.06), wood);
+  lid.position.set(0, 0.58, -0.3);
+  lid.rotation.x = -0.35;
+  lid.castShadow = true;
+  const lidBand = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.07, 0.08), band);
+  lidBand.position.set(0, 0.74, -0.36);
+  lidBand.rotation.x = -0.35;
+  // a heap of gold with a few coins standing up on it
+  const coins = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), band);
+  coins.scale.set(1.1, 0.5, 0.7);
+  coins.position.y = 0.36;
+  for (const [x, z, r] of [[-0.15, 0.05, 0.3], [0.12, -0.02, -0.4], [0.02, 0.1, 0.1]]) {
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.02, 16), band);
+    c.rotation.set(Math.PI / 2 - 0.3, r, 0);
+    c.position.set(x, 0.5, z);
+    g.add(c);
+  }
+  g.add(lidBand);
+  g.add(box, rim, lid, coins);
+  return bake(g);
+}
+
 export const gold = new THREE.MeshStandardMaterial({ color: 0xffcf4a, emissive: 0x7a4a00, emissiveIntensity: 0.25, roughness: 0.3, metalness: 0.7 });

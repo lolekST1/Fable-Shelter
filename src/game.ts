@@ -5,7 +5,7 @@ import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, drawAilment, 
 import { Album } from './album';
 import { Daily, type DailyState, today } from './daily';
 import { Wardrobe, type WardrobeState, drawHanger, itemMesh } from './wardrobe';
-import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, carouselMesh, coinGeo, coinMat, dressUp, fountainMesh, gold, glowSprite, pedestalMesh, swingMesh, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery, shellBedMesh, lighthouseMesh, boardwalkGateMesh, duneMounds, seaScenery } from './props';
+import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, carouselMesh, coinGeo, coinMat, dressUp, fountainMesh, gold, glowSprite, pedestalMesh, swingMesh, chestMesh, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery, shellBedMesh, lighthouseMesh, boardwalkGateMesh, duneMounds, seaScenery } from './props';
 
 /**
  * Fable Shelter loop:
@@ -298,6 +298,12 @@ const SPOTS: SpotDef[] = [
 
 const DECOR_BONUS = 2;
 
+/** while the game is closed each hired helper earns this many coins a minute, for up to OFFLINE_CAP minutes */
+const OFFLINE_RATE = 6;
+const OFFLINE_CAP = 120;
+/** where the chest with those coins waits, in front of the pen */
+const CHEST_AT = new THREE.Vector3(-0.9, 0, 5.2);
+
 /** a day lasts 6 minutes of play: day, dusk, night, dawn (as parts of the cycle) */
 const DAY_LEN = 360;
 const smooth = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -490,7 +496,7 @@ export class Game {
   // ------------------------------------------------------------ save / load
 
   private load() {
-    let data: { ver?: number; coins?: number; bought?: number; hearts?: number; residents?: { name: string; hearts: number; v?: number }[]; album?: Record<string, number>; albumPaid?: number[]; daily?: DailyState; wardrobe?: WardrobeState } | null = null;
+    let data: { ver?: number; coins?: number; bought?: number; hearts?: number; residents?: { name: string; hearts: number; v?: number }[]; album?: Record<string, number>; albumPaid?: number[]; daily?: DailyState; wardrobe?: WardrobeState; savedAt?: number; chest?: number } | null = null;
     try {
       if (new URLSearchParams(location.search).has('reset')) localStorage.removeItem(SAVE_KEY);
       data = JSON.parse(localStorage.getItem(SAVE_KEY) ?? 'null');
@@ -507,6 +513,11 @@ export class Game {
     this.savedDaily = data.daily;
     this.wardrobe.load(data.wardrobe);
     this.restored = true;
+    // the helpers kept working while the game was closed: their coins wait in a chest (with any not collected before)
+    const helpers = SPOTS.slice(0, n).filter((s) => s.icon === 'helper').length;
+    const away = data.savedAt ? Math.min(OFFLINE_CAP, Math.max(0, (Date.now() - data.savedAt) / 60000)) : 0;
+    const earned = away >= 2 ? Math.round(away * OFFLINE_RATE * helpers) : 0;
+    this.setChest((data.chest ?? 0) + earned);
     if (n > 0) this.step = 4;
   }
 
@@ -514,6 +525,8 @@ export class Game {
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         ver: 2,
+        savedAt: Date.now(),
+        chest: this.chestCoins || undefined,
         coins: this.coins,
         bought: this.bought,
         hearts: this.hearts,
@@ -836,6 +849,51 @@ export class Game {
       if (m) { this.d.keeper.attach(m); this.wearing.push(m); }
     }
     this.trail = worn.trail;
+  }
+
+  /** coins waiting in the chest (see OFFLINE_RATE) and the chest itself with its coin bubble */
+  chestCoins = 0;
+  private chest?: THREE.Group;
+  private chestBubble?: THREE.Sprite;
+
+  private setChest(coins: number) {
+    this.chestCoins = coins;
+    if (this.chest) { this.d.scene.remove(this.chest, this.chestBubble!); this.chest = this.chestBubble = undefined; }
+    if (coins <= 0) return;
+    this.chest = chestMesh();
+    this.chest.position.copy(CHEST_AT);
+    this.chest.rotation.y = 0.3;
+    // a bubble with a coin and the amount
+    const c = document.createElement('canvas');
+    c.width = 200; c.height = 196;
+    const g = c.getContext('2d')!;
+    g.fillStyle = '#ffffff';
+    g.beginPath(); g.roundRect(8, 30, 184, 110, 50); g.fill();
+    g.beginPath(); g.moveTo(84, 138); g.lineTo(100, 176); g.lineTo(116, 138); g.fill();
+    drawCoin(g, 56, 85, 30);
+    g.fillStyle = '#5b4a1a';
+    g.font = '800 46px system-ui, sans-serif';
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    g.fillText(String(coins), 94, 88, 92);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    this.chestBubble = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false }));
+    this.chestBubble.scale.set(0.9, 0.88, 1);
+    this.chestBubble.renderOrder = 10;
+    this.chestBubble.position.copy(CHEST_AT).setY(1.6);
+    this.d.scene.add(this.chest, this.chestBubble);
+    this.popIn(this.chest);
+  }
+
+  /** the keeper opens the chest: its coins fly over */
+  private openChest() {
+    const at = CHEST_AT.clone().setY(0.5);
+    this.fx.emit('star', at, 40, { speed: 3, up: 2.5, life: 1.2 });
+    this.dropCoins(at, Math.round(this.chestCoins / 2), true); // a coin is worth 2
+    this.d.sfx.build();
+    this.setChest(0);
+    this.save();
   }
 
   /** decorations bought so far */
@@ -1903,6 +1961,10 @@ export class Game {
       if (e >= 1) { o.scale.setScalar(1); delete o.userData.pop; }
     }
 
+    if (this.chest) {
+      this.chestBubble!.position.y = 1.6 + Math.sin(this.t * 3) * 0.05;
+      if (Math.hypot(k.x - CHEST_AT.x, k.z - CHEST_AT.z) < 1.0) this.openChest();
+    }
     // the wardrobe opens when the keeper comes to the house door (and again only after walking away)
     const atDoor = Math.hypot(k.x - HOUSE_DOOR.x, k.z - HOUSE_DOOR.z) < 0.8;
     if (atDoor && !this.atDoor && this.step >= 4) this.wardrobe.open();
