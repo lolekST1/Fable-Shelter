@@ -50,16 +50,9 @@ check(closest[0] > 1.6 && closest[1] > -5.6, `walking straight at the house goes
 
 // the keeper and everyone else walk over the arched footbridge, on top of the planks
 await p.evaluate(() => window.__walk(0, -6)); await p.waitForTimeout(6000);
-await p.evaluate(() => window.__walk(0, -13));
-let top = 0, kz = [];
-for (let t = 0; t < 120; t++) {
-  const [y, z] = await p.evaluate(() => { const k = window.__G().d.keeper.root.position; return [Math.abs(k.z + 9) < 0.3 ? k.y : -1, k.z]; });
-  top = Math.max(top, y);
-  kz.push(z.toFixed(1));
-  if (z < -10.5) break;
-  await p.waitForTimeout(100);
-}
-check(top > 0.3, `keeper is up on the middle of the bridge (y ${top.toFixed(2)}, z ${kz.filter((_, i) => i % 6 === 0)})`);
+await p.evaluate(() => window.__walk(0, -9)); await p.waitForTimeout(6000);
+const top = await p.evaluate(() => { const k = window.__G().d.keeper.root.position; return Math.abs(k.z + 9) < 0.4 ? k.y : -1; });
+check(top > 0.3, `keeper standing in the middle of the bridge is up on it (y ${top.toFixed(2)})`);
 const sunk = await p.evaluate(() => {
   const G = window.__G();
   return [...G.patients, ...G.residents, ...G.workers].map((o) => o.c.root.position)

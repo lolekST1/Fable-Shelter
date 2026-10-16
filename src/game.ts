@@ -175,7 +175,7 @@ interface Resident {
   hearts: number;
   need: 'food' | 'sleep' | null;
   needT: number;
-  state: 'toBed' | 'idle' | 'eating' | 'toSleep' | 'sleeping' | 'awaiting' | 'leaving' | 'helpGo' | 'helpWork' | 'helpBring' | 'helpBack';
+  state: 'toBed' | 'idle' | 'eating' | 'toSleep' | 'sleeping' | 'awaiting' | 'leaving' | 'helpGo' | 'helpWork' | 'helpBring' | 'helpBack' | 'playGo' | 'play' | 'playBack';
   /** waypoints still to walk */
   path: THREE.Vector3[];
   helpT: number;
@@ -192,6 +192,8 @@ interface Resident {
   fedIncoming: boolean;
   /** a rare colour variant (see VARIANT_CHANCE) */
   variant?: boolean;
+  /** the decoration it is off playing on */
+  toy?: THREE.Object3D;
 }
 
 interface Coin { m: THREE.Mesh; v: THREE.Vector3; t: number; magnet: boolean; /** flies to the keeper wherever the keeper is (rewards) */ toKeeper?: boolean }
@@ -688,6 +690,7 @@ export class Game {
   addDecor(kind: 'swing' | 'fountain' | 'carousel' | 'statue', x: number, z: number, instant: boolean) {
     const g = { swing: swingMesh, fountain: fountainMesh, carousel: carouselMesh, statue: pedestalMesh }[kind]();
     g.position.set(x, 0, z);
+    g.userData.decor = kind; // not .kind: that marks medicine items (see findStrays)
     if (kind === 'statue') {
       // the keeper in gold, a little bigger than life
       this.d.loadProp('opiekun').then((m) => {
@@ -721,6 +724,8 @@ export class Game {
 
   /** decorations bought so far */
   cheer = 0;
+  /** chance that an idle camp resident goes off to play on a free decoration when it looks for something to do (tests set 1) */
+  playChance = 0.2;
   /** chance that a new patient is a rare colour variant (tests set it to 1) */
   variantChance = VARIANT_CHANCE;
 
@@ -1503,6 +1508,14 @@ export class Game {
         if (r.wanderT <= 0) {
           r.wanderT = 2.5 + Math.random() * 3;
           r.target = nearBed.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1, 0, (Math.random() - 0.5) * 0.6));
+          // a camp resident with nothing to do sometimes goes to play on a free decoration, through the pen gate
+          const toys = this.props.filter((o) => o.userData.ride && !this.residents.some((x) => x.toy === o));
+          if (r.bed.zone === 'camp' && !r.need && toys.length && Math.random() < this.playChance) {
+            r.toy = toys[Math.floor(Math.random() * toys.length)];
+            r.state = 'playGo';
+            r.path = this.route(pos, r.toy.position.clone());
+            continue;
+          }
         }
         if (!this.walk(c, r.target, 0.6, dt)) { /* strolling */ } else if (pos.distanceTo(k) < 3) c.lookAt(k.x, k.z);
         // once it feels at home it helps out between its own needs
@@ -1618,7 +1631,26 @@ export class Game {
             r.path = this.route(pos, nearBed);
           }
         }
-      } else if (r.state === 'helpBack') {
+      } else if (r.state === 'playGo') {
+        if (this.follow(c, r.path, 1.6, dt)) { r.state = 'play'; r.stateT = 0; c.hop(); }
+      } else if (r.state === 'play') {
+        // on the swing or the carousel it moves with the seat; in the fountain it splashes about
+        const toy = r.toy!;
+        pos.copy(toy.position).add(toy.userData.ride(this.t));
+        c.walk = 0;
+        if (toy.userData.decor === 'fountain') {
+          c.lookAt(toy.position.x, toy.position.z);
+          if (Math.random() < dt * 1.5) { c.hop(); this.fx.emit('bubble', pos.clone().setY(0.4), 6, { speed: 1.2, up: 1.8, g: 4, life: 0.6, size: 0.6 }); }
+        } else c.lookAt(pos.x + (pos.x - toy.position.x), pos.z + 1);
+        if (r.stateT > 7 + (i % 3)) {
+          // hop off on the camp side and go home
+          pos.set(toy.position.x, 0, toy.position.z + toy.userData.r + 0.35);
+          r.toy = undefined;
+          r.state = 'playBack';
+          r.path = this.route(pos, nearBed);
+          c.hop();
+        }
+      } else if (r.state === 'playBack' || r.state === 'helpBack') {
         if (this.follow(c, r.path, 1.7, dt)) { r.state = 'idle'; r.wanderT = 0; }
       } else if (r.state === 'awaiting') {
         // waiting by its bed for the adopter, bouncing a little with excitement
@@ -1640,7 +1672,7 @@ export class Game {
       }
       r.bubble.visible = r.state !== 'leaving';
       const bubbleH = r.need ? 0.6 : 0.2;
-      r.bubble.position.set(pos.x, c.height + bubbleH + Math.sin(this.t * 3 + i) * 0.04, pos.z);
+      r.bubble.position.set(pos.x, pos.y + c.height + bubbleH + Math.sin(this.t * 3 + i) * 0.04, pos.z);
       if (r.need) this.placeEdge(pos, c.height, r.edge);
       else r.edge.classList.remove('on');
     }
@@ -1664,9 +1696,6 @@ export class Game {
     this.fx.update(dt);
     for (const s of this.stations) s.update(dt);
     for (const o of this.props) o.userData.tick?.(this.t);
-    // everybody walks on top of the arched footbridge, not through its planks
-    for (const c of [keeper, ...this.patients.map((p) => p.c), ...this.residents.map((r) => r.c), ...this.workers.map((w) => w.c), ...this.adopters.map((a) => a.c)])
-      c.root.position.y = this.groundY(c.root.position.x, c.root.position.z);
     for (const o of this.d.scene.children) {
       if (o.userData.pop === undefined) continue;
       const e = Math.min(1, (this.t - o.userData.pop) / 0.5);
@@ -1741,7 +1770,7 @@ export class Game {
       if (p.variant && p.state !== 'leaving' && Math.random() < dt * 3) this.fx.emit('star', pos.clone().setY(p.c.height * (0.4 + Math.random() * 0.6)), 2, { speed: 0.8, up: 0.8, g: 0.5, life: 0.7, size: 0.7 });
       if (p.state === 'arriving' || p.state === 'waiting' || p.state === 'incoming') {
         this.sickFx(p, dt);
-        p.bubble.position.set(pos.x, p.c.height + 0.55 + Math.sin(this.t * 3 + i) * 0.05, pos.z);
+        p.bubble.position.set(pos.x, pos.y + p.c.height + 0.55 + Math.sin(this.t * 3 + i) * 0.05, pos.z);
         this.placeEdge(pos, p.c.height, p.edge);
       }
       if (p.state === 'cured') {
@@ -1870,6 +1899,9 @@ export class Game {
       }
     }
 
+    // everybody walks on top of the arched footbridge, not through its planks (after everyone has moved this frame)
+    for (const c of [keeper, ...this.patients.map((p) => p.c), ...this.residents.filter((r) => r.state !== 'play').map((r) => r.c), ...this.workers.map((w) => w.c), ...this.adopters.map((a) => a.c)])
+      c.root.position.y = this.groundY(c.root.position.x, c.root.position.z);
     this.updateGuide();
     this.saveT += dt;
     if (this.saveT > 5) {

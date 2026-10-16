@@ -1029,6 +1029,8 @@ export function swingMesh(): THREE.Group {
   g.add(seat);
   g.userData.tick = (t: number) => { seat.rotation.x = Math.sin(t * 1.6) * 0.45; };
   g.userData.r = 0.75;
+  // on the cushion, swinging with it
+  g.userData.ride = (t: number) => { const a = Math.sin(t * 1.6) * 0.45; return new THREE.Vector3(0, 1.62 - 1.18 * Math.cos(a) + 0.06, -1.18 * Math.sin(a)); };
   return g;
 }
 
@@ -1076,6 +1078,8 @@ export function fountainMesh(): THREE.Group {
     });
   };
   g.userData.r = 0.9;
+  // paddling in the pool in front of the frog
+  g.userData.ride = () => new THREE.Vector3(0, 0.18, 0.42);
   return g;
 }
 
@@ -1119,6 +1123,8 @@ export function carouselMesh(): THREE.Group {
     spin.children.forEach((c, i) => { if (i >= 10) c.position.y = 0.06 + Math.sin(t * 2.4 + i * 2) * 0.06; });
   };
   g.userData.r = 1.05;
+  // on the first mushroom seat, going round with it
+  g.userData.ride = (t: number) => new THREE.Vector3(Math.cos(t * 0.8) * 0.62, 0.78 + Math.sin(t * 2.4 + 20) * 0.06, -Math.sin(t * 0.8) * 0.62);
   return g;
 }
 
