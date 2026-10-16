@@ -24,15 +24,41 @@ export class Sfx {
     try { localStorage.setItem('fable-shelter-muted', m ? '1' : '0'); } catch { /* ignore */ }
   }
 
-  /** background music: the tracks play one after another and loop, crossfading over a few seconds; started once */
+  /** background music in two layers, day and night: each a list of tracks playing one after another in a
+   *  crossfading loop. setMusicMix shifts from one layer to the other with the time of day; the night layer is only
+   *  loaded the first time it is needed. Started once, after the first tap. */
   musicOn = false;
-  music(urls: string[], volume = 0.3) {
+  private musicBus: GainNode[] = [];
+  private musicVol = 0.3;
+  private nightTracks: string[] = [];
+  private nightOn = false;
+  private musicMix = 0;
+  music(day: string[], night: string[] = [], volume = 0.3) {
     const c = this.ctx;
-    if (!c || this.musicOn || !urls.length) return;
+    if (!c || this.musicOn || !day.length) return;
     this.musicOn = true;
-    const bus = c.createGain();
-    bus.gain.value = volume;
-    bus.connect(this.out);
+    this.musicVol = volume;
+    this.nightTracks = night;
+    this.musicBus = [0, 1].map(() => { const g = c.createGain(); g.gain.value = 0; g.connect(this.out); return g; });
+    this.playlist(day, this.musicBus[0]);
+    this.setMusicMix(this.musicMix, true);
+    // quiet while the game is hidden (another tab, phone locked)
+    document.addEventListener('visibilitychange', () => { if (document.hidden) void c.suspend(); else void c.resume(); });
+  }
+
+  /** 0 day music .. 1 night music */
+  setMusicMix(n: number, now = false) {
+    if (!now && Math.abs(n - this.musicMix) < 0.01) return;
+    this.musicMix = n;
+    const [day, night] = this.musicBus;
+    if (!day || !this.ctx) return;
+    day.gain.value = this.musicVol * (1 - n);
+    night.gain.value = this.musicVol * n;
+    if (n > 0.02 && !this.nightOn && this.nightTracks.length) { this.nightOn = true; this.playlist(this.nightTracks, night); }
+  }
+
+  private playlist(urls: string[], bus: GainNode) {
+    const c = this.ctx!;
     const bufs = new Map<string, Promise<AudioBuffer>>();
     const load = (u: string) => {
       if (!bufs.has(u)) bufs.set(u, fetch(u).then((r) => r.arrayBuffer()).then((b) => c.decodeAudioData(b)));
@@ -59,8 +85,6 @@ export class Sfx {
       window.setTimeout(() => void play(end - XF), Math.max(0, (end - XF - c.currentTime - 1) * 1000));
     };
     void play(c.currentTime);
-    // quiet while the game is hidden (another tab, phone locked)
-    document.addEventListener('visibilitychange', () => { if (document.hidden) void c.suspend(); else void c.resume(); });
   }
 
   /** everything plays through one master volume so muting is instant */

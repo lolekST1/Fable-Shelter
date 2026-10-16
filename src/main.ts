@@ -164,9 +164,15 @@ const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const joy = new Joystick(renderer.domElement);
 /** where a tap sent the keeper: the way there through the pen gates, the bridge and the ways into the areas */
 let walkTo: THREE.Vector3[] = [];
-const sendKeeper = (to: THREE.Vector3) => { walkTo = keeper && game ? game.route(keeper.root.position.clone(), to) : [to]; };
-const MUSIC = ['music/oboz1.mp3', 'music/oboz2.mp3'];
-renderer.domElement.addEventListener('pointerdown', () => { sfx.unlock(); sfx.music(MUSIC); });
+const sendKeeper = (to: THREE.Vector3) => {
+  // asked again for the same place (a test bot does it every step): keep the way already worked out, or a keeper
+  // standing in a pen gate would be sent out and back in by turns
+  const last = walkTo[walkTo.length - 1];
+  if (last && Math.hypot(last.x - to.x, last.z - to.z) < 0.05) return;
+  walkTo = keeper && game ? game.route(keeper.root.position.clone(), to) : [to];
+};
+const MUSIC_DAY = ['music/oboz1.mp3', 'music/oboz2.mp3'], MUSIC_NIGHT = ['music/noc1.mp3', 'music/noc2.mp3'];
+renderer.domElement.addEventListener('pointerdown', () => { sfx.unlock(); sfx.music(MUSIC_DAY, MUSIC_NIGHT); });
 
 // sound on/off, remembered between visits
 const muteBtn = document.createElement('button');
@@ -214,7 +220,9 @@ joy.onTap = (cx, cy) => {
 (window as unknown as { __keeper: () => number[] | null }).__keeper = () => (keeper ? [keeper.root.position.x, keeper.root.position.z] : null);
 (window as unknown as { __game: () => unknown }).__game = () =>
   game && { coins: game.coins, carry: game.carry.length, patients: game.patients.map((p) => [p.state, +p.c.root.position.x.toFixed(2), +p.c.root.position.z.toFixed(2)]), tray: game.stations.map((c) => c.kind + c.tray.length), residents: game.residents.map((r) => [r.name, r.state, r.need, r.hearts, +r.c.root.position.x.toFixed(2), +r.c.root.position.z.toFixed(2), +r.bed.pos.x.toFixed(2), +r.bed.pos.z.toFixed(2)]), carryKinds: game.carry.map((v) => v.userData.kind), adopters: game.adopters.map((a) => [a.state, a.r.name, +a.c.root.position.x.toFixed(2), +a.c.root.position.z.toFixed(2)]), hearts: game.hearts, workers: game.workers.map((w) => [w.zone, w.state, +w.c.root.position.x.toFixed(2), +w.c.root.position.z.toFixed(2)]) };
-(window as unknown as { __walk: (x: number, z: number) => void }).__walk = (x, z) => sendKeeper(new THREE.Vector3(x, 0, z));
+// __walk goes straight to a point (test bots work out their own ways); __go walks there the way a tap does
+(window as unknown as { __walk: (x: number, z: number) => void }).__walk = (x, z) => { walkTo = [new THREE.Vector3(x, 0, z)]; };
+(window as unknown as { __go: (x: number, z: number) => void }).__go = (x, z) => sendKeeper(new THREE.Vector3(x, 0, z));
 (window as unknown as { __strays: () => string[] }).__strays = () => game?.strays() ?? [];
 (window as unknown as { __items: () => unknown[] }).__items = () => game?.items() ?? [];
 (window as unknown as { __spots: () => unknown }).__spots = () => game?.spotsInfo();
@@ -328,5 +336,6 @@ renderer.setAnimationLoop(() => {
   scene.environmentIntensity = 0.45 * (0.3 + 0.7 * L) * (1 - 0.3 * W); // shiny things (the pond) reflect a darker sky too
   tintSky(clouds, scene.fog as THREE.Fog, L, W);
   weather.update(dt, W, camTarget.x, camTarget.z);
+  sfx.setMusicMix(1 - L); // the lullaby comes in at dusk
   if (!NORENDER || frame++ % 30 === 0) renderer.render(scene, camera);
 });

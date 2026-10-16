@@ -158,6 +158,8 @@ Stworki w Z-Image Turbo (styl stworków z góry pliku), rekwizyty we FLUX 3 Klei
 ACE-Step 1.5 Turbo AIO w ComfyUI (workflow `audio_ace_step_1_5-muzyka do gry (instrumentalna)`), tekst `[Instrumental]`, 96 BPM, C-dur, 120 s. Wybrane `muzyka/oboz_00002_WYBRANY.flac` i `oboz_00003_WYBRANY.flac` (pierwszy miał przerwy na początku), przycięte z ciszy na końcu i zapisane jako MP3 96 kb/s w `public/music`.
 Tagi: `cozy cheerful background music for a cute children's game about a shelter for fairy-tale creatures, soft ukulele, gentle glockenspiel and music box, light pizzicato strings, warm acoustic guitar, soft shaker, calm, playful, relaxed, storybook mood, instrumental, no vocals, seamless loop`
 
+Kołysanki na noc (ten sam workflow, 70 BPM, F-dur): `gentle lullaby night music for a cute children's game about a shelter for fairy-tale creatures, soft music box, warm felt piano, quiet harp, soft pads, slow, dreamy, calm, sleepy, starry night mood, instrumental, no vocals, seamless loop`. Wybrane `noc_00001_WYBRANY` i `noc_00002_WYBRANY`, podgłośnione o 5 dB (wychodzą cichsze od dziennych), zapisane jako `public/music/noc1.mp3` i `noc2.mp3`. Przy kilku zadaniach naraz trzeba ustawić różne ziarno (`94.seed`, `3.seed` i węzeł 102), inaczej ComfyUI bierze wynik z pamięci podręcznej.
+
 ## Osoby adoptujące i domek schroniska (zrobione 15.10.2026)
 Pliki: `D:\ComfyUI-Shared\output\FS\ludzie` i `...\rekwizyty\Domek-*`. Pixal3D z 40000 trójkątów. Osoby obrabiane jak stworki (tekstury 1024, oczy z `ymin`), domek jak rekwizyt.
 - Dziewczynka: `cute little girl character, two short pigtails, yellow raincoat, red rubber boots, big happy smile, standing straight, arms at sides,` + styl postaci

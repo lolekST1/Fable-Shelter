@@ -1115,6 +1115,7 @@ export class Game {
     const zone = zoneOf(name);
     let seat = new THREE.Vector3();
     let theta = 0;
+    let found = false;
     for (let tries = 0; tries < 40; tries++) {
       if (zone === 'pond') {
         // around the pond shore
@@ -1142,9 +1143,9 @@ export class Game {
         // nor from the south-west, where the snowy hill and its drift are
         const snowT = Math.atan2(SNOW_C.x, SNOW_C.z);
         if (Math.abs(theta - snowT) < 0.45) theta = theta > snowT ? snowT + 0.45 : snowT - 0.45;
-        // nor from the west-north-west, where the bay and its dune are
-        const seaT = Math.atan2(SEA_C.x, SEA_C.z);
-        if (Math.abs(theta - seaT) < 0.4) theta = theta > seaT ? seaT + 0.4 : seaT - 0.4;
+        // nor from the west-north-west, where the bay and its dune are, round to the shelter house
+        const seaT = Math.atan2(SEA_C.x, SEA_C.z), houseT = Math.atan2(HOUSE.x, HOUSE.z) + 0.35;
+        if (theta > seaT - 0.4 && theta < houseT) theta = houseT;
         const rr = 5 + Math.random() * 4;
         seat = new THREE.Vector3(Math.sin(theta) * rr, 0, Math.cos(theta) * rr);
       }
@@ -1157,8 +1158,10 @@ export class Game {
         this.beds.every((b) => b.pos.distanceTo(seat) > 1.3) &&
         this.patients.every((p) => p.seat.distanceTo(seat) > 1.8) &&
         seat.distanceTo(this.d.keeper.root.position) > 1.5;
-      if (clear) break;
+      if (clear) { found = true; break; }
     }
+    // nowhere quite free (a busy camp): the last try will do, unless it is by the shelter house, out of the keeper's reach
+    if (!found && HOUSE.distanceTo(seat) < 3) { this.spawning = false; return; }
     const exit = zone === 'pond' ? new THREE.Vector3(POND_C.x + Math.cos(theta) * 12, 0, POND_C.z - 6 + Math.sin(theta) * 4)
       : zone === 'glade' ? new THREE.Vector3(GLADE_C.x + Math.cos(theta) * 9, 0, GLADE_C.z + Math.sin(theta) * 9)
       : zone === 'snow' ? new THREE.Vector3(SNOW_C.x + Math.cos(theta) * 9, 0, SNOW_C.z + Math.sin(theta) * 9)
@@ -1491,7 +1494,8 @@ export class Game {
         const d = new THREE.Vector3().subVectors(to, from);
         const t = Math.max(0, Math.min(1, -from.dot(d) / Math.max(1e-6, d.lengthSq())));
         const closest = from.clone().addScaledVector(d, t);
-        if (Math.hypot(closest.x, closest.z) < 3.9) via = [...enterPen(from), ...leavePen(to)];
+        // (a leg whose nearest point is in a gate opening, |x| < 0.9, goes through the gate, not across the fence)
+        if (Math.hypot(closest.x, closest.z) < 3.9 && Math.abs(closest.x) > 0.9) via = [...enterPen(from), ...leavePen(to)];
       }
     } else if (zf === 'camp' && zt === 'pen') via = enterPen(from);
     else if (zf === 'pen' && zt === 'camp') via = leavePen(to);

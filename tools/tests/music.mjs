@@ -21,5 +21,18 @@ await p.click('#mute');
 check((await p.evaluate(() => window.__G().d.sfx.master.gain.value)) === 0, 'mute silences the music too');
 await p.click('#mute');
 check((await p.evaluate(() => window.__G().d.sfx.master.gain.value)) === 1, 'and back on');
+await p.close();
+
+// at night the lullaby layer comes in (and only then is it downloaded)
+const n = await b.newPage({ viewport: { width: 390, height: 844 } });
+const gotN = [];
+n.on('response', (r) => { if (r.url().includes('/music/')) gotN.push(r.url().split('/').pop()); });
+await n.addInitScript(() => localStorage.setItem('fable-shelter-save-v3', JSON.stringify({ ver: 2, coins: 0, bought: 5, hearts: 5 })));
+await n.goto(BASE + '?dtmax=0.4&night'); await n.waitForTimeout(10000);
+await n.mouse.click(200, 600);
+await n.waitForTimeout(6000);
+const mix = await n.evaluate(() => { const x = window.__G().d.sfx; return { mix: x.musicMix, day: x.musicBus[0].gain.value, night: x.musicBus[1].gain.value }; });
+check(gotN.includes('noc1.mp3') && mix.night > mix.day, `night: the lullaby plays (${JSON.stringify(mix)}, ${gotN})`);
+check(!got.some(([f]) => f.startsWith('noc')), 'by day the lullaby was not downloaded');
 await b.close();
 console.log(fail ? `${fail} FAILED` : 'all OK');

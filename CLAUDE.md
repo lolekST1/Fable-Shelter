@@ -19,7 +19,7 @@ npm run build      # tsc --noEmit + vite build -> dist/
 - Commity piszemy po polsku, jednym zdaniem o tym, co się zmieniło w grze.
 
 ## Architektura (`src/`)
-- `main.ts`: renderer, kamera podążająca (kąt 40°), słońce idące za kamerą, wczytywanie modeli, joystick i tap. Tap w stworka robi podskok, tap w ziemię idzie do miejsca drogą z `game.route()` (przez bramy zagrody, mostek i przejścia do terenów; punkt trasy liczy się też jako minięty, gdy opiekun jest bliżej następnego). Tak samo działa `__walk`. W `moveKeeper` są kolizje z kołami przeszkód, z płotem i z `game.bound()`. Jest tu też przycisk wyciszenia i haki debug.
+- `main.ts`: renderer, kamera podążająca (kąt 40°), słońce idące za kamerą, wczytywanie modeli, joystick i tap. Tap w stworka robi podskok, tap w ziemię idzie do miejsca drogą z `game.route()` (przez bramy zagrody, mostek i przejścia do terenów; punkt trasy liczy się też jako minięty, gdy opiekun jest bliżej następnego). Tak samo działa `__go(x, z)`, a `__walk(x, z)` idzie prosto (automatyczny gracz z testu całej gry sam układa trasę z objazdami i wołał go co krok, więc przeliczanie drogi za każdym razem wpychało opiekuna w bramie zagrody to do środka, to na zewnątrz). W `moveKeeper` są kolizje z kołami przeszkód, z płotem i z `game.bound()`. Jest tu też przycisk wyciszenia i haki debug.
 - `game.ts`: cała rozgrywka, czyli klasa `Game`.
   - `SPECIES`: gatunki, każdy z własną chorobą (`ailment`), lekarstwem (`cure`), monetami i umiejętnością (`skill: {boost}` przyspiesza stację, `{carry}` nosi lekarstwa albo jagody). Gatunki z `zone:'pond'` żyją przy stawie, z `zone:'glade'` na wrzosowej polanie, z `zone:'snow'` na Śnieżnym wzgórzu, a z `zone:'sea'` w zatoczce nad morzem. `model` + `base` wskazują model zastępczy i jego zabarwienie, dopóki nie ma docelowego.
   - `BEDS` / `POND_BEDS` / `GLADE_BEDS` / `SNOW_BEDS` / `SEA_BEDS`: miejsca na legowiska. `freeBed(zone)` woli łóżko w strefie gatunku. Każdy otwarty teren poza obozem trzyma co najmniej jednego swojego pacjenta.
@@ -41,7 +41,7 @@ npm run build      # tsc --noEmit + vite build -> dist/
 - `icons.ts`: ikonki rysowane na canvasie: choroby, lekarstwa, punkty budowy, dymki, serduszka.
 - `creature.ts`: stworek z modelu GLB. Ma waddle przy chodzeniu, `twitch`, tint, malowane powieki (shader `uShut`, kształt z `lids.json`).
 - `world.ts`: teren, płot z dwiema bramami, krzaki, `Obstacles`. `buildGround(…, bare)` nie sadzi trawy ani kwiatków w podanych kołach (śnieg wzgórza).
-- `sfx.ts`: dźwięki syntezowane WebAudio i muzyka tła (`music()`): `public/music/oboz1.mp3` i `oboz2.mp3` (ACE-Step 1.5 w ComfyUI) grają po sobie w pętli z 2,5-sekundowym przenikaniem, ciszej niż efekty (0,3). Ładują się dopiero po pierwszym stuknięciu, a przy ukrytej karcie dźwięk się wstrzymuje. Wyciszenie (`fable-shelter-muted`) dotyczy też muzyki.
+- `sfx.ts`: dźwięki syntezowane WebAudio i muzyka tła w dwóch warstwach (`music(dzień, noc)`): w dzień `public/music/oboz1.mp3` i `oboz2.mp3`, nocą kołysanki `noc1.mp3` i `noc2.mp3` (ACE-Step 1.5 w ComfyUI). Utwory grają po sobie w pętli z 2,5-sekundowym przenikaniem, ciszej niż efekty (0,3), a `setMusicMix(1 - daylight)` przechodzi między warstwami razem z porą dnia. Warstwa nocna pobiera się dopiero przy pierwszej nocy. Ładują się dopiero po pierwszym stuknięciu, a przy ukrytej karcie dźwięk się wstrzymuje. Wyciszenie (`fable-shelter-muted`) dotyczy też muzyki.
 - `joystick.ts`: pływający joystick i obsługa tapnięć.
 - `lids.json`: dane powiek z `tools/viewer/eyes.mjs`. Nie edytuj ręcznie.
 
@@ -100,7 +100,8 @@ Automatyczny gracz (szybszy od człowieka) przechodzi całą grę w 49–58 minu
 Po zmianach (teren 4, progi 15/30/50/70/90/110, jagody tylko dla głodnych) cała gra trwa u automatycznego gracza 74 minuty gry. Zakupy Śnieżnego wzgórza zajmują po 4–6 min (33–59 wyleczeń). Szybki gracz nadal nie czeka na serduszka, wolniejszy może.
 
 ## Tempo gry z zatoczką (test całej gry, 17.10.2026)
-Automatyczny gracz przechodzi wszystko (34 zakupy) w 149 minut gry. Progi serduszek nie blokują ani sekundy. Przy pierwszych cenach zatoczki jej zakupy zajmowały 7–14 minut, stąd obniżka.
+Po obniżce cen zatoczki automatyczny gracz przechodzi wszystko (34 zakupy) w 136 minut gry. Zakupy zatoczki trwają po 5,6–7,6 minuty, tak jak na Śnieżnym wzgórzu. Progi serduszek nie blokują ani sekundy. Przy pierwszych cenach zatoczki jej zakupy zajmowały 7–14 minut.
+Pułapki znalezione przez ten test: kieszeń między domkiem a końcem wydmy (opiekun utykał tam na zawsze) i pacjenci obozu sadzani przy domku, poza zasięgiem opiekuna. Jeśli nie ma wolnego miejsca, pacjent przy domku nie siada i przychodzi później.
 
 ## Otwarte sprawy
 - Przy wszystkich ozdobach obóz ma ok. 147 wywołań rysowania (wcześniej 88). Ozdoby to wiele małych meshy i można je scalić, jeśli telefon zwolni.

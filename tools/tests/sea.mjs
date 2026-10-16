@@ -72,7 +72,7 @@ await run({ ver: 2, coins: 0, bought: 99, hearts: 200, residents: [{ name: 'krab
   st = await S(p);
   check(st.coins > before, `pearls cure bay patients (coins ${before} -> ${st.coins})`);
   await p.screenshot({ path: 'out/sea2.png', timeout: 150000 });
-  await walk(p, 0, 6, 12000);
+  await p.evaluate(() => window.__go(0, 6)); await p.waitForTimeout(12000); // like a tap: out through the gap in the dune
   const k2 = await K(p);
   check(Math.hypot(k2[0], k2[1] - 6) < 1.5, `keeper walks back to the camp (at ${k2.map((v) => v.toFixed(1))})`);
   console.log('strays', JSON.stringify(await p.evaluate(() => window.__strays())), 'draw calls', await p.evaluate(() => window.__calls()));
