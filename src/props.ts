@@ -142,7 +142,7 @@ export function dressUp(target: THREE.Object3D, model: THREE.Object3D, width: nu
   fit.add(model);
   fit.scale.setScalar(width / Math.max(size.x, size.z));
   fit.rotation.y = yaw; // a model whose front is not along +z like its stand-in's
-  for (const c of target.children) c.visible = false;
+  for (const c of target.children) c.visible = !!c.userData.fx; // bubbles and bees keep flying round the model
   target.add(fit);
 }
 
@@ -336,6 +336,7 @@ export class Station {
       const bee = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), beeMat);
       bee.scale.set(1.4, 1, 1);
       const ph = i * 2.1;
+      bee.userData.fx = true; // stays when a 3D model replaces the hive (see dressUp)
       this.group.add(bee);
       this.anim.push((t) => {
         const a = t * (1.6 + i * 0.4) + ph;
@@ -412,6 +413,7 @@ export class Station {
     for (let i = 0; i < 4; i++) {
       const b = new THREE.Mesh(new THREE.SphereGeometry(0.06 + Math.random() * 0.04, 10, 8), new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity: 0.4 }));
       const ph = Math.random() * 6, x = (Math.random() - 0.5) * spread, z = (Math.random() - 0.5) * spread;
+      b.userData.fx = true; // stays when a 3D model replaces the station (see dressUp)
       this.group.add(b);
       this.anim.push((t) => {
         const p = ((t * 0.8 + ph) % 1.6) / 1.6;

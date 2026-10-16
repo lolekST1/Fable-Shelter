@@ -538,6 +538,7 @@ export class Game {
     for (const s of this.stations) out.push([s.pos.x, s.pos.z, 0.55], [s.pos.x + 0.82, s.pos.z + 0.05, 0.3]);
     for (const p of this.patients) out.push([p.c.root.position.x, p.c.root.position.z, 0.42]);
     for (const r of this.residents) if (r.state !== 'sleeping' && r.state !== 'toSleep') out.push([r.c.root.position.x, r.c.root.position.z, 0.32]);
+    for (const w of [...this.workers, ...this.adopters]) out.push([w.c.root.position.x, w.c.root.position.z, 0.35]);
     for (const o of this.props) out.push([o.position.x, o.position.z, o.userData.r ?? 0.25]);
     out.push([this.basket.position.x, this.basket.position.z, 0.42], [HOUSE.x, HOUSE.z, 1.45]);
     for (const h of [...this.hedge, ...this.drift]) if (h.parent) out.push([h.position.x, h.position.z, 0.55]);
@@ -864,13 +865,21 @@ export class Game {
     const step = Math.min(dd, speed * dt);
     pos.x += (dx / dd) * step;
     pos.z += (dz / dd) * step;
-    // nobody walks on the pond water: back onto the shore and round it toward the target
-    const wx = pos.x - POND_C.x, wz = pos.z - POND_C.z, wd = Math.hypot(wx, wz);
-    if (wd < POND_SHORE && Math.hypot(target.x - POND_C.x, target.z - POND_C.z) >= POND_SHORE) {
+    // nobody walks through the pond water, the shelter house, the keeper or a decoration: back onto the edge
+    // and round it toward the target; a target inside one (a gate or a bed the keeper stands on) counts as reached at its edge
+    const k = this.d.keeper.root.position;
+    const solids: [number, number, number][] = [[POND_C.x, POND_C.z, POND_SHORE], [HOUSE.x, HOUSE.z, 1.75]];
+    // the keeper plumps a bed up by standing on it, so the way to a bed is never blocked by the keeper
+    if (!this.beds.some((b) => Math.hypot(b.pos.x - target.x, b.pos.z - target.z) < 0.1)) solids.push([k.x, k.z, 0.6]);
+    for (const o of this.props) if (o.userData.r) solids.push([o.position.x, o.position.z, o.userData.r + 0.3]);
+    for (const [cx, cz, r] of solids) {
+      const wx = pos.x - cx, wz = pos.z - cz, wd = Math.hypot(wx, wz);
+      if (wd >= r) continue;
       const nx = wd > 1e-6 ? wx / wd : 1, nz = wd > 1e-6 ? wz / wd : 0;
+      if (Math.hypot(target.x - cx, target.z - cz) < r) { pos.x = cx + nx * r; pos.z = cz + nz * r; c.walk = 0; return true; }
       const side = -nz * dx + nx * dz >= 0 ? 1 : -1; // go round on the side the target is
-      pos.x = POND_C.x + nx * POND_SHORE - nz * side * step;
-      pos.z = POND_C.z + nz * POND_SHORE + nx * side * step;
+      pos.x = cx + nx * r - nz * side * step;
+      pos.z = cz + nz * r + nx * side * step;
     }
     c.walk += (Math.min(1, dd / 0.5) - c.walk) * Math.min(1, dt * 8);
     c.lookAt(target.x, target.z);
@@ -1586,6 +1595,15 @@ export class Game {
 
   // ------------------------------------------------------------ frame
 
+  /** height of the ground underfoot: the footbridge deck over the brook (see bridgeMesh: planks 2.2 m long, arched 0.22 m), else 0 */
+  groundY(x: number, z: number) {
+    const a = Math.abs(z + 9);
+    if (!this.pondOpen || Math.abs(x) > 0.7 || a >= 1.4) return 0;
+    if (a > 1.1) return (0.155 * (1.4 - a)) / 0.3; // stepping up onto the end plank
+    const t = (z + 9) / 2.2;
+    return 0.155 + (0.25 - t * t) * 0.9;
+  }
+
   update(dt: number) {
     this.t += dt;
     const keeper = this.d.keeper;
@@ -1593,6 +1611,9 @@ export class Game {
     this.fx.update(dt);
     for (const s of this.stations) s.update(dt);
     for (const o of this.props) o.userData.tick?.(this.t);
+    // everybody walks on top of the arched footbridge, not through its planks
+    for (const c of [keeper, ...this.patients.map((p) => p.c), ...this.residents.map((r) => r.c), ...this.workers.map((w) => w.c), ...this.adopters.map((a) => a.c)])
+      c.root.position.y = this.groundY(c.root.position.x, c.root.position.z);
     for (const o of this.d.scene.children) {
       if (o.userData.pop === undefined) continue;
       const e = Math.min(1, (this.t - o.userData.pop) / 0.5);
