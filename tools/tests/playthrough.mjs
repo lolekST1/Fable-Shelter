@@ -18,7 +18,7 @@ const b = await chromium.launch({ executablePath: process.env.CHROME_PATH, args:
 function bot() {
   const B = (window.__bot = {
     t: 0, decideT: 0, path: [], goal: null, why: 'idle', stuckT: 0, lastPos: null,
-    cures: 0, curesZone: { camp: 0, pond: 0, glade: 0, snow: 0 }, adoptions: 0, bonus: 0, turnedAway: 0,
+    cures: 0, curesZone: { camp: 0, pond: 0, glade: 0, snow: 0, sea: 0 }, adoptions: 0, bonus: 0, turnedAway: 0,
     buys: [], samples: [], idle: 0, noCoinsUntil: 0, coin: null, heartWait: 0, waits: [], doneAt: null, why_t: {},
   });
   const V = (x, z) => ({ x, z });

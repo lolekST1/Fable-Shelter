@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { bake } from './props';
 
 export function blobShadowTexture(): THREE.Texture {
   const c = document.createElement('canvas');
@@ -58,7 +59,7 @@ export function buildSky(scene: THREE.Scene) {
     const ang = (i / 7) * Math.PI * 2 + r();
     c.position.set(Math.sin(ang) * 38, 9 + r() * 7, Math.cos(ang) * 38 - 8);
     c.lookAt(0, c.position.y, 0);
-    clouds.add(c);
+    clouds.add(bake(c));
   }
   scene.add(clouds);
   clouds.userData.sky = mat;
@@ -232,7 +233,7 @@ export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture, bare: 
     sh.rotation.x = -Math.PI / 2;
     sh.position.y = 0.012;
     g.add(sh);
-    scene.add(g);
+    scene.add(bake(g));
   }
 
   // a wooden fence all round the pen, with a front gate to the camp and a back gate to the north
@@ -247,9 +248,8 @@ export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture, bare: 
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.8, 8), woodMat);
       post.position.set(Math.sin(ang) * 3.6, 0.4, -Math.cos(ang) * 3.6);
       const cap = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), woodMat);
-      cap.position.y = 0.42;
-      post.add(cap);
-      fence.add(post);
+      cap.position.copy(post.position).setY(0.82);
+      fence.add(post, cap);
       if (i < n - 1) {
         const ang2 = side * (INNER + ((i + 1) / (n - 1)) * (HALF - INNER));
         const a3 = new THREE.Vector3(Math.sin(ang) * 3.6, 0, -Math.cos(ang) * 3.6);
@@ -264,7 +264,7 @@ export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture, bare: 
       }
     }
   }
-  scene.add(fence);
+  scene.add(bake(fence)); // one mesh instead of 84 posts, caps and rails
   return {
     circles: bushes.map(([x, z, s]) => [x, z, 0.75 * s] as [number, number, number]),
     fence: { radius: 3.6, halfAngle: HALF, inner: INNER },

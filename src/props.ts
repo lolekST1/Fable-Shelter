@@ -1,5 +1,48 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Medicine } from './icons';
+
+/**
+ * Fewer draw calls: glue a group's own meshes (not its sub-groups, nor meshes marked userData.live because they
+ * move on their own) together. Opaque ones become one mesh: sharing one material they keep it, mixed ones are
+ * painted with vertex colours in a plain material (emissive and shine are lost, fine for small things).
+ * Transparent ones (glass) are glued per material so they stay see-through.
+ */
+export function bake<T extends THREE.Object3D>(group: T): T {
+  const meshes = group.children.filter((o): o is THREE.Mesh => (o as THREE.Mesh).isMesh && !o.userData.live && !(o as THREE.InstancedMesh).isInstancedMesh);
+  const opaque = meshes.filter((m) => !(m.material as THREE.Material).transparent);
+  const glass = new Map<THREE.Material, THREE.Mesh[]>();
+  for (const m of meshes) if ((m.material as THREE.Material).transparent) glass.set(m.material as THREE.Material, [...(glass.get(m.material as THREE.Material) ?? []), m]);
+  for (const list of [opaque, ...glass.values()]) {
+    if (list.length < 2) continue;
+    group.add(glue(list));
+    for (const m of list) group.remove(m);
+  }
+  return group;
+}
+
+function glue(meshes: THREE.Mesh[]) {
+  const mats = new Set(meshes.map((m) => m.material as THREE.Material));
+  const one = mats.size === 1;
+  const col = new THREE.Color();
+  const geos = meshes.map((m) => {
+    m.updateMatrix();
+    const g = (m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone()).applyMatrix4(m.matrix);
+    for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal') g.deleteAttribute(name);
+    if (!one) {
+      col.copy((m.material as THREE.MeshStandardMaterial).color ?? col.set(0xffffff));
+      const n = g.attributes.position.count, c = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { c[i * 3] = col.r; c[i * 3 + 1] = col.g; c[i * 3 + 2] = col.b; }
+      g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+    }
+    return g;
+  });
+  const double = [...mats].some((m) => m.side === THREE.DoubleSide);
+  const merged = new THREE.Mesh(mergeGeometries(geos)!, one ? [...mats][0] : new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, side: double ? THREE.DoubleSide : THREE.FrontSide }));
+  merged.castShadow = meshes.some((m) => m.castShadow);
+  merged.receiveShadow = meshes.some((m) => m.receiveShadow);
+  return merged;
+}
 
 /** Meshes for the gameplay props: medicines, the stations that make them, coins and particles. */
 
@@ -145,6 +188,7 @@ export function medicineMesh(kind: Medicine): THREE.Group {
     g.add(stem, tie);
   }
   g.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true; });
+  bake(g); // a tray holds six of these, and there are eight trays
   g.userData.kind = kind;
   g.scale.setScalar(1.25);
   return g;
@@ -583,7 +627,7 @@ export function bridgeMesh(): THREE.Group {
     rope.rotation.z = Math.PI * 0.19;
     g.add(rope);
   }
-  return g;
+  return bake(g);
 }
 
 /** a little lantern on a post that glows: more patients find their way to the pond */
@@ -724,7 +768,7 @@ export function snowGateMesh(): THREE.Group {
     f.scale.set(1, 0.6, 1);
     g.add(f);
   }
-  return g;
+  return bake(g);
 }
 
 /** a snowdrift of round mounds; returns each mound so the middle ones can be dug away */
@@ -739,7 +783,7 @@ export function driftMounds(points: [number, number][]): THREE.Group[] {
       b.add(m);
     }
     b.position.set(x, 0, z);
-    return b;
+    return bake(b);
   });
 }
 
@@ -801,7 +845,7 @@ export function gateArchMesh(): THREE.Group {
     f.position.set(0, 1.5 + Math.sin(a) * 0.9, Math.cos(a) * 0.9);
     g.add(f);
   }
-  return g;
+  return bake(g);
 }
 
 /** a glowing mushroom lamp: more patients find their way to the glade */
@@ -876,7 +920,7 @@ export function hedgeBushes(points: [number, number][]): THREE.Group[] {
       b.add(m);
     }
     b.position.set(x, 0, z);
-    return b;
+    return bake(b);
   });
 }
 
@@ -1079,6 +1123,8 @@ export function swingMesh(): THREE.Group {
   cushion.castShadow = true;
   seat.add(cushion);
   g.add(seat);
+  bake(g);
+  bake(seat);
   g.userData.tick = (t: number) => { seat.rotation.x = Math.sin(t * 1.6) * 0.45; };
   g.userData.r = 0.75;
   // on the cushion, swinging with it
@@ -1117,9 +1163,12 @@ export function fountainMesh(): THREE.Group {
   const dropMat = new THREE.MeshStandardMaterial({ color: 0xbfe8ff, emissive: 0x6cc8ff, emissiveIntensity: 0.5, transparent: true, opacity: 0.85 });
   for (let i = 0; i < 9; i++) {
     const d = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), dropMat);
+    d.userData.live = true;
     drops.push(d);
     g.add(d);
   }
+  bake(g);
+  bake(frog);
   g.userData.tick = (t: number) => {
     frog.rotation.y = t * 0.4;
     const dir = frog.rotation.y;
@@ -1170,9 +1219,12 @@ export function carouselMesh(): THREE.Group {
     spin.add(seat);
   }
   g.add(spin);
+  const seats = spin.children.filter((c) => !(c as THREE.Mesh).isMesh);
+  seats.forEach((c) => bake(c));
+  bake(spin);
   g.userData.tick = (t: number) => {
     spin.rotation.y = t * 0.8;
-    spin.children.forEach((c, i) => { if (i >= 10) c.position.y = 0.06 + Math.sin(t * 2.4 + i * 2) * 0.06; });
+    seats.forEach((c, i) => { c.position.y = 0.06 + Math.sin(t * 2.4 + (i + 10) * 2) * 0.06; });
   };
   g.userData.r = 1.05;
   // on the first mushroom seat, going round with it
@@ -1191,6 +1243,7 @@ export function pedestalMesh(): THREE.Group {
   const plaque = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.16, 0.03), mats.honey);
   plaque.position.set(0, 0.44, 0.48);
   g.add(step, block, plaque);
+  bake(g);
   g.userData.r = 0.65;
   return g;
 }
@@ -1249,7 +1302,7 @@ export function lighthouseMesh(): THREE.Group {
   const roof = new THREE.Mesh(new THREE.ConeGeometry(0.27, 0.3, 12), red);
   roof.position.y = 2.01;
   g.add(lamp, roof);
-  return g;
+  return bake(g);
 }
 
 /** a wooden boardwalk arch with a life ring: the way over the dune to the bay, spanning along z */
@@ -1272,7 +1325,7 @@ export function boardwalkGateMesh(): THREE.Group {
     g.add(plank);
   }
   g.add(bar, ring);
-  return g;
+  return bake(g);
 }
 
 /** a sand dune of round mounds; returns each mound so the middle ones can be cleared */
@@ -1295,7 +1348,7 @@ export function duneMounds(points: [number, number][]): THREE.Group[] {
       b.add(blade);
     }
     b.position.set(x, 0, z);
-    return b;
+    return bake(b);
   });
 }
 

@@ -1453,7 +1453,8 @@ export class Game {
     if (Math.hypot(v.x, v.z) < 3.6) return 'pen';
     if (v.x > 10 && Math.hypot(v.x, v.z) > 10.6) return 'glade';
     if (Math.hypot(v.x - SNOW_C.x, v.z - SNOW_C.z) < SNOW_R + 1.5 && Math.hypot(v.x, v.z) > 10.6) return 'snow';
-    if (Math.hypot(v.x - SEA_C.x, v.z - SEA_C.z) < SEA_R + 1.5 && Math.hypot(v.x, v.z) > 10.6 && v.z > -9) return 'sea';
+    // the bay circle reaches round the end of the dune by the house: only inside it (not the meadow beside it) is the bay
+    if (Math.hypot(v.x - SEA_C.x, v.z - SEA_C.z) < SEA_R + 0.3 && Math.hypot(v.x, v.z) > 10.6 && v.z > -9) return 'sea';
     return v.z < -9 ? 'pond' : 'camp';
   }
 
