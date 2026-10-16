@@ -7,7 +7,8 @@ import { type Ailment, drawAilment, drawCoin, drawHeart, drawSpotIcon, type Spot
  * A page with every card filled pays a reward once. Icons and numbers only, no words.
  */
 
-export interface AlbumSpecies { name: string; ailment: Ailment; page: number }
+/** `rare`: a colour variant's card; it shows only once adopted and is not needed to fill the page */
+export interface AlbumSpecies { name: string; ailment: Ailment; page: number; rare?: boolean }
 export interface AlbumPage { icon: SpotIcon; reward: number }
 
 export class Album {
@@ -51,6 +52,7 @@ export class Album {
       #album .card img { width: 92%; aspect-ratio: 1; object-fit: contain; }
       #album .card img:not([src]) { visibility: hidden; }
       #album .card.met img { filter: brightness(0) opacity(.28); }
+      #album .card.rare { background: radial-gradient(circle at 50% 40%, #fffbe0, #ffe9a8); box-shadow: 0 0 0 3px #ffd34d, 0 2px 6px rgba(120,90,40,.18); }
       #album .card.unknown { background: #efe6d6; box-shadow: none; }
       #album .card .q { font: 900 40px system-ui, sans-serif; color: #d8c8a8; }
       #album .card .ail { position: absolute; left: 4px; top: 4px; width: 28px; height: 28px; }
@@ -105,7 +107,7 @@ export class Album {
     const done: number[] = [];
     this.pages.forEach((_, i) => {
       if (this.paid.includes(i)) return;
-      const list = this.species.filter((s) => s.page === i);
+      const list = this.species.filter((s) => s.page === i && !s.rare);
       if (list.length && list.every((s) => this.counts[s.name])) { this.paid.push(i); done.push(i); }
     });
     if (this.panel.classList.contains('on')) this.render();
@@ -125,7 +127,8 @@ export class Album {
     const met = new Set(this.met());
     this.grid.innerHTML = '';
     this.pages.forEach((page, i) => {
-      const list = this.species.filter((s) => s.page === i);
+      const list = this.species.filter((s) => s.page === i && !s.rare);
+      const rares = this.species.filter((s) => s.page === i && s.rare && this.counts[s.name]);
       if (!list.length) return;
       const box = document.createElement('div');
       box.className = 'page' + (this.paid.includes(i) ? ' full' : '');
@@ -139,14 +142,14 @@ export class Album {
       if (!this.paid.includes(i)) head.append(String(page.reward));
       const cards = document.createElement('div');
       cards.className = 'cards';
-      for (const s of list) {
+      for (const s of [...list, ...rares]) {
         const card = document.createElement('div');
         const n = this.counts[s.name] ?? 0;
         if (!n && !met.has(s.name)) {
           card.className = 'card unknown';
           card.innerHTML = '<span class="q">?</span>';
         } else {
-          card.className = 'card' + (n ? '' : ' met') + (this.fresh.has(s.name) ? ' fresh' : '');
+          card.className = 'card' + (n ? '' : ' met') + (s.rare ? ' rare' : '') + (this.fresh.has(s.name) ? ' fresh' : '');
           const img = document.createElement('img');
           img.alt = '';
           this.pic(s.name).then((url) => { img.src = url; }, () => { /* no portrait: the card stays plain */ });

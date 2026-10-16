@@ -159,6 +159,10 @@ interface Patient {
   bubble: THREE.Sprite;
   edge: HTMLDivElement;
   claimed: boolean;
+  /** a rare colour variant */
+  variant: boolean;
+  /** its colour while sick (the sick tint, mixed with the variant colour) */
+  tint: number;
 }
 
 interface Bed { pos: THREE.Vector3; mesh: THREE.Group; ring: THREE.Mesh; owner: Resident | null; fluff: number; zone: Zone }
@@ -185,6 +189,8 @@ interface Resident {
   edge: HTMLDivElement;
   edgeIcon: HTMLCanvasElement;
   fedIncoming: boolean;
+  /** a rare colour variant (see VARIANT_CHANCE) */
+  variant?: boolean;
 }
 
 interface Coin { m: THREE.Mesh; v: THREE.Vector3; t: number; magnet: boolean; /** flies to the keeper wherever the keeper is (rewards) */ toKeeper?: boolean }
@@ -252,6 +258,14 @@ const SPOTS: SpotDef[] = [
 ];
 
 const DECOR_BONUS = 2;
+
+/** rare colour variants: now and then a patient comes in an unusual colour, sparkles, pays double and gets its own album sticker */
+const VARIANT_CHANCE = 0.08;
+const VARIANT_COLORS = [0xff9ed2, 0xffd24a, 0x9ff0c4, 0xb8a4ff];
+const variantTint = (name: string) =>
+  ({ yeti: 0xff9ed2, zabiksiaze: 0xffd24a } as Record<string, number>)[name] ?? VARIANT_COLORS[Object.keys(SPECIES).indexOf(name) % VARIANT_COLORS.length];
+/** album key of a species' rare variant */
+const RARE = (name: string) => name + '*';
 
 /** saves from before the helpers counted purchases without them: shift the count past the inserted helper spots */
 const migrateBought = (n: number) => n + (n >= 9 ? 1 : 0) + (n >= 13 ? 1 : 0);
@@ -327,10 +341,16 @@ export class Game {
   constructor(private d: GameDeps) {
     this.fx = new Fx(d.scene);
     this.album = new Album(
-      ALBUM_PAGES.flatMap((pg, page) => pg.species.map((name) => ({ name, ailment: SPECIES[name].ailment, page }))),
+      ALBUM_PAGES.flatMap((pg, page) => pg.species.flatMap((name) => [
+        { name, ailment: SPECIES[name].ailment, page },
+        { name: RARE(name), ailment: SPECIES[name].ailment, page, rare: true },
+      ])),
       ALBUM_PAGES.map((pg) => ({ icon: pg.icon, reward: pg.reward })),
       () => this.species,
-      (name) => d.portrait(SPECIES[name].model ?? name, SPECIES[name].base ?? null),
+      (key) => {
+        const name = key.replace('*', '');
+        return d.portrait(SPECIES[name].model ?? name, key === name ? SPECIES[name].base ?? null : variantTint(name));
+      },
     );
     for (let i = 0; i < 10; i++) {
       const s = new THREE.Object3D();
@@ -380,6 +400,7 @@ export class Game {
     this.dress(house, 'house');
 
     this.load();
+    if (new URLSearchParams(location.search).has('rare')) this.variantChance = 1;
     this.refreshSpots();
     window.addEventListener('pagehide', () => this.save());
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.save(); });
@@ -388,7 +409,7 @@ export class Game {
   // ------------------------------------------------------------ save / load
 
   private load() {
-    let data: { ver?: number; coins?: number; bought?: number; hearts?: number; residents?: { name: string; hearts: number }[]; album?: Record<string, number>; albumPaid?: number[] } | null = null;
+    let data: { ver?: number; coins?: number; bought?: number; hearts?: number; residents?: { name: string; hearts: number; v?: number }[]; album?: Record<string, number>; albumPaid?: number[] } | null = null;
     try {
       if (new URLSearchParams(location.search).has('reset')) localStorage.removeItem(SAVE_KEY);
       data = JSON.parse(localStorage.getItem(SAVE_KEY) ?? 'null');
@@ -400,7 +421,7 @@ export class Game {
     this.bought = n;
     this.setCoins(Math.max(0, data.coins ?? 0), false);
     this.setHearts(Math.max(0, data.hearts ?? 0));
-    for (const r of data.residents ?? []) if (SPECIES[r.name]) void this.spawnResident(r.name, r.hearts);
+    for (const r of data.residents ?? []) if (SPECIES[r.name]) void this.spawnResident(r.name, r.hearts, !!r.v);
     this.album.load(data.album, data.albumPaid);
     this.restored = true;
     if (n > 0) this.step = 4;
@@ -413,7 +434,7 @@ export class Game {
         coins: this.coins,
         bought: this.bought,
         hearts: this.hearts,
-        residents: this.residents.filter((r) => r.state !== 'leaving').map((r) => ({ name: r.name, hearts: r.hearts })),
+        residents: this.residents.filter((r) => r.state !== 'leaving').map((r) => ({ name: r.name, hearts: r.hearts, ...(r.variant ? { v: 1 } : {}) })),
         // added later; older saves just start with an empty album
         album: this.album.counts,
         albumPaid: this.album.paid,
@@ -676,6 +697,8 @@ export class Game {
   }
   /** decorations bought so far */
   cheer = 0;
+  /** chance that a new patient is a rare colour variant (tests set it to 1) */
+  variantChance = VARIANT_CHANCE;
 
   addLantern(x: number, z: number, instant: boolean) {
     const g = lanternMesh();
@@ -955,7 +978,9 @@ export class Game {
         : new THREE.Vector3(Math.sin(theta) * 13, 0, Math.cos(theta) * 13);
     const c = await this.d.spawnCreature(sp.model ?? name, sp.height);
     c.root.position.copy(exit);
-    c.setTint(sp.tint);
+    const variant = Math.random() < this.variantChance;
+    const tint = variant ? new THREE.Color(sp.tint).multiply(new THREE.Color(variantTint(name))).getHex() : sp.tint;
+    c.setTint(tint);
     c.lookAt(seat.x, seat.z);
     this.d.scene.add(c.root);
     const bt = new THREE.CanvasTexture(bubbleCanvas(sp.ailment, sp.cure));
@@ -968,7 +993,7 @@ export class Game {
     ic.width = ic.height = 80;
     drawAilment(ic.getContext('2d')!, sp.ailment, 40, 40, 28);
     const edge = this.makeEdge(ic);
-    this.patients.push({ name, c, sp, state: 'arriving', seat, exit, fxT: 1, stateT: 0, bubble, edge, claimed: false });
+    this.patients.push({ name, c, sp, state: 'arriving', seat, exit, fxT: 1, stateT: 0, bubble, edge, claimed: false, variant, tint });
     this.spawning = false;
   }
 
@@ -1104,7 +1129,7 @@ export class Game {
         break;
       case 'nose':
         // its nose blinks red like a warning lamp
-        c.setTint(Math.sin(this.t * 9) > 0.3 ? 0xff9a9a : p.sp.tint);
+        c.setTint(Math.sin(this.t * 9) > 0.3 ? 0xff9a9a : p.tint);
         if (p.fxT <= 0) {
           p.fxT = 2.4 + Math.random();
           c.twitch(0.7);
@@ -1171,14 +1196,14 @@ export class Game {
     p.state = 'cured';
     p.stateT = 0;
     p.c.root.scale.setScalar(1);
-    p.c.setTint(p.sp.base ?? null);
+    p.c.setTint(p.variant ? variantTint(p.name) : p.sp.base ?? null);
     this.d.scene.remove(p.bubble);
     p.edge.remove();
     p.c.hop();
     this.d.sfx.heal();
     const at = p.c.root.position.clone().setY(p.c.height * 0.7);
     this.fx.emit('star', at, 26, { speed: 2.6, up: 2.2, life: 1.1 });
-    this.dropCoins(at, p.sp.coins + this.cheer * DECOR_BONUS);
+    this.dropCoins(at, (p.sp.coins + this.cheer * DECOR_BONUS) * (p.variant ? 2 : 1));
     if (this.step === 1) this.step = 2;
   }
 
@@ -1192,20 +1217,22 @@ export class Game {
   /** a cured patient moves into the shelter: hand its creature over to a resident record */
   private admit(p: Patient, bed: Bed) {
     const r = this.makeResident(p.name, p.c, bed, 0);
+    r.variant = p.variant;
     r.state = 'toBed';
     r.path = this.route(p.c.root.position, bed.pos.clone().add(new THREE.Vector3(0, 0, 0.75)));
     this.residents.push(r);
   }
 
-  private async spawnResident(name: string, hearts: number) {
+  private async spawnResident(name: string, hearts: number, variant = false) {
     const bed = this.freeBed(SPECIES[name].zone);
     if (!bed) return;
     bed.owner = {} as Resident; // reserve while loading
     const c = await this.d.spawnCreature(SPECIES[name].model ?? name, SPECIES[name].height);
-    c.setTint(SPECIES[name].base ?? null);
+    c.setTint(variant ? variantTint(name) : SPECIES[name].base ?? null);
     c.root.position.copy(bed.pos).add(new THREE.Vector3(0, 0, 0.75));
     this.d.scene.add(c.root);
     const r = this.makeResident(name, c, bed, Math.min(MAX_HEARTS - 1, hearts));
+    r.variant = variant;
     r.state = 'idle';
     this.residents.push(r);
   }
@@ -1390,7 +1417,7 @@ export class Game {
     this.setHearts(this.hearts + 1);
     for (const sp of this.spots) this.drawSpot(sp);
     // a new sticker in the album; a full page pays its reward, flying to the keeper
-    for (const page of this.album.add(r.name)) {
+    for (const page of this.album.add(r.variant ? RARE(r.name) : r.name)) {
       this.fx.emit('star', at, 40, { speed: 3.2, up: 3, life: 1.4 });
       this.dropCoins(at, Math.round(ALBUM_PAGES[page].reward / 2), true);
       this.d.sfx.build();
@@ -1685,6 +1712,7 @@ export class Game {
         const v = this.takeFromArms(p.sp.cure);
         if (v) this.deliver(v, p);
       }
+      if (p.variant && p.state !== 'leaving' && Math.random() < dt * 3) this.fx.emit('star', pos.clone().setY(p.c.height * (0.4 + Math.random() * 0.6)), 2, { speed: 0.8, up: 0.8, g: 0.5, life: 0.7, size: 0.7 });
       if (p.state === 'arriving' || p.state === 'waiting' || p.state === 'incoming') {
         this.sickFx(p, dt);
         p.bubble.position.set(pos.x, p.c.height + 0.55 + Math.sin(this.t * 3 + i) * 0.05, pos.z);
