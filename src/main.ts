@@ -6,7 +6,7 @@ import lidJson from './lids.json';
 const lidData = lidJson as Record<string, LidData[]>;
 const eyesParam = new URLSearchParams(location.search).get('eyes');
 if (eyesParam) Creature.forceShut = eyesParam === 'half' ? 0.5 : 1;
-import { blobShadowTexture, buildGround, buildSky, RainPuff } from './world';
+import { blobShadowTexture, buildGround, buildSky, Rain, RainPuff, tintSky } from './world';
 import { Sfx } from './sfx';
 import { Joystick } from './joystick';
 import { Game, SNOW_C, SNOW_R } from './game';
@@ -43,7 +43,8 @@ function frameCamera() {
 }
 
 // lighting: sky/ground fill plus a warm sun with soft shadows
-scene.add(new THREE.HemisphereLight(0xdff3ff, 0x9fc87e, 1.1));
+const hemi = new THREE.HemisphereLight(0xdff3ff, 0x9fc87e, 1.1);
+scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff1dc, 2.2);
 sun.position.set(3.5, 7, 4);
 sun.castShadow = true;
@@ -63,6 +64,8 @@ const shadowTex = blobShadowTexture();
 const clouds = buildSky(scene);
 const obstacles = buildGround(scene, shadowTex, [[SNOW_C.x, SNOW_C.z, SNOW_R + 0.7]]);
 const rain = new RainPuff(scene);
+const weather = new Rain(scene);
+const DAY_HEMI = new THREE.Color(0xdff3ff), NIGHT_HEMI = new THREE.Color(0x8ea4e0), DAY_SUN = new THREE.Color(0xfff1dc), NIGHT_SUN = new THREE.Color(0xa8bcff);
 const sfx = new Sfx();
 
 const hint = document.getElementById('hint')!;
@@ -306,5 +309,15 @@ renderer.setAnimationLoop(() => {
     sun.position.set(camTarget.x + 3.5, 7, camTarget.z + 4);
     sun.target.position.set(camTarget.x, 0, camTarget.z);
   }
+  // time of day and weather (see Game.daylight / Game.rain): dimmer, bluer light at night, greyer in the rain
+  const L = game?.daylight ?? 1, W = game?.rain ?? 0;
+  hemi.intensity = (0.55 + 0.55 * L) * (1 - 0.2 * W);
+  hemi.color.copy(NIGHT_HEMI).lerp(DAY_HEMI, L);
+  sun.intensity = (0.45 + 1.75 * L) * (1 - 0.5 * W);
+  sun.color.copy(NIGHT_SUN).lerp(DAY_SUN, L);
+  rim.intensity = 0.5 + 0.4 * L;
+  scene.environmentIntensity = 0.45 * (0.3 + 0.7 * L) * (1 - 0.3 * W); // shiny things (the pond) reflect a darker sky too
+  tintSky(clouds, scene.fog as THREE.Fog, L, W);
+  weather.update(dt, W, camTarget.x, camTarget.z);
   if (!NORENDER || frame++ % 30 === 0) renderer.render(scene, camera);
 });

@@ -4,7 +4,7 @@ import type { Sfx } from './sfx';
 import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, drawAilment, drawBerry, drawCoin, drawHeart, drawMoon, drawSpotIcon, needCanvas } from './icons';
 import { Album } from './album';
 import { Daily, type DailyState, today } from './daily';
-import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, carouselMesh, coinGeo, coinMat, dressUp, fountainMesh, gold, pedestalMesh, swingMesh, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery } from './props';
+import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, carouselMesh, coinGeo, coinMat, dressUp, fountainMesh, gold, glowSprite, pedestalMesh, swingMesh, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery } from './props';
 
 /**
  * Fable Shelter loop:
@@ -261,6 +261,12 @@ const SPOTS: SpotDef[] = [
 ];
 
 const DECOR_BONUS = 2;
+
+/** a day lasts 6 minutes of play: day, dusk, night, dawn (as parts of the cycle) */
+const DAY_LEN = 360;
+const smooth = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+/** how light it is (1 day .. 0 night) at a point of the cycle */
+const lightAt = (p: number) => (p < 0.6 ? 1 : p < 0.72 ? 1 - smooth(0.6, 0.72, p) : p < 0.9 ? 0 : smooth(0.9, 1, p));
 
 /** rare colour variants: now and then a patient comes in an unusual colour, sparkles, pays double and gets its own album sticker */
 const VARIANT_CHANCE = 0.08;
@@ -669,6 +675,7 @@ export class Game {
   addBonfire(x: number, z: number, instant: boolean) {
     const g = bonfireMesh();
     this.dress(g, 'bonfire');
+    this.addGlow(g, 0.6, 0xffa040, 3.2);
     g.position.set(x, 0, z);
     this.d.scene.add(g);
     this.props.push(g);
@@ -679,6 +686,7 @@ export class Game {
   addMushroom(x: number, z: number, instant: boolean) {
     const g = mushroomLampMesh();
     this.dress(g, 'mushroom');
+    this.addGlow(g, 0.6, 0xffe680, 2.4);
     g.position.set(x, 0, z);
     this.d.scene.add(g);
     this.props.push(g);
@@ -726,12 +734,43 @@ export class Game {
   cheer = 0;
   /** chance that an idle camp resident goes off to play on a free decoration when it looks for something to do (tests set 1) */
   playChance = 0.2;
+  /** time of day: seconds into the day cycle (?night starts at night), how light it is, and how hard it rains (0..1) */
+  dayT = DAY_LEN * (new URLSearchParams(location.search).has('night') ? 0.8 : 0.05);
+  daylight = 1;
+  rain = 0;
+  private rainLeft = new URLSearchParams(location.search).has('rain') ? Infinity : 0;
+  private rainNext = 120 + Math.random() * 120;
+  /** lamp and fire glows that light up in the evening */
+  private glows: THREE.Sprite[] = [];
+  get night() { return this.daylight < 0.3; }
+
+  /** the clock, the weather and what they do: lamps glow at night, rain fills the spring (it brews twice as fast) */
+  private updateSky(dt: number) {
+    this.dayT += dt;
+    this.daylight = lightAt((this.dayT % DAY_LEN) / DAY_LEN);
+    this.rainNext -= dt;
+    if (this.rainNext <= 0) { this.rainLeft = 60 + Math.random() * 30; this.rainNext = 180 + Math.random() * 240; }
+    this.rainLeft -= dt;
+    this.rain += ((this.rainLeft > 0 ? 1 : 0) - this.rain) * Math.min(1, dt * 0.6);
+    if (this.rain > 0.5) for (const s of this.stations) if (s.kind === 'blue') s.boost = Math.max(s.boost, 0.2);
+    const glow = 1 - this.daylight;
+    for (const g of this.glows) { g.visible = glow > 0.02; (g.material as THREE.SpriteMaterial).opacity = glow * 0.85; }
+  }
+
+  private addGlow(g: THREE.Object3D, y: number, color: number, size: number) {
+    const s = glowSprite(color, size);
+    s.position.y = y;
+    g.add(s);
+    this.glows.push(s);
+  }
+
   /** chance that a new patient is a rare colour variant (tests set it to 1) */
   variantChance = VARIANT_CHANCE;
 
   addLantern(x: number, z: number, instant: boolean) {
     const g = lanternMesh();
     this.dress(g, 'lantern');
+    this.addGlow(g, 0.7, 0xffd060, 2.2);
     g.position.set(x, 0, z);
     this.d.scene.add(g);
     this.props.push(g);
@@ -1528,9 +1567,9 @@ export class Game {
           }
         }
         if (!r.need) {
-          r.needT -= dt;
+          r.needT -= dt * (this.night ? 1.5 : 1);
           if (r.needT <= 0) {
-            r.need = Math.random() < 0.5 ? 'food' : 'sleep';
+            r.need = Math.random() < (this.night ? 0.15 : 0.5) ? 'food' : 'sleep';
             c.twitch(0.6);
             this.drawNeed(r);
           }
@@ -1696,6 +1735,7 @@ export class Game {
     this.fx.update(dt);
     for (const s of this.stations) s.update(dt);
     for (const o of this.props) o.userData.tick?.(this.t);
+    this.updateSky(dt);
     for (const o of this.d.scene.children) {
       if (o.userData.pop === undefined) continue;
       const e = Math.min(1, (this.t - o.userData.pop) / 0.5);

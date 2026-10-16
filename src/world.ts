@@ -61,7 +61,59 @@ export function buildSky(scene: THREE.Scene) {
     clouds.add(c);
   }
   scene.add(clouds);
+  clouds.userData.sky = mat;
+  clouds.userData.cloudMat = cloudMat;
   return clouds;
+}
+
+const SKY_DAY = { top: new THREE.Color(0x8fcde8), mid: new THREE.Color(0xd6eef5), bottom: new THREE.Color(0xfbf1dc), cloud: new THREE.Color(0xffffff) };
+const SKY_NIGHT = { top: new THREE.Color(0x1c2a58), mid: new THREE.Color(0x3d5285), bottom: new THREE.Color(0x5a6590), cloud: new THREE.Color(0x56628c) };
+const GREY = new THREE.Color(0xaab6c0);
+
+/** recolour the sky, the clouds and the fog for the time of day (light 1 day .. 0 night) and rain (0..1) */
+export function tintSky(clouds: THREE.Group, fog: THREE.Fog, light: number, rain: number) {
+  const mat = clouds.userData.sky as THREE.ShaderMaterial;
+  for (const k of ['top', 'mid', 'bottom'] as const) {
+    const c = (mat.uniforms[k].value as THREE.Color).copy(SKY_NIGHT[k]).lerp(SKY_DAY[k], light);
+    c.lerp(GREY.clone().multiplyScalar(0.4 + 0.6 * light), rain * 0.6);
+  }
+  (clouds.userData.cloudMat as THREE.MeshLambertMaterial).emissive.copy(SKY_NIGHT.cloud).lerp(SKY_DAY.cloud, light).multiplyScalar(0.85);
+  fog.color.copy(mat.uniforms.mid.value);
+}
+
+/** falling rain round the camera: one instanced mesh of thin streaks, as many shown as it rains hard */
+export class Rain {
+  private mesh: THREE.InstancedMesh;
+  private drops: { x: number; y: number; z: number; v: number }[] = [];
+  private dummy = new THREE.Object3D();
+  static readonly N = 240;
+
+  constructor(scene: THREE.Scene) {
+    const geo = new THREE.BoxGeometry(0.018, 0.42, 0.018);
+    this.mesh = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ color: 0xcfe6ff, transparent: true, opacity: 0.55, depthWrite: false }), Rain.N);
+    this.mesh.frustumCulled = false;
+    this.mesh.count = 0;
+    for (let i = 0; i < Rain.N; i++) this.drops.push({ x: (Math.random() - 0.5) * 18, y: Math.random() * 11, z: (Math.random() - 0.5) * 18, v: 9 + Math.random() * 4 });
+    scene.add(this.mesh);
+  }
+
+  /** amount 0..1; drops fall around (cx, cz) */
+  update(dt: number, amount: number, cx: number, cz: number) {
+    const n = Math.round(Rain.N * amount);
+    this.mesh.count = n;
+    this.mesh.visible = n > 0;
+    if (!n) return;
+    for (let i = 0; i < n; i++) {
+      const d = this.drops[i];
+      d.y -= d.v * dt;
+      if (d.y < 0) { d.y += 11; d.x = (Math.random() - 0.5) * 18; d.z = (Math.random() - 0.5) * 18; }
+      this.dummy.position.set(cx + d.x, d.y, cz + d.z - 2);
+      this.dummy.rotation.z = 0.12;
+      this.dummy.updateMatrix();
+      this.mesh.setMatrixAt(i, this.dummy.matrix);
+    }
+    this.mesh.instanceMatrix.needsUpdate = true;
+  }
 }
 
 /** things the keeper bumps into: round bushes and the fence arc behind the pen */
