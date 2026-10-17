@@ -4,7 +4,7 @@ import type { Sfx } from './sfx';
 import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, drawAilment, drawBerry, drawCoin, drawHeart, drawMoon, drawSpotIcon, needCanvas } from './icons';
 import { Album } from './album';
 import { Daily, type DailyState, today } from './daily';
-import { heartsStory, introStory, meetStory, nextCard } from './story';
+import { halloweenStory, heartsStory, introStory, meetStory, nextCard } from './story';
 import { HALLOWEEN_CHANCE, HALLOWEEN_SPECIES, bats, halloween, pumpkins } from './halloween';
 import { Wardrobe, type WardrobeState, drawHanger, itemMesh } from './wardrobe';
 import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, carouselMesh, coinGeo, coinMat, dressUp, fountainMesh, gold, glowSprite, pedestalMesh, swingMesh, chestMesh, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery, shellBedMesh, lighthouseMesh, boardwalkGateMesh, duneMounds, seaScenery } from './props';
@@ -550,6 +550,7 @@ export class Game {
     }, () => { /* no model: the green ring and the arrow still show it */ });
     this.load();
     if (!this.restored && !this.noStory) void nextCard(introStory);
+    this.halloweenCard();
     if (new URLSearchParams(location.search).has('rare')) this.variantChance = 1;
     if (this.step >= 4) this.newDay(this.savedDaily); // not during the first-steps tutorial
     this.refreshSpots();
@@ -735,6 +736,14 @@ export class Game {
   }
 
   /** creatures the player can tap to make them hop */
+  /** once a year while Halloween lasts, after the tutorial: a card about the event (remembered in `seen`) */
+  private halloweenCard() {
+    const key = 'halloween' + today().slice(0, 4);
+    if (this.step < 4 || !halloween() || this.seen.has(key) || this.noStory) return;
+    this.seen.add(key);
+    void nextCard(() => halloweenStory((name) => this.d.portrait(name, null)));
+  }
+
   /** a tap on the shelter house means "go in": walk to its door (where the wardrobe opens) */
   tapTarget(ray: THREE.Raycaster, p: THREE.Vector3) {
     const onHouse = ray.intersectObject(this.house, true).length > 0 || Math.hypot(p.x - HOUSE.x, p.z - HOUSE.z) < 2.2;
@@ -2272,7 +2281,7 @@ export class Game {
           s.def.apply(this, false);
           this.refreshSpots();
           this.save();
-          if (this.step === 3) this.step = 4;
+          if (this.step === 3) { this.step = 4; this.halloweenCard(); }
         }
       }
       (s.mesh.material as THREE.MeshBasicMaterial).opacity *= next ? 1 : 0.45;

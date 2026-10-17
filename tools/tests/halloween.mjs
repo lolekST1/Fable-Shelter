@@ -21,12 +21,17 @@ const open = async (q) => {
 // an ordinary day: nothing of it
 let p = await open('day=2026-10-10');
 check(await p.evaluate(() => !window.__G().spooky), 'no pumpkins on an ordinary day');
-await p.evaluate(() => window.__walk(-7.9, -0.1)); await p.waitForTimeout(6000);
+await p.evaluate(() => window.__go(-7.86, -0.06)); await p.waitForFunction(() => window.__G().wardrobe.isOpen, null, { timeout: 40000 }).catch(() => {});
 check(await p.evaluate(() => window.__G().wardrobe.isOpen && !document.querySelector('#wardrobe [data-id=witch]')), 'no witch hat in the wardrobe');
 await p.close();
 
 // Halloween, at night
 p = await open('halloween&night');
+check(await p.evaluate(() => /Halloween/.test(document.querySelector('#story h2')?.textContent ?? '')), 'Halloween card on the first visit');
+await p.waitForTimeout(2500);
+await p.screenshot({ path: 'out/hw0_card.png', timeout: 150000 });
+await p.click('#story button', { force: true }); await p.waitForTimeout(800);
+check(await p.evaluate(() => window.__G().seen.has('halloween' + new Date().getFullYear()) && !document.getElementById('story')), 'card shown once (remembered)');
 check(await p.evaluate(() => !!window.__G().spooky), 'pumpkins round the pen');
 check(await p.evaluate(() => window.__G().spooky.bats.visible), 'bats out at night');
 await p.evaluate(() => window.__walk(0, 5.5)); await p.waitForTimeout(5000);
@@ -57,7 +62,7 @@ check(await p.evaluate(() => [...document.querySelectorAll('#album .nm')].some((
 await p.evaluate(() => document.querySelector('#album .book').scrollTo(0, 99999)); await p.waitForTimeout(500);
 await p.screenshot({ path: 'out/hw4_album.png', timeout: 150000 });
 await p.evaluate(() => document.querySelector('#album .close').click());
-await p.evaluate(() => window.__walk(-7.9, -0.1)); await p.waitForTimeout(7000);
+await p.evaluate(() => window.__go(-7.86, -0.06)); await p.waitForFunction(() => window.__G().wardrobe.isOpen, null, { timeout: 40000 }).catch(() => {});
 check(await p.evaluate(() => !!document.querySelector('#wardrobe [data-id=witch]') && !!document.querySelector('#wardrobe [data-id=embers]')), 'witch hat and ember trail for sale');
 await p.evaluate(() => { document.querySelector('#wardrobe [data-id=witch]').click(); document.querySelector('#wardrobe [data-id=embers]').click(); });
 await p.waitForTimeout(800);

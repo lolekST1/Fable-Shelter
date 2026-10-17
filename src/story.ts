@@ -1,4 +1,4 @@
-import { type Ailment, type Medicine, drawAilment, drawBerry, drawBridge, drawHeart, drawMedicine, drawMoon, drawVial } from './icons';
+import { type Ailment, type Medicine, drawAilment, drawBerry, drawBridge, drawHeart, drawMedicine, drawMoon, drawPumpkin, drawVial } from './icons';
 import { NAMES } from './album';
 import { drawHomeDoor } from './daily';
 
@@ -40,7 +40,7 @@ export function nextCard(show: () => Promise<void>) {
 }
 
 /** show a card with rows of pictures; resolves when it is closed */
-export function story(title: string, rows: Panel[][], low = false): Promise<void> {
+export function story(title: string, rows: Panel[][], low = false, joint = '➜'): Promise<void> {
   if (!document.getElementById('storyCss')) {
     const s = document.createElement('style');
     s.id = 'storyCss';
@@ -63,7 +63,7 @@ export function story(title: string, rows: Panel[][], low = false): Promise<void
       if (i) {
         const a = document.createElement('div');
         a.className = 'arrow';
-        a.textContent = '➜';
+        a.textContent = joint;
         r.appendChild(a);
       }
       const el = document.createElement('div');
@@ -130,6 +130,26 @@ export const meetStory = (name: string, ailment: Ailment, cure: Medicine, portra
     { draw: (g) => drawMedicine(g, cure, 34, 36, 22), label: CURE_TEXT[cure] },
   ],
 ], true);
+
+/** the first visit while Halloween lasts: who comes and what there is to get */
+export const halloweenStory = (portrait: (name: string) => Promise<string>) => story('Halloween w schronisku!', [
+  [
+    { img: portrait('dyniak'), label: 'Dyniak' },
+    { img: portrait('duszek'), label: 'Duszek' },
+  ],
+  [
+    { draw: (g) => drawPumpkin(g, 34, 36, 24), label: 'Nowa strona albumu' },
+    { draw: (g) => drawWitchHat(g), label: 'Kapelusz w szafie' },
+  ],
+], false, '+');
+
+/** a witch hat (68 px canvas) */
+function drawWitchHat(g: CanvasRenderingContext2D) {
+  g.fillStyle = '#4a2f6a';
+  g.beginPath(); g.ellipse(34, 50, 26, 6, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.moveTo(20, 50); g.lineTo(38, 14); g.lineTo(50, 22); g.lineTo(46, 50); g.closePath(); g.fill();
+  g.fillStyle = '#f08a24'; g.fillRect(21, 42, 25, 5);
+}
 
 /** what hearts are for: after the first adoption, or a tap on the hearts counter */
 export const heartsStory = () => story('Serduszka', [
