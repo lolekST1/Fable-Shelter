@@ -256,15 +256,16 @@ export function drawAilment(g: CanvasRenderingContext2D, kind: Ailment, x: numbe
     }
   } else if (kind === 'howl') {
     // howling at the moon: a crescent and two notes
+    g.save();
+    g.beginPath();
+    g.rect(x - r * 2, y - r * 2, r * 4, r * 4);
+    g.arc(x - r * 0.02, y - r * 0.38, r * 0.45, 0, Math.PI * 2);
+    g.clip('evenodd'); // not a cut-out: that would punch a hole in the bubble behind
     g.fillStyle = '#ffe58a';
     g.beginPath();
     g.arc(x - r * 0.25, y - r * 0.2, r * 0.55, 0, Math.PI * 2);
     g.fill();
-    g.globalCompositeOperation = 'destination-out';
-    g.beginPath();
-    g.arc(x - r * 0.02, y - r * 0.38, r * 0.45, 0, Math.PI * 2);
-    g.fill();
-    g.globalCompositeOperation = 'source-over';
+    g.restore();
     g.fillStyle = '#6a5acd';
     g.strokeStyle = '#6a5acd';
     note(g, x + r * 0.25, y + r * 0.75, r * 0.55);
@@ -570,15 +571,17 @@ export function drawBerry(g: CanvasRenderingContext2D, x: number, y: number, r: 
 /** a crescent moon with little z's: sleepy */
 export function drawMoon(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
   g.save();
+  // the crescent: the disc clipped outside the bite (cutting it out would punch a hole in the bubble behind too)
+  g.save();
+  g.beginPath();
+  g.rect(x - r * 2, y - r * 2, r * 4, r * 4);
+  g.arc(x + r * 0.18, y - r * 0.12, r * 0.52, 0, Math.PI * 2);
+  g.clip('evenodd');
   g.beginPath();
   g.arc(x - r * 0.1, y + r * 0.1, r * 0.62, 0, Math.PI * 2);
   g.fillStyle = '#ffd34d';
   g.fill();
-  g.globalCompositeOperation = 'destination-out';
-  g.beginPath();
-  g.arc(x + r * 0.18, y - r * 0.12, r * 0.52, 0, Math.PI * 2);
-  g.fill();
-  g.globalCompositeOperation = 'source-over';
+  g.restore();
   g.strokeStyle = '#6f7bd8';
   g.lineWidth = r * 0.1;
   g.lineJoin = 'round';

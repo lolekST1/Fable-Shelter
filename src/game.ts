@@ -4,6 +4,7 @@ import type { Sfx } from './sfx';
 import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, drawAilment, drawBerry, drawCoin, drawHeart, drawMoon, drawSpotIcon, needCanvas } from './icons';
 import { Album } from './album';
 import { Daily, type DailyState, today } from './daily';
+import { heartsStory, introStory, meetStory, nextCard } from './story';
 import { Wardrobe, type WardrobeState, drawHanger, itemMesh } from './wardrobe';
 import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, carouselMesh, coinGeo, coinMat, dressUp, fountainMesh, gold, glowSprite, pedestalMesh, swingMesh, chestMesh, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery, shellBedMesh, lighthouseMesh, boardwalkGateMesh, duneMounds, seaScenery } from './props';
 
@@ -165,7 +166,22 @@ const RIMS = [
   { zone: 'sea' as const, c: SEA_C, r: SEA_R, a: SEA_A, gap: SEA_GAP, w: 0.14 },
 ];
 const angleTo = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+/** a flat ring that fills clockwise: set .userData.fill(0..1) */
+function progressRing(r0: number, r1: number, color: number) {
+  const geo = new THREE.RingGeometry(r0, r1, 48, 1, Math.PI / 2, -Math.PI * 2);
+  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide }));
+  m.rotation.x = -Math.PI / 2;
+  m.renderOrder = 2;
+  m.visible = false;
+  m.userData.fill = (f: number) => { geo.setDrawRange(0, Math.round(Math.min(1, f) * 48) * 6); m.visible = f > 0; };
+  return m;
+}
+
 /** the shelter house at the west edge of the camp, its door facing the camp (south-east): adopters come out of it */
+/** seconds of standing on a bed to plump it up (a green ring fills meanwhile) */
+const FLUFF_TIME = 1.6;
+/** seconds of standing at the basket before it starts taking things */
+const BASKET_WAIT = 1.0;
 const HOUSE = new THREE.Vector3(-9.2, 0, -1.4);
 const HOUSE_FACING = Math.PI / 4;
 const HOUSE_DOOR = HOUSE.clone().add(new THREE.Vector3(Math.sin(HOUSE_FACING) * 1.9, 0, Math.cos(HOUSE_FACING) * 1.9));
@@ -196,7 +212,7 @@ interface Patient {
   tint: number;
 }
 
-interface Bed { pos: THREE.Vector3; mesh: THREE.Group; ring: THREE.Mesh; owner: Resident | null; fluff: number; zone: Zone }
+interface Bed { pos: THREE.Vector3; mesh: THREE.Group; ring: THREE.Mesh; fill: THREE.Mesh; owner: Resident | null; fluff: number; zone: Zone }
 
 interface Resident {
   name: string;
@@ -229,7 +245,7 @@ interface Resident {
 interface Coin { m: THREE.Mesh; v: THREE.Vector3; t: number; magnet: boolean; /** flies to the keeper wherever the keeper is (rewards) */ toKeeper?: boolean; value: number }
 
 /** someone from the shelter house come to take a four-heart resident home */
-interface Adopter { c: Creature; r: Resident; state: 'come' | 'hug' | 'go'; path: THREE.Vector3[]; t: number }
+interface Adopter { c: Creature; r: Resident; state: 'come' | 'hug' | 'go'; path: THREE.Vector3[]; t: number; first?: boolean }
 
 /** a hired helper (the keeper's apprentice) that looks after one area: cures its patients, feeds and tucks in its residents */
 interface Worker {
@@ -363,6 +379,11 @@ export class Game {
   onFirstPickup?: () => void;
   /** true when a saved game was restored */
   restored = false;
+  /** where the camera looks instead of the keeper (the first adoption), or null */
+  focus: THREE.Vector3 | null = null;
+  /** a new species being shown (camera on it while its card is open) */
+  private meeting?: Patient;
+  private noStory = new URLSearchParams(location.search).has('nostory');
   private bought = 0;
   private fx: Fx;
   private flights: Flight[] = [];
@@ -372,6 +393,12 @@ export class Game {
   private props: THREE.Object3D[] = [];
   private basket: THREE.Group;
   private dropT = 0;
+  /** how long the keeper has stood at the basket (it only starts tipping out at BASKET_WAIT) */
+  private binT = 0;
+  private binRing!: THREE.Mesh;
+  private house!: THREE.Group;
+  /** a see-through keeper that shows how to plump up a bed, until the player has done it once */
+  private ghost?: THREE.Object3D;
   private pickT = 0;
   private spawnT = 1.5;
   private spawning = false;
@@ -425,7 +452,7 @@ export class Game {
     }
     this.buildHud();
     this.guide = new THREE.Group();
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.36, 4), new THREE.MeshStandardMaterial({ color: 0xffd34d, emissive: 0xffa000, emissiveIntensity: 0.5, roughness: 0.4 }));
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.5, 4), new THREE.MeshStandardMaterial({ color: 0xffd34d, emissive: 0xffa000, emissiveIntensity: 0.5, roughness: 0.4 }));
     cone.rotation.x = Math.PI;
     cone.rotation.y = Math.PI / 4;
     this.guide.add(cone);
@@ -463,7 +490,10 @@ export class Game {
     this.basket.position.set(2.4, 0, 6.3);
     d.scene.add(this.basket);
     this.dress(this.basket, 'basket');
-    const house = shelterHouseMesh();
+    this.binRing = progressRing(0.7, 0.86, 0xe8604c);
+    this.binRing.position.set(2.4, 0.05, 6.3);
+    d.scene.add(this.binRing);
+    const house = (this.house = shelterHouseMesh());
     house.position.copy(HOUSE);
     house.rotation.y = HOUSE_FACING;
     d.scene.add(house);
@@ -487,7 +517,16 @@ export class Game {
     hanger.position.copy(HOUSE_DOOR).setY(2.1);
     d.scene.add(hanger);
 
+    this.d.loadProp('opiekun').then((m) => {
+      const mat = new THREE.MeshBasicMaterial({ color: 0xe8f4ff, transparent: true, opacity: 0.45, depthWrite: false });
+      m.traverse((o) => { if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).material = mat; });
+      m.scale.setScalar(this.d.keeper.height / new THREE.Box3().setFromObject(m).getSize(new THREE.Vector3()).y);
+      m.visible = false;
+      this.ghost = m;
+      this.d.scene.add(m);
+    }, () => { /* no model: the green ring and the arrow still show it */ });
     this.load();
+    if (!this.restored && !this.noStory) void nextCard(introStory);
     if (new URLSearchParams(location.search).has('rare')) this.variantChance = 1;
     if (this.step >= 4) this.newDay(this.savedDaily); // not during the first-steps tutorial
     this.refreshSpots();
@@ -522,6 +561,7 @@ export class Game {
     this.setChest((data.chest ?? 0) + earned);
     for (const k of data.seen ?? []) this.seen.add(k);
     if (n > 0) { this.step = 4; if (!data.seen) this.markSeen(); }
+    if (!data.seen?.some((k) => k.startsWith('sp:'))) for (const s of this.species) if (n > 0) this.seen.add('sp:' + s);
   }
 
   private save() {
@@ -582,6 +622,9 @@ export class Game {
     this.heartNum = document.createElement('span');
     this.heartNum.textContent = '0';
     this.heartHud.append(hc, this.heartNum);
+    this.heartHud.style.pointerEvents = 'auto';
+    this.heartHud.addEventListener('pointerdown', (e) => e.stopPropagation());
+    this.heartHud.addEventListener('click', () => void heartsStory());
     document.body.appendChild(this.heartHud);
   }
 
@@ -669,6 +712,12 @@ export class Game {
   }
 
   /** creatures the player can tap to make them hop */
+  /** a tap on the shelter house means "go in": walk to its door (where the wardrobe opens) */
+  tapTarget(ray: THREE.Raycaster, p: THREE.Vector3) {
+    const onHouse = ray.intersectObject(this.house, true).length > 0 || Math.hypot(p.x - HOUSE.x, p.z - HOUSE.z) < 2.2;
+    return onHouse ? HOUSE_DOOR.clone() : p;
+  }
+
   tappables(): Creature[] {
     return [...this.patients.map((p) => p.c), ...this.residents.map((r) => r.c)];
   }
@@ -705,8 +754,10 @@ export class Game {
     ring.rotation.x = -Math.PI / 2;
     ring.position.set(x, 0.03, z);
     ring.visible = false;
-    this.d.scene.add(mesh, ring);
-    this.beds.push({ pos: new THREE.Vector3(x, 0, z), mesh, ring, owner: null, fluff: 0, zone });
+    const fill = progressRing(0.62, 0.78, 0x5fd17a);
+    fill.position.set(x, 0.05, z);
+    this.d.scene.add(mesh, ring, fill);
+    this.beds.push({ pos: new THREE.Vector3(x, 0, z), mesh, ring, fill, owner: null, fluff: 0, zone });
     if (!instant) this.popIn(mesh);
   }
 
@@ -1246,7 +1297,16 @@ export class Game {
     ic.width = ic.height = 80;
     drawAilment(ic.getContext('2d')!, sp.ailment, 40, 40, 28);
     const edge = this.makeEdge(ic);
-    this.patients.push({ name, c, sp, state: 'arriving', seat, exit, fxT: 1, stateT: 0, bubble, edge, claimed: false, variant, tint });
+    const p: Patient = { name, c, sp, state: 'arriving', seat, exit, fxT: 1, stateT: 0, bubble, edge, claimed: false, variant, tint };
+    this.patients.push(p);
+    // the first of its kind: the camera goes to it and a card says who it is, what is wrong and what helps
+    if (!this.seen.has('sp:' + name) && !this.noStory) {
+      this.seen.add('sp:' + name);
+      void nextCard(() => {
+        this.meeting = p;
+        return meetStory(name, sp.ailment, sp.cure, this.d.portrait(sp.model ?? name, sp.base ?? null)).then(() => { this.meeting = undefined; });
+      });
+    }
     this.spawning = false;
   }
 
@@ -1691,7 +1751,9 @@ export class Game {
     c.root.position.copy(HOUSE_DOOR);
     this.d.scene.add(c.root);
     this.fx.emit('dust', HOUSE_DOOR.clone().setY(0.4), 10, { speed: 1, up: 1, g: 2, life: 0.6 });
-    this.adopters.push({ c, r, state: 'come', path: this.route(HOUSE_DOOR, r.c.root.position), t: 0 });
+    // the very first adoption is shown: the camera follows the adopter to the creature and the hug
+    const first = !Object.keys(this.album.counts).length && !this.adopters.some((a) => a.first);
+    this.adopters.push({ c, r, state: 'come', path: this.route(HOUSE_DOOR, r.c.root.position), t: 0, first });
   }
 
   /** the adopter and the resident meet: the adoption heart, coins, a bonus if the keeper came to say goodbye */
@@ -1723,6 +1785,13 @@ export class Game {
       const a = this.adopters[i], c = a.c, r = a.r, pos = c.root.position;
       c.update(dt);
       a.t += dt;
+      if (a.first) this.focus = a.state === 'go' && a.t > 1.8 ? null : pos.clone().lerp(r.c.root.position, 0.5);
+      if (a.first && a.state === 'go' && a.t > 1.8 && Object.keys(this.album.counts).length) {
+        // then the album opens on the new sticker, and closing it tells what the heart is for
+        a.first = false;
+        this.album.onClose = () => void nextCard(heartsStory);
+        this.album.open();
+      }
       if (a.state === 'come') {
         if (!this.residents.includes(r)) { a.state = 'go'; a.path = this.route(pos, HOUSE_DOOR); continue; }
         a.path[a.path.length - 1].copy(r.c.root.position);
@@ -1741,6 +1810,7 @@ export class Game {
         if (Math.random() < dt * 8) this.fx.emit('heart', pos.clone().lerp(r.c.root.position, 0.5).setY(1.1), 1, { speed: 0.4, up: 0.8, g: -0.2, life: 1.2, size: 1.3 });
         if (a.t > 1.5) {
           this.farewell(r);
+          a.t = 0;
           a.state = 'go';
           a.path = this.route(pos, HOUSE_DOOR);
         }
@@ -1804,10 +1874,14 @@ export class Game {
         // sleepy: stand on its bed for a moment to plump it up, then it goes to sleep
         if (r.need === 'sleep') {
           const on = [k, ...this.workers.map((w) => w.c.root.position)].some((p) => Math.hypot(p.x - r.bed.pos.x, p.z - r.bed.pos.z) < 0.6);
-          r.bed.fluff = on ? r.bed.fluff + dt : Math.max(0, r.bed.fluff - dt * 2);
+          r.bed.fluff = on ? r.bed.fluff + dt / FLUFF_TIME : Math.max(0, r.bed.fluff - dt * 2);
           r.bed.mesh.scale.set(1 + Math.sin(this.t * 20) * 0.04 * (on ? 1 : 0), 1, 1);
+          r.bed.fill.userData.fill(r.bed.fluff);
+          if (on && Math.random() < dt * 10) this.fx.emit('dust', r.bed.pos.clone().setY(0.3), 1, { speed: 0.8, up: 1.2, g: 1, life: 0.6, size: 0.8 });
           if (r.bed.fluff >= 1) {
             r.bed.fluff = 0;
+            r.bed.fill.userData.fill(0);
+            this.seen.add('bed');
             r.bed.mesh.scale.set(1, 1, 1);
             r.bed.ring.visible = false;
             this.fx.emit('dust', r.bed.pos.clone().setY(0.25), 12, { speed: 1, up: 1, g: 2, life: 0.6 });
@@ -1971,7 +2045,7 @@ export class Game {
     }
     // the wardrobe opens when the keeper comes to the house door (and again only after walking away)
     const atDoor = Math.hypot(k.x - HOUSE_DOOR.x, k.z - HOUSE_DOOR.z) < 0.8;
-    if (atDoor && !this.atDoor && this.step >= 4) { this.wardrobe.open(); this.seen.add('wardrobe'); }
+    if (atDoor && !this.atDoor) { this.wardrobe.open(); this.seen.add('wardrobe'); }
     this.atDoor = atDoor || (this.atDoor && Math.hypot(k.x - HOUSE_DOOR.x, k.z - HOUSE_DOOR.z) < 1.6);
     if (this.trail && keeper.walk > 0.3) {
       this.trailT -= dt;
@@ -2074,7 +2148,10 @@ export class Game {
     // basket: standing next to it tips the pile in, top item first
     const b = this.basket.position;
     this.dropT -= dt;
-    if (this.carry.length && Math.hypot(k.x - b.x, k.z - b.z) < 0.95 && this.dropT <= 0) {
+    const atBin = this.carry.length > 0 && Math.hypot(k.x - b.x, k.z - b.z) < 0.95;
+    this.binT = atBin ? this.binT + dt : 0; // walking past by mistake throws nothing away
+    this.binRing.userData.fill(Math.min(1, this.binT / BASKET_WAIT));
+    if (atBin && this.binT >= BASKET_WAIT && this.dropT <= 0) {
       const v = this.carry[this.carry.length - 1];
       if (v.userData.landed) {
         this.carry.pop();
@@ -2182,6 +2259,9 @@ export class Game {
     for (const c of [keeper, ...this.patients.map((p) => p.c), ...this.residents.filter((r) => r.state !== 'play').map((r) => r.c), ...this.workers.map((w) => w.c), ...this.adopters.map((a) => a.c)])
       c.root.position.y = this.groundY(c.root.position.x, c.root.position.z);
     this.updateGuide();
+    this.updateGhost();
+    if (this.meeting) this.focus = this.meeting.c.root.position.clone().add(new THREE.Vector3(0, 0, 2.6)); // south of it: it shows above the card
+    else if (this.focus && !this.adopters.some((a) => a.first)) this.focus = null;
     this.saveT += dt;
     if (this.saveT > 5) {
       this.saveT = 0;
@@ -2305,6 +2385,27 @@ export class Game {
   /** everything already in the world counts as known (end of the tutorial, old saves) */
   private markSeen() {
     for (const s of this.stations) this.seen.add(s.kind);
+    this.seen.add('bed');
+  }
+
+  /** the ghost keeper walks onto a bed that needs plumping and bobs on it, in a loop (see this.ghost) */
+  private updateGhost() {
+    const g = this.ghost;
+    if (!g) return;
+    const k = this.d.keeper.root.position;
+    const bed = this.seen.has('bed') ? undefined : this.residents.find((r) => r.need === 'sleep')?.bed;
+    g.visible = !!bed && Math.hypot(k.x - bed.pos.x, k.z - bed.pos.z) > 0.6;
+    if (!g.visible || !bed) return;
+    const t = this.t % 3.2;
+    const from = bed.pos.clone().add(new THREE.Vector3(1.3, 0, 0.9));
+    const walk = Math.min(1, t / 1.2);
+    g.position.copy(from).lerp(bed.pos, walk);
+    g.rotation.y = Math.atan2(bed.pos.x - from.x, bed.pos.z - from.z);
+    if (t > 1.2) {
+      // on the bed: little hops, feathers flying
+      g.position.y = Math.abs(Math.sin((t - 1.2) * 9)) * 0.12;
+      if (Math.random() < 0.25) this.fx.emit('dust', bed.pos.clone().setY(0.3), 1, { speed: 0.8, up: 1.2, g: 1, life: 0.6, size: 0.8 });
+    }
   }
 
   private updateGuide() {
@@ -2335,8 +2436,10 @@ export class Game {
     }
     this.guide.visible = !!target;
     if (target) {
-      this.guide.position.set(target.x, target.y + Math.abs(Math.sin(this.t * 4)) * 0.25, target.z);
+      this.guide.position.set(target.x, target.y + Math.abs(Math.sin(this.t * 4)) * 0.35, target.z);
       this.guide.rotation.y += 0.03;
+      this.guide.scale.setScalar(1 + 0.25 * Math.max(0, Math.sin(this.t * 8)));
+      ((this.guide.children[0] as THREE.Mesh).material as THREE.MeshStandardMaterial).emissiveIntensity = 0.4 + 0.6 * Math.max(0, Math.sin(this.t * 8));
     }
     // creatures that need the keeper already have their own edge arrows
     const atCreature = target && [...this.patients.map((p) => p.c), ...this.residents.map((r) => r.c)].some((c) => Math.hypot(c.root.position.x - target!.x, c.root.position.z - target!.z) < 0.01);

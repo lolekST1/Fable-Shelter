@@ -212,7 +212,7 @@ joy.onTap = (cx, cy) => {
     hint.classList.add('hidden');
   } else {
     const p = new THREE.Vector3();
-    if (ray.ray.intersectPlane(groundPlane, p)) sendKeeper(p);
+    if (ray.ray.intersectPlane(groundPlane, p)) sendKeeper(game ? game.tapTarget(ray, p) : p);
   }
 };
 
@@ -295,15 +295,17 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// Saving mode for slow phones: every 3 s under 40 fps drops one quality level (sharpness first, then softer shadows)
-// and remembers it for the next visit. Never goes back up, so it can't flicker. ?fps shows a counter, ?quality=N forces a level.
+// Saving mode for slow phones: every 2 s under 40 fps drops one quality level (sharpness first, then simpler shadows,
+// then none) and remembers it for the next visit. Phones with few cores start a step lower. Never goes back up, so it can't flicker. ?fps shows a counter, ?quality=N forces a level.
 const QUALITY_KEY = 'fable-shelter-quality';
 const LEVELS = [Math.min(window.devicePixelRatio, 2), 1.5, 1.25, 1];
+const MAX_Q = LEVELS.length + 1;
 let quality = 0;
 function setQuality(q: number) {
-  quality = Math.min(LEVELS.length, Math.max(0, q));
+  quality = Math.min(MAX_Q, Math.max(0, q));
   renderer.setPixelRatio(Math.min(LEVELS[0], LEVELS[Math.min(quality, LEVELS.length - 1)]));
   renderer.shadowMap.type = quality >= LEVELS.length ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+  renderer.shadowMap.enabled = quality < MAX_Q;
   resize();
   try { localStorage.setItem(QUALITY_KEY, String(quality)); } catch { /* ignore */ }
 }
@@ -311,21 +313,22 @@ function setQuality(q: number) {
   let saved = 0;
   try { saved = +(localStorage.getItem(QUALITY_KEY) ?? 0) || 0; } catch { /* ignore */ }
   const forced = new URLSearchParams(location.search).get('quality');
-  if (forced !== null || saved) setQuality(forced !== null ? +forced : saved);
+  const few = (navigator.hardwareConcurrency || 8) <= 4;
+  if (forced !== null || saved || few) setQuality(forced !== null ? +forced : saved || 1);
 }
 const fpsBox = new URLSearchParams(location.search).has('fps') ? document.body.appendChild(document.createElement('div')) : null;
 if (fpsBox) fpsBox.style.cssText = 'position:fixed;left:8px;bottom:calc(8px + env(safe-area-inset-bottom));font:12px system-ui;color:#234;background:rgba(255,255,255,.7);padding:2px 6px;border-radius:6px;pointer-events:none';
-let fpsFrames = 0, fpsFrom = performance.now(), fpsWarm = performance.now() + 6000; // models are still loading at first
+let fpsFrames = 0, fpsFrom = performance.now(), fpsWarm = performance.now() + 4000; // models are still loading at first
 function watchFps() {
   fpsFrames++;
   const now = performance.now(), span = now - fpsFrom;
-  if (span < 3000) return;
+  if (span < 2000) return;
   const fps = (fpsFrames * 1000) / span;
   fpsFrames = 0;
   fpsFrom = now;
   if (fpsBox) fpsBox.textContent = `${fps.toFixed(0)} fps · jakość ${quality}`;
   // a longer window means the tab was hidden or the phone paused: not a real measurement
-  if (now > fpsWarm && span < 4000 && fps < 40 && quality < LEVELS.length) setQuality(quality + 1);
+  if (now > fpsWarm && span < 3000 && fps < 40 && quality < MAX_Q) setQuality(quality + 1);
 }
 (window as unknown as { __quality: () => number }).__quality = () => quality;
 
@@ -352,8 +355,8 @@ renderer.setAnimationLoop(() => {
   }
   void sheep;
   if (keeper) {
-    const k = keeper.root.position;
-    const f = Math.min(1, dt * 4);
+    const k = game?.focus ?? keeper.root.position; // the first adoption takes the camera for a moment
+    const f = Math.min(1, dt * (game?.focus ? 2 : 4));
     camTarget.x += (k.x - camTarget.x) * f;
     camTarget.z += (k.z - 1.2 - camTarget.z) * f;
     placeCamera();

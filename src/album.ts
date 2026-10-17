@@ -11,6 +11,14 @@ import { type Ailment, drawAilment, drawCoin, drawHeart, drawSpotIcon, type Spot
 export interface AlbumSpecies { name: string; ailment: Ailment; page: number; rare?: boolean }
 export interface AlbumPage { icon: SpotIcon; reward: number }
 
+/** names under the cards (a rare variant, `name*`, shows its species' name) */
+export const NAMES: Record<string, string> = {
+  chmurnik: 'Chmurnik', feniks: 'Feniks', smok: 'Smok', gryf: 'Gryf', grzybolak: 'Grzybołak', kraken: 'Kraken', jednorozec: 'Jednorożec',
+  bazyliszek: 'Bazyliszek', zabiksiaze: 'Żabi książę', nessie: 'Nessie', swietlik: 'Świetlik', wodnik: 'Wodnik', leszy: 'Leszy',
+  wilkolaczek: 'Wilkołaczek', skrzat: 'Skrzat', sowka: 'Sówka', yeti: 'Yeti', renifer: 'Renifer', balwanek: 'Bałwanek',
+  pingwinek: 'Pingwinek', krabik: 'Krabik', foczka: 'Foczka', zolwik: 'Żółwik', syrenka: 'Syrenka',
+};
+
 export class Album {
   /** adoptions per species */
   counts: Record<string, number> = {};
@@ -49,14 +57,16 @@ export class Album {
       #album .head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font: 800 18px system-ui, sans-serif; color: #8a6a2a; }
       #album .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
       #album .card { position: relative; aspect-ratio: 0.8; border-radius: 14px; background: #fff; box-shadow: 0 2px 6px rgba(120,90,40,.18); display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
-      #album .card img { width: 92%; aspect-ratio: 1; object-fit: contain; }
+      #album .card img { width: 84%; aspect-ratio: 1; object-fit: contain; }
+      #album .card .nm { font: 800 12px system-ui, sans-serif; color: #6a5a3a; margin-top: -2px; max-width: 96%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      #album .card.met .nm { color: #b0a080; }
       #album .card img:not([src]) { visibility: hidden; }
       #album .card.met img { filter: brightness(0) opacity(.28); }
       #album .card.rare { background: radial-gradient(circle at 50% 40%, #fffbe0, #ffe9a8); box-shadow: 0 0 0 3px #ffd34d, 0 2px 6px rgba(120,90,40,.18); }
       #album .card.unknown { background: #efe6d6; box-shadow: none; }
       #album .card .q { font: 900 40px system-ui, sans-serif; color: #d8c8a8; }
       #album .card .ail { position: absolute; left: 4px; top: 4px; width: 28px; height: 28px; }
-      #album .card .n { position: absolute; right: 6px; bottom: 4px; display: flex; align-items: center; gap: 2px; font: 800 15px system-ui, sans-serif; color: #8a2a44; }
+      #album .card .n { position: absolute; right: 5px; top: 4px; display: flex; align-items: center; gap: 2px; font: 800 15px system-ui, sans-serif; color: #8a2a44; }
       #album .card .n canvas { width: 18px; height: 18px; }
       #album .card.fresh { animation: fresh 1s ease-in-out 3; box-shadow: 0 0 0 3px #ffc21a, 0 2px 6px rgba(120,90,40,.18); }
       @keyframes fresh { 50% { transform: scale(1.06) rotate(-2deg); } }`;
@@ -79,12 +89,12 @@ export class Album {
     const close = document.createElement('button');
     close.className = 'close';
     close.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 5l14 14M19 5L5 19" stroke="#c0583e" stroke-width="3.5" stroke-linecap="round"/></svg>';
-    close.addEventListener('click', () => this.panel.classList.remove('on'));
+    close.addEventListener('click', () => this.close());
     this.grid = document.createElement('div');
     book.append(close, this.grid);
     this.panel.appendChild(book);
     // tapping the dimmed edge closes it too; nothing reaches the game underneath
-    this.panel.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target === this.panel) this.panel.classList.remove('on'); });
+    this.panel.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target === this.panel) this.close(); });
     document.body.appendChild(this.panel);
   }
 
@@ -117,7 +127,17 @@ export class Album {
   /** where the button is on screen, for coins or stickers flying to it */
   get button() { return this.btn; }
 
-  private open() {
+  /** called once when the album is closed next (the first adoption tells about hearts after it) */
+  onClose?: () => void;
+
+  private close() {
+    this.panel.classList.remove('on');
+    const f = this.onClose;
+    this.onClose = undefined;
+    f?.();
+  }
+
+  open() {
     this.render();
     this.panel.classList.add('on');
     this.dot.classList.remove('on');
@@ -155,7 +175,10 @@ export class Album {
           this.pic(s.name).then((url) => { img.src = url; }, () => { /* no portrait: the card stays plain */ });
           const ail = iconCanvas(28, (g) => drawAilment(g, s.ailment, 34, 34, 26));
           ail.className = 'ail';
-          card.append(img, ail);
+          const nm = document.createElement('div');
+          nm.className = 'nm';
+          nm.textContent = NAMES[s.name.replace('*', '')] ?? s.name;
+          card.append(img, nm, ail);
           if (n) {
             const c = document.createElement('div');
             c.className = 'n';
