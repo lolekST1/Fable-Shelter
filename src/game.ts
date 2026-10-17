@@ -385,6 +385,8 @@ export class Game {
   private dustT = 0;
   /** tutorial: 0 take medicine, 1 cure, 2 care for a resident, 3 build, 4 done */
   private step = 0;
+  /** after the tutorial the guide arrow shows each new thing once: a new station (by kind), the wardrobe */
+  private seen = new Set<string>();
   private t = 0;
   private saveT = 0;
   private strayT = 1;
@@ -496,7 +498,7 @@ export class Game {
   // ------------------------------------------------------------ save / load
 
   private load() {
-    let data: { ver?: number; coins?: number; bought?: number; hearts?: number; residents?: { name: string; hearts: number; v?: number }[]; album?: Record<string, number>; albumPaid?: number[]; daily?: DailyState; wardrobe?: WardrobeState; savedAt?: number; chest?: number } | null = null;
+    let data: { ver?: number; coins?: number; bought?: number; hearts?: number; residents?: { name: string; hearts: number; v?: number }[]; album?: Record<string, number>; albumPaid?: number[]; daily?: DailyState; wardrobe?: WardrobeState; savedAt?: number; chest?: number; seen?: string[] } | null = null;
     try {
       if (new URLSearchParams(location.search).has('reset')) localStorage.removeItem(SAVE_KEY);
       data = JSON.parse(localStorage.getItem(SAVE_KEY) ?? 'null');
@@ -518,7 +520,8 @@ export class Game {
     const away = data.savedAt ? Math.min(OFFLINE_CAP, Math.max(0, (Date.now() - data.savedAt) / 60000)) : 0;
     const earned = away >= 2 ? Math.round(away * OFFLINE_RATE * helpers) : 0;
     this.setChest((data.chest ?? 0) + earned);
-    if (n > 0) this.step = 4;
+    for (const k of data.seen ?? []) this.seen.add(k);
+    if (n > 0) { this.step = 4; if (!data.seen) this.markSeen(); }
   }
 
   private save() {
@@ -536,6 +539,7 @@ export class Game {
         albumPaid: this.album.paid,
         daily: this.daily.state ?? undefined,
         wardrobe: this.wardrobe.state,
+        seen: [...this.seen],
       }));
     } catch { /* ignore */ }
   }
@@ -1656,7 +1660,7 @@ export class Game {
     r.needT = 6 + Math.random() * 5;
     this.fx.emit('heart', r.c.root.position.clone().setY(r.c.height + 0.2), 8, { speed: 0.8, up: 1.2, g: -0.2, life: 1.4, size: 1.6 });
     this.d.sfx.pop(6);
-    if (this.step === 2) this.step = 3;
+    if (this.step === 2) { this.step = 3; this.markSeen(); }
     if (r.hearts >= MAX_HEARTS) this.adopt(r);
     this.drawNeed(r);
   }
@@ -1967,7 +1971,7 @@ export class Game {
     }
     // the wardrobe opens when the keeper comes to the house door (and again only after walking away)
     const atDoor = Math.hypot(k.x - HOUSE_DOOR.x, k.z - HOUSE_DOOR.z) < 0.8;
-    if (atDoor && !this.atDoor && this.step >= 4) this.wardrobe.open();
+    if (atDoor && !this.atDoor && this.step >= 4) { this.wardrobe.open(); this.seen.add('wardrobe'); }
     this.atDoor = atDoor || (this.atDoor && Math.hypot(k.x - HOUSE_DOOR.x, k.z - HOUSE_DOOR.z) < 1.6);
     if (this.trail && keeper.walk > 0.3) {
       this.trailT -= dt;
@@ -2006,6 +2010,7 @@ export class Game {
         });
         this.d.sfx.pop(n);
         this.pickT = 0.13;
+        this.seen.add(s.kind);
         if (this.step === 0) {
           this.step = 1;
           this.onFirstPickup?.();
@@ -2297,15 +2302,21 @@ export class Game {
     }
   }
 
+  /** everything already in the world counts as known (end of the tutorial, old saves) */
+  private markSeen() {
+    for (const s of this.stations) this.seen.add(s.kind);
+  }
+
   private updateGuide() {
     let target: THREE.Vector3 | null = null;
     const first = this.stations[0];
-    if (this.step === 0) target = first.pos.clone().setY(1.5);
-    else if (this.step === 1) {
+    const cure = () => {
       const p = this.patients.find((p) => p.state === 'waiting' || p.state === 'arriving');
-      if (p && this.carry.some((v) => v.userData.kind === p.sp.cure)) target = p.c.root.position.clone().setY(p.c.height + 1.3);
-      else target = first.pos.clone().setY(1.5);
-    } else if (this.step === 2) {
+      return p && this.carry.some((v) => v.userData.kind === p.sp.cure) ? p.c.root.position.clone().setY(p.c.height + 1.3) : first.pos.clone().setY(1.5);
+    };
+    if (this.step === 0) target = first.pos.clone().setY(1.5);
+    else if (this.step === 1) target = cure();
+    else if (this.step === 2) {
       const r = this.residents.find((r) => r.need);
       if (r?.need === 'food') {
         const berries = this.stations.find((s) => s.kind === 'berry')!;
@@ -2314,6 +2325,13 @@ export class Game {
     } else if (this.step === 3) {
       const s = this.spots.find((s) => s.index === this.bought);
       if (!this.ground.length && s && this.coins >= s.def.price) target = s.pos.clone().setY(1);
+      else if (!this.ground.length) target = cure(); // not enough yet: back to curing for more coins
+    } else {
+      // ponytail: one hint at a time, first match wins
+      const fresh = this.stations.find((s) => !this.seen.has(s.kind) && s.tray.length);
+      if (fresh) target = this.carry.length < this.capacity ? fresh.pos.clone().setY(1.5) : cure(); // full hands: cure first
+      else if (this.chest) target = CHEST_AT.clone().setY(2.2);
+      else if (!this.seen.has('wardrobe') && this.coins >= 150) target = HOUSE_DOOR.clone().setY(2.6);
     }
     this.guide.visible = !!target;
     if (target) {
