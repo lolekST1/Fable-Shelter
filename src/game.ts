@@ -5,6 +5,7 @@ import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, drawAilment, 
 import { Album } from './album';
 import { Daily, type DailyState, today } from './daily';
 import { heartsStory, introStory, meetStory, nextCard } from './story';
+import { HALLOWEEN_CHANCE, HALLOWEEN_SPECIES, bats, halloween, pumpkins } from './halloween';
 import { Wardrobe, type WardrobeState, drawHanger, itemMesh } from './wardrobe';
 import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, carouselMesh, coinGeo, coinMat, dressUp, fountainMesh, gold, glowSprite, pedestalMesh, swingMesh, chestMesh, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery, shellBedMesh, lighthouseMesh, boardwalkGateMesh, duneMounds, seaScenery } from './props';
 
@@ -78,6 +79,9 @@ export const SPECIES: Record<string, Species> = {
   balwanek: { height: 1.1, ailment: 'melt', cure: 'blue', tint: 0xd8f0ff, coins: 14, skill: { boost: 'blue' }, zone: 'snow' },
   pingwinek: { height: 0.95, ailment: 'slide', cure: 'cocoa', tint: 0xc0d0ff, coins: 14, skill: { carry: 'cure' }, zone: 'snow' },
   // the bay creatures
+  // Halloween only (see halloween.ts): camp patients while the event lasts
+  dyniak: { height: 1.0, ailment: 'seeds', cure: 'pink', tint: 0xfff0e0, coins: 9, skill: { boost: 'pink' } },
+  duszek: { height: 1.0, ailment: 'fade', cure: 'blue', tint: 0xf4f6ff, coins: 9, skill: { carry: 'cure' } },
   krabik: { height: 0.95, ailment: 'pinch', cure: 'pearl', tint: 0xffd0c0, coins: 15, skill: { boost: 'pearl' }, zone: 'sea' },
   foczka: { height: 1.0, ailment: 'sand', cure: 'blue', tint: 0xfff0d0, coins: 15, skill: { carry: 'berry' }, zone: 'sea' },
   zolwik: { height: 1.0, ailment: 'hide', cure: 'pearl', tint: 0xd0ffe8, coins: 16, skill: { carry: 'cure' }, zone: 'sea' },
@@ -85,12 +89,13 @@ export const SPECIES: Record<string, Species> = {
 };
 
 /** the album's pages, one per area, in the order the species turn up; a full page pays its reward (in coins) once */
-const ALBUM_PAGES: { zone: Zone; icon: SpotIcon; reward: number; species: string[] }[] = [
+const ALBUM_PAGES: { zone: Zone; icon: SpotIcon; reward: number; species: string[]; seasonal?: boolean }[] = [
   { zone: 'camp', icon: 'bed', reward: 150, species: ['chmurnik', 'smok', 'feniks', 'gryf', 'grzybolak', 'kraken', 'jednorozec', 'bazyliszek'] },
   { zone: 'pond', icon: 'lilybed', reward: 250, species: ['zabiksiaze', 'nessie', 'swietlik', 'wodnik'] },
   { zone: 'glade', icon: 'mossbed', reward: 350, species: ['leszy', 'wilkolaczek', 'skrzat', 'sowka'] },
   { zone: 'snow', icon: 'snowbed', reward: 450, species: ['yeti', 'renifer', 'balwanek', 'pingwinek'] },
   { zone: 'sea', icon: 'shellbed', reward: 550, species: ['krabik', 'foczka', 'zolwik', 'syrenka'] },
+  { zone: 'camp', icon: 'pumpkin', reward: 300, species: HALLOWEEN_SPECIES, seasonal: true },
 ];
 
 const PICK_R = 1.4;
@@ -399,6 +404,8 @@ export class Game {
   private binT = 0;
   private binRing!: THREE.Mesh;
   private house!: THREE.Group;
+  /** Halloween decorations while the event lasts: carved pumpkins round the pen and bats at night */
+  private spooky?: { pumpkins: THREE.Group; bats: THREE.Group };
   /** a see-through keeper that shows how to plump up a bed, until the player has done it once */
   private ghost?: THREE.Object3D;
   private pickT = 0;
@@ -440,8 +447,8 @@ export class Game {
         { name, ailment: SPECIES[name].ailment, page },
         { name: RARE(name), ailment: SPECIES[name].ailment, page, rare: true },
       ])),
-      ALBUM_PAGES.map((pg) => ({ icon: pg.icon, reward: pg.reward })),
-      () => this.species,
+      ALBUM_PAGES.map((pg) => ({ icon: pg.icon, reward: pg.reward, hidden: pg.seasonal ? () => !halloween() : undefined })),
+      () => (halloween() ? [...this.species, ...HALLOWEEN_SPECIES] : this.species),
       (key) => {
         const name = key.replace('*', '');
         return d.portrait(SPECIES[name].model ?? name, key === name ? SPECIES[name].base ?? null : variantTint(name));
@@ -523,6 +530,15 @@ export class Game {
     hanger.scale.setScalar(0.6);
     hanger.position.copy(HOUSE_DOOR).setY(2.1);
     d.scene.add(hanger);
+    if (halloween()) {
+      // pumpkins just outside the pen fence (r 3.6), clear of the front and back gates, all grinning at the camera
+      const at: [number, number, number, number][] = [40, 75, 110, 145, -40, -75, -110, -145].map((deg, i) => {
+        const a = (deg * Math.PI) / 180;
+        return [Math.sin(a) * 4.15, -Math.cos(a) * 4.15, 0.8 + (i % 3) * 0.2, (i % 2 ? 0.25 : -0.25)];
+      });
+      this.spooky = { pumpkins: pumpkins(at), bats: bats() };
+      d.scene.add(this.spooky.pumpkins, this.spooky.bats);
+    }
 
     this.d.loadProp('opiekun').then((m) => {
       const mat = new THREE.MeshBasicMaterial({ color: 0xe8f4ff, transparent: true, opacity: 0.45, depthWrite: false });
@@ -983,6 +999,8 @@ export class Game {
     if (this.rain > 0.5) for (const s of this.stations) if (s.kind === 'blue') s.boost = Math.max(s.boost, 0.2);
     const glow = 1 - this.daylight;
     for (const g of this.glows) { g.visible = glow > 0.02; (g.material as THREE.SpriteMaterial).opacity = glow * 0.85; }
+    this.spooky?.pumpkins.userData.glow(glow);
+    this.spooky?.bats.userData.tick(this.t, glow);
   }
 
   private addGlow(g: THREE.Object3D, y: number, color: number, size: number) {
@@ -1230,7 +1248,8 @@ export class Game {
     const pool = this.species.filter((n) => (lonely ? zoneOf(n) === lonely : open.includes(zoneOf(n))));
     const held = pool.filter((n) => this.carry.some((v) => v.userData.kind === SPECIES[n].cure));
     const r = Math.random();
-    const name = held.length && r < 0.5 ? held[Math.floor(Math.random() * held.length)] : r < 0.7 ? pool[pool.length - 1] : pool[Math.floor(Math.random() * pool.length)];
+    let name = held.length && r < 0.5 ? held[Math.floor(Math.random() * held.length)] : r < 0.7 ? pool[pool.length - 1] : pool[Math.floor(Math.random() * pool.length)];
+    if (!lonely && this.step >= 4 && halloween() && Math.random() < HALLOWEEN_CHANCE) name = HALLOWEEN_SPECIES[Math.floor(Math.random() * HALLOWEEN_SPECIES.length)];
     const sp = SPECIES[name];
     const zone = zoneOf(name);
     let seat = new THREE.Vector3();
@@ -1502,6 +1521,23 @@ export class Game {
         if (p.fxT <= 0) { p.fxT = 3 + Math.random(); if (loud) this.d.sfx.squeak(); }
         c.root.scale.set(1, p.fxT > 1.6 ? 0.55 : 1, 1);
         break;
+      case 'seeds':
+        // sneezes pumpkin seeds all over
+        if (p.fxT <= 0) {
+          p.fxT = 2.4 + Math.random();
+          c.twitch(1.2);
+          this.fx.emit('seed', head.clone().addScaledVector(toCam, 0.3), 12, { speed: 2, dir: toCam, spread: 0.5, up: 1.4, g: 4, life: 0.9 });
+          if (loud) this.d.sfx.boing();
+        }
+        break;
+      case 'fade':
+        // keeps fading away for a moment, then pops back with a puff
+        if (p.fxT <= 0) { p.fxT = 2.6 + Math.random() * 1.2; c.twitch(0.5); }
+        if (p.fxT < 0.6 !== !c.root.visible) {
+          c.root.visible = !(p.fxT < 0.6);
+          if (c.root.visible) this.fx.emit('smoke', head.clone(), 5, { speed: 0.5, up: 0.6, g: -0.2, life: 0.8 });
+        }
+        break;
       case 'tangle':
         // tangled in seaweed: wriggles about, green bits flying off
         c.root.rotation.z = Math.sin(this.t * 7) * 0.12;
@@ -1550,6 +1586,7 @@ export class Game {
     p.stateT = 0;
     p.c.root.scale.setScalar(1);
     p.c.root.rotation.z = 0; // a tangled one stops wriggling
+    p.c.root.visible = true; // a fading ghost stays
     p.c.setTint(p.variant ? variantTint(p.name) : p.sp.base ?? null);
     this.d.scene.remove(p.bubble);
     p.edge.remove();
@@ -2061,7 +2098,7 @@ export class Game {
       this.trailT -= dt;
       if (this.trailT <= 0) {
         this.trailT = 0.14;
-        const kind = ({ hearts: 'heart', bubbles: 'bubble', stars: 'star' } as const)[this.trail as 'hearts' | 'bubbles' | 'stars'];
+        const kind = ({ hearts: 'heart', bubbles: 'bubble', stars: 'star', embers: 'spark' } as const)[this.trail as 'hearts' | 'bubbles' | 'stars' | 'embers'];
         this.fx.emit(kind, k.clone().setY(0.25), 1, { speed: 0.3, up: 0.7, g: kind === 'bubble' ? -0.4 : 0.6, life: 0.9, size: kind === 'heart' ? 1.1 : 0.8 });
       }
     }

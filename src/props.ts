@@ -1021,7 +1021,7 @@ export function backpackMesh(): THREE.Group {
 // ---------------------------------------------------------------- particles
 
 interface Particle { m: THREE.Mesh; v: THREE.Vector3; life: number; max: number; g: number; spin: number; s: number }
-type Kind = 'spark' | 'flake' | 'bubble' | 'star' | 'dust' | 'smoke' | 'spore' | 'feather' | 'confetti' | 'pebble' | 'heart' | 'zzz' | 'leaf' | 'note';
+type Kind = 'spark' | 'flake' | 'bubble' | 'star' | 'dust' | 'smoke' | 'spore' | 'feather' | 'confetti' | 'pebble' | 'heart' | 'zzz' | 'leaf' | 'note' | 'seed';
 
 export class Fx {
   private list: Particle[] = [];
@@ -1038,6 +1038,7 @@ export class Fx {
     pebble: new THREE.DodecahedronGeometry(0.05),
     heart: (() => { const s = new THREE.Shape(); s.moveTo(0, -0.06); s.bezierCurveTo(-0.1, 0.01, -0.04, 0.08, 0, 0.03); s.bezierCurveTo(0.04, 0.08, 0.1, 0.01, 0, -0.06); return new THREE.ShapeGeometry(s, 6); })(),
     zzz: new THREE.TorusGeometry(0.04, 0.012, 6, 12),
+    seed: new THREE.SphereGeometry(0.045, 6, 4).scale(1, 0.35, 0.65),
     leaf: (() => { const s = new THREE.Shape(); s.moveTo(0, -0.08); s.quadraticCurveTo(0.07, 0, 0, 0.09); s.quadraticCurveTo(-0.07, 0, 0, -0.08); return new THREE.ShapeGeometry(s, 5); })(),
     note: (() => { const s = new THREE.Shape(); s.absellipse(0, 0, 0.045, 0.035, 0, Math.PI * 2, false, -0.4); const st = new THREE.Shape(); st.moveTo(0.03, 0); st.lineTo(0.045, 0); st.lineTo(0.045, 0.14); st.lineTo(0.09, 0.1); st.lineTo(0.09, 0.12); st.lineTo(0.03, 0.16); return new THREE.ShapeGeometry([s, st], 6); })(),
   };
@@ -1054,6 +1055,7 @@ export class Fx {
     pebble: [new THREE.MeshStandardMaterial({ color: 0x9aa3ad }), new THREE.MeshStandardMaterial({ color: 0x7d858e })],
     heart: [new THREE.MeshBasicMaterial({ color: 0xff5f86, side: THREE.DoubleSide })],
     zzz: [new THREE.MeshBasicMaterial({ color: 0x8f9bff })],
+    seed: [new THREE.MeshBasicMaterial({ color: 0xfff1c8 }), new THREE.MeshBasicMaterial({ color: 0xf5dea0 })],
     leaf: [0xff9a3d, 0xffcf4d, 0xe8643a, 0x8fcf6a].map((c) => new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })),
     note: [0x6a5acd, 0x8a6cff].map((c) => new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })),
   };

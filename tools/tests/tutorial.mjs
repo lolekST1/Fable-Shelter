@@ -39,7 +39,7 @@ let opened = false;
 for (let i = 0; i < 20; i++) { await p.waitForTimeout(150); opened ||= await G(() => window.__G().wardrobe.isOpen); }
 check(!opened, 'walking past the house door does not open the wardrobe');
 await G(([x, z]) => window.__go(x, z), [door.x, door.z]);
-await p.waitForFunction(() => document.querySelector('#wardrobe.on, .wardrobe.on, [id*=ward].on'), null, { timeout: 30000 }).then(() => check(true, 'wardrobe opens during the tutorial'), () => check(false, 'wardrobe opens during the tutorial'));
+await p.waitForFunction(() => document.querySelector('#wardrobe.on, .wardrobe.on, [id*=ward].on'), null, { timeout: 30000 }).then(() => check(true, 'wardrobe opens during the tutorial'), async () => { check(false, 'wardrobe opens during the tutorial'); console.log('   state', await G(() => { const g = window.__G(), k = window.__keeper(); return JSON.stringify({ k, doorT: g.doorT, atDoor: g.atDoor, step: g.step, story: !!document.getElementById('story') }); })); });
 await shot(2);
 await p.mouse.click(10, 420); await p.keyboard.press('Escape');
 await G(() => { const el = document.querySelector('#wardrobe.on, .wardrobe.on, [id*=ward].on'); el?.classList.remove('on'); });
@@ -52,9 +52,9 @@ await p.waitForTimeout(1500);
 check(await G(() => window.__G().ghost?.visible === true), 'ghost keeper shows how to plump the bed');
 await shot(3);
 const bed = await G(() => { const b = window.__G().residents[0].bed.pos; return [b.x, b.z]; });
-await G(([x, z]) => window.__walk(x, z), bed);
+await G(([x, z]) => window.__go(x, z), bed); // through the pen gate: straight from the house door it stops at the fence
 let fillSeen = false;
-for (let i = 0; i < 30 && !fillSeen; i++) { await p.waitForTimeout(150); fillSeen = await G(() => { const b = window.__G().residents[0]?.bed; return b && b.fill.visible && b.fluff > 0.2 && b.fluff < 0.9; }); }
+for (let i = 0; i < 120 && !fillSeen; i++) { await p.waitForTimeout(150); fillSeen = await G(() => { const b = window.__G().residents[0]?.bed; return b && b.fill.visible && b.fluff > 0.2 && b.fluff < 0.9; }); }
 check(fillSeen, 'green ring fills while plumping');
 if (fillSeen) await shot(4);
 await p.waitForTimeout(3000);

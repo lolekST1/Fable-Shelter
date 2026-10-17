@@ -115,6 +115,7 @@ const AILMENT_TEXT: Record<Ailment, string> = {
   flicker: 'Gaśnie mu światełko', stone: 'Kamienieje', leaves: 'Gubi liście', howl: 'Wyje do księżyca', shrink: 'Kurczy się',
   dizzy: 'Kręci mu się w głowie', snowball: 'Czka śnieżkami', nose: 'Miga mu nos', melt: 'Topnieje', slide: 'Kręci się w kółko',
   pinch: 'Szczypie się w nos', sand: 'Kicha piaskiem', hide: 'Chowa się w skorupę', tangle: 'Plącze się w wodorostach',
+  seeds: 'Kicha pestkami', fade: 'Znika co chwilę',
 };
 const CURE_TEXT: Record<Medicine, string> = {
   pink: 'Eliksir z kociołka', blue: 'Woda ze źródełka', green: 'Zioła', purple: 'Nektar z lilii', gold: 'Złoty miód',

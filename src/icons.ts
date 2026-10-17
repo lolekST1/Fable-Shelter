@@ -1,6 +1,6 @@
 /** Small hand-drawn canvas icons, so nothing in the game depends on text or emoji fonts. */
 
-export type Ailment = 'snow' | 'smoke' | 'sparks' | 'spores' | 'feathers' | 'bubbles' | 'confetti' | 'stone' | 'crown' | 'fountain' | 'drip' | 'flicker' | 'leaves' | 'shrink' | 'howl' | 'dizzy' | 'snowball' | 'nose' | 'melt' | 'slide' | 'pinch' | 'sand' | 'hide' | 'tangle';
+export type Ailment = 'snow' | 'smoke' | 'sparks' | 'spores' | 'feathers' | 'bubbles' | 'confetti' | 'stone' | 'crown' | 'fountain' | 'drip' | 'flicker' | 'leaves' | 'shrink' | 'howl' | 'dizzy' | 'snowball' | 'nose' | 'melt' | 'slide' | 'pinch' | 'sand' | 'hide' | 'tangle' | 'seeds' | 'fade';
 
 /** a musical note (for howling) */
 function note(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
@@ -423,6 +423,46 @@ export function drawAilment(g: CanvasRenderingContext2D, kind: Ailment, x: numbe
       g.bezierCurveTo(x + dx * r + r * 0.35, y + r * 0.3, x + dx * r - r * 0.35, y - r * 0.2, x + dx * r + r * 0.1, y - r * 0.8);
       g.stroke();
     }
+  } else if (kind === 'seeds') {
+    // sneezing pumpkin seeds: a burst with flat cream seeds flying out
+    g.strokeStyle = '#f08a24';
+    g.lineWidth = r * 0.12;
+    for (const a of [-0.9, -0.3, 0.3, 0.9]) {
+      g.beginPath();
+      g.moveTo(x - r * 0.75 + Math.cos(a) * r * 0.2, y + Math.sin(a) * r * 0.2);
+      g.lineTo(x - r * 0.75 + Math.cos(a) * r * 0.45, y + Math.sin(a) * r * 0.45);
+      g.stroke();
+    }
+    g.fillStyle = '#fff1c8';
+    g.strokeStyle = '#d8b46a';
+    g.lineWidth = r * 0.06;
+    for (const [dx, dy, a] of [[0.05, -0.45, -0.6], [0.5, 0, 0.2], [0.05, 0.45, 0.8], [0.62, -0.55, -0.2]]) {
+      g.beginPath();
+      g.ellipse(x + dx * r, y + dy * r, r * 0.2, r * 0.12, a, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+    }
+  } else if (kind === 'fade') {
+    // fading away: a little ghost, solid at the top and see-through below
+    const grad = g.createLinearGradient(0, y - r * 0.8, 0, y + r * 0.8);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(1, 'rgba(255,255,255,0.15)');
+    g.fillStyle = grad;
+    g.strokeStyle = 'rgba(140,150,200,0.8)';
+    g.lineWidth = r * 0.08;
+    g.setLineDash([r * 0.2, r * 0.14]);
+    g.beginPath();
+    g.moveTo(x - r * 0.55, y + r * 0.75);
+    g.lineTo(x - r * 0.55, y - r * 0.1);
+    g.arc(x, y - r * 0.1, r * 0.55, Math.PI, 0);
+    g.lineTo(x + r * 0.55, y + r * 0.75);
+    for (let i = 0; i < 3; i++) g.quadraticCurveTo(x + r * (0.37 - i * 0.37), y + r * 0.5, x + r * (0.18 - i * 0.37), y + r * 0.75);
+    g.closePath();
+    g.fill();
+    g.stroke();
+    g.setLineDash([]);
+    g.fillStyle = '#2a2a3a';
+    g.beginPath(); g.arc(x - r * 0.2, y - r * 0.15, r * 0.08, 0, Math.PI * 2); g.arc(x + r * 0.2, y - r * 0.15, r * 0.08, 0, Math.PI * 2); g.fill();
   } else {
     // hiccup bubbles
     for (const [dx, dy, s] of [[-0.3, 0.3, 0.5], [0.42, -0.05, 0.36], [0.05, -0.62, 0.26]]) {
@@ -1068,9 +1108,9 @@ export function drawBonfire(g: CanvasRenderingContext2D, x: number, y: number, r
   g.restore();
 }
 
-export type SpotIcon = 'cauldron' | 'spring' | 'herbs' | 'backpack' | 'shoes' | 'sign' | 'bed' | 'berry' | 'bridge' | 'lily' | 'lilybed' | 'lantern' | 'gate' | 'mossbed' | 'mushroom' | 'helper' | 'shovel' | 'snowbed' | 'bonfire' | 'swing' | 'fountain' | 'carousel' | 'statue' | 'boardwalk' | 'shellbed' | 'lighthouse';
+export type SpotIcon = 'cauldron' | 'spring' | 'herbs' | 'backpack' | 'shoes' | 'sign' | 'bed' | 'berry' | 'bridge' | 'lily' | 'lilybed' | 'lantern' | 'gate' | 'mossbed' | 'mushroom' | 'helper' | 'shovel' | 'snowbed' | 'bonfire' | 'swing' | 'fountain' | 'carousel' | 'statue' | 'boardwalk' | 'shellbed' | 'lighthouse' | 'pumpkin';
 export function drawSpotIcon(g: CanvasRenderingContext2D, icon: SpotIcon, x: number, y: number, r: number) {
-  ({ cauldron: drawCauldron, spring: drawSpring, herbs: drawHerbs, backpack: drawBackpack, shoes: drawShoe, sign: drawSign, bed: drawBed, berry: drawBerry, bridge: drawBridge, lily: drawLily, lilybed: drawLilyBed, lantern: drawLantern, gate: drawGate, mossbed: drawMossBed, mushroom: drawMushroom, helper: drawHelper, shovel: drawShovel, snowbed: drawSnowBed, bonfire: drawBonfire, swing: drawSwing, fountain: drawFountain, carousel: drawCarousel, statue: drawStatue, boardwalk: drawBoardwalk, shellbed: drawShellBed, lighthouse: drawLighthouse })[icon](g, x, y, r);
+  ({ cauldron: drawCauldron, spring: drawSpring, herbs: drawHerbs, backpack: drawBackpack, shoes: drawShoe, sign: drawSign, bed: drawBed, berry: drawBerry, bridge: drawBridge, lily: drawLily, lilybed: drawLilyBed, lantern: drawLantern, gate: drawGate, mossbed: drawMossBed, mushroom: drawMushroom, helper: drawHelper, shovel: drawShovel, snowbed: drawSnowBed, bonfire: drawBonfire, swing: drawSwing, fountain: drawFountain, carousel: drawCarousel, statue: drawStatue, boardwalk: drawBoardwalk, shellbed: drawShellBed, lighthouse: drawLighthouse, pumpkin: drawPumpkin })[icon](g, x, y, r);
 }
 
 function bubbleBase(g: CanvasRenderingContext2D) {
@@ -1268,6 +1308,26 @@ export function drawShellBed(g: CanvasRenderingContext2D, x: number, y: number, 
 }
 
 /** a striped lighthouse with a glowing lamp: more patients find the bay */
+/** a carved pumpkin with a glowing grin (the Halloween page of the album) */
+export function drawPumpkin(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  g.fillStyle = '#f08a24';
+  for (const [dx, w] of [[-0.42, 0.42], [0.42, 0.42], [0, 0.5]]) {
+    g.beginPath();
+    g.ellipse(x + dx * r, y + r * 0.1, w * r, r * 0.68, 0, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.strokeStyle = '#d06a14';
+  g.lineWidth = r * 0.06;
+  for (const dx of [-0.25, 0.25]) { g.beginPath(); g.ellipse(x + dx * r, y + r * 0.1, r * 0.2, r * 0.62, 0, -1.2, 1.2); g.stroke(); }
+  g.fillStyle = '#5f8a32';
+  g.fillRect(x - r * 0.08, y - r * 0.82, r * 0.16, r * 0.28);
+  g.fillStyle = '#ffd34d';
+  for (const dx of [-0.3, 0.3]) { g.beginPath(); g.moveTo(x + (dx - 0.14) * r, y - r * 0.05); g.lineTo(x + (dx + 0.14) * r, y - r * 0.05); g.lineTo(x + dx * r, y - r * 0.28); g.closePath(); g.fill(); }
+  g.beginPath(); g.moveTo(x - r * 0.45, y + r * 0.2); g.quadraticCurveTo(x, y + r * 0.62, x + r * 0.45, y + r * 0.2); g.quadraticCurveTo(x, y + r * 0.38, x - r * 0.45, y + r * 0.2); g.fill();
+  g.restore();
+}
+
 export function drawLighthouse(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
   g.save();
   g.fillStyle = 'rgba(255,211,77,0.55)';

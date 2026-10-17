@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { drawCoin, drawHeart } from './icons';
+import { halloween } from './halloween';
 
 /**
  * The wardrobe in the shelter house: things for the keeper to wear, bought once with coins and then put on or
@@ -8,12 +9,14 @@ import { drawCoin, drawHeart } from './icons';
  */
 
 export type Slot = 'head' | 'neck' | 'trail';
-export interface Item { id: string; slot: Slot; price: number }
+/** `seasonal`: sold only while Halloween lasts (see halloween.ts); once bought it stays */
+export interface Item { id: string; slot: Slot; price: number; seasonal?: boolean }
 export const ITEMS: Item[] = [
   { id: 'flower', slot: 'head', price: 150 },
   { id: 'feather', slot: 'head', price: 350 },
   { id: 'ears', slot: 'head', price: 700 },
   { id: 'crown', slot: 'head', price: 1500 },
+  { id: 'witch', slot: 'head', price: 600, seasonal: true },
   { id: 'scarf', slot: 'neck', price: 200 },
   { id: 'stripes', slot: 'neck', price: 450 },
   { id: 'bow', slot: 'neck', price: 800 },
@@ -21,6 +24,7 @@ export const ITEMS: Item[] = [
   { id: 'hearts', slot: 'trail', price: 900 },
   { id: 'bubbles', slot: 'trail', price: 1300 },
   { id: 'stars', slot: 'trail', price: 2500 },
+  { id: 'embers', slot: 'trail', price: 1100, seasonal: true },
 ];
 export interface WardrobeState { owned: string[]; worn: Partial<Record<Slot, string>> }
 
@@ -88,6 +92,21 @@ export function itemMesh(id: string): THREE.Group | null {
       gem.rotation.y = -b + Math.PI / 2;
       g.add(point, tip, gem);
     }
+  } else if (id === 'witch') {
+    const cloth = mat(0x4a2f6a, { roughness: 0.85 });
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.02, 24), cloth);
+    brim.position.y = HAT;
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.34, 20), cloth);
+    cone.position.set(0, HAT + 0.17, 0);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.12, 12), cloth);
+    tip.position.set(0.05, HAT + 0.36, 0);
+    tip.rotation.z = -0.7; // the tip flops over
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.128, 0.138, 0.05, 20), mat(0xf08a24));
+    band.position.y = HAT + 0.04;
+    const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.045, 0.01), mat(0xffd34d, { metalness: 0.5, roughness: 0.3 }));
+    buckle.position.set(0, HAT + 0.04, 0.135);
+    g.add(brim, cone, tip, band, buckle);
+    g.rotation.z = 0.12;
   } else if (id === 'scarf' || id === 'stripes') {
     const a = mat(id === 'scarf' ? 0xe8435a : 0x59c25a), b = mat(id === 'scarf' ? 0xe8435a : 0xffffff);
     for (let i = 0; i < 12; i++) {
@@ -159,6 +178,12 @@ export function drawItem(g: CanvasRenderingContext2D, id: string, x: number, y: 
     g.lineTo(x + r * 0.4, y); g.lineTo(x + r * 0.8, y - r * 0.4); g.lineTo(x + r * 0.8, y + r * 0.55);
     g.closePath(); g.fill();
     dot(-0.4, 0.3, 0.12, '#ff5f86'); dot(0, 0.3, 0.12, '#6fc3ff'); dot(0.4, 0.3, 0.12, '#ff5f86');
+  } else if (id === 'witch') {
+    g.fillStyle = '#4a2f6a';
+    g.beginPath(); g.ellipse(x, y + r * 0.45, r * 0.9, r * 0.18, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.moveTo(x - r * 0.45, y + r * 0.45); g.lineTo(x + r * 0.2, y - r * 0.6); g.lineTo(x + r * 0.62, y - r * 0.38); g.lineTo(x + r * 0.45, y + r * 0.45); g.closePath(); g.fill();
+    g.fillStyle = '#f08a24'; g.fillRect(x - r * 0.42, y + r * 0.2, r * 0.86, r * 0.16);
+    g.fillStyle = '#ffd34d'; g.fillRect(x - r * 0.07, y + r * 0.18, r * 0.14, r * 0.2);
   } else if (id === 'scarf' || id === 'stripes') {
     const a = id === 'scarf' ? '#e8435a' : '#59c25a', b = id === 'scarf' ? '#c8304a' : '#ffffff';
     g.lineWidth = r * 0.36; g.lineCap = 'round';
@@ -177,6 +202,11 @@ export function drawItem(g: CanvasRenderingContext2D, id: string, x: number, y: 
   } else if (id === 'bubbles') {
     g.strokeStyle = '#6fc3ff'; g.lineWidth = r * 0.1;
     for (const [dx, dy, rr] of [[-0.35, 0.3, 0.3], [0.3, -0.1, 0.38], [-0.05, -0.6, 0.2]]) { g.beginPath(); g.arc(x + dx * r, y + dy * r, rr * r, 0, Math.PI * 2); g.stroke(); }
+  } else if (id === 'embers') {
+    for (const [dx, dy, s, c] of [[-0.4, 0.35, 0.3, '#ff8a3d'], [0.3, -0.2, 0.42, '#ffe066'], [-0.05, -0.62, 0.22, '#ff8a3d'], [0.45, 0.5, 0.2, '#ffe066']] as const) {
+      g.fillStyle = c;
+      g.beginPath(); g.moveTo(x + dx * r, y + (dy - s) * r); g.lineTo(x + (dx + s * 0.7) * r, y + dy * r); g.lineTo(x + dx * r, y + (dy + s) * r); g.lineTo(x + (dx - s * 0.7) * r, y + dy * r); g.closePath(); g.fill();
+    }
   } else if (id === 'stars') {
     for (const [dx, dy, s] of [[-0.35, 0.3, 0.45], [0.35, -0.3, 0.55]]) {
       g.fillStyle = '#ffc21a';
@@ -286,7 +316,7 @@ export class Wardrobe {
     for (const slot of ['head', 'neck', 'trail'] as Slot[]) {
       const row = document.createElement('div');
       row.className = 'row';
-      for (const item of ITEMS.filter((i) => i.slot === slot)) {
+      for (const item of ITEMS.filter((i) => i.slot === slot && (!i.seasonal || halloween() || this.state.owned.includes(i.id)))) {
         const owned = this.state.owned.includes(item.id);
         const card = document.createElement('button');
         card.className = 'card' + (this.state.worn[slot] === item.id ? ' worn' : '') + (!owned && this.coins() < item.price ? ' poor' : '');

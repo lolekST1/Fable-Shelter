@@ -9,7 +9,8 @@ import { type Ailment, drawAilment, drawCoin, drawHeart, drawSpotIcon, type Spot
 
 /** `rare`: a colour variant's card; it shows only once adopted and is not needed to fill the page */
 export interface AlbumSpecies { name: string; ailment: Ailment; page: number; rare?: boolean }
-export interface AlbumPage { icon: SpotIcon; reward: number }
+/** `hidden`: a seasonal page, shown only while its event lasts or once something on it was adopted */
+export interface AlbumPage { icon: SpotIcon; reward: number; hidden?: () => boolean }
 
 /** names under the cards (a rare variant, `name*`, shows its species' name) */
 export const NAMES: Record<string, string> = {
@@ -17,6 +18,7 @@ export const NAMES: Record<string, string> = {
   bazyliszek: 'Bazyliszek', zabiksiaze: 'Żabi książę', nessie: 'Nessie', swietlik: 'Świetlik', wodnik: 'Wodnik', leszy: 'Leszy',
   wilkolaczek: 'Wilkołaczek', skrzat: 'Skrzat', sowka: 'Sówka', yeti: 'Yeti', renifer: 'Renifer', balwanek: 'Bałwanek',
   pingwinek: 'Pingwinek', krabik: 'Krabik', foczka: 'Foczka', zolwik: 'Żółwik', syrenka: 'Syrenka',
+  dyniak: 'Dyniak', duszek: 'Duszek',
 };
 
 export class Album {
@@ -150,6 +152,7 @@ export class Album {
       const list = this.species.filter((s) => s.page === i && !s.rare);
       const rares = this.species.filter((s) => s.page === i && s.rare && this.counts[s.name]);
       if (!list.length) return;
+      if (page.hidden?.() && !list.some((s) => this.counts[s.name])) return;
       const box = document.createElement('div');
       box.className = 'page' + (this.paid.includes(i) ? ' full' : '');
       const head = document.createElement('div');

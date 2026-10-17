@@ -200,5 +200,21 @@ Te same prompty, po 3 obrazy na postać: yeti, renifer, bałwanek, pingwinek, kr
 - Z-Image ma bardziej puchate futro, rumieńce i miękkie światło, czyli ten sam styl co 20 gatunków, które już są w grze. Tło jest jaśniejsze i bardziej szare.
 - Wniosek: stworki dalej w Z-Image, żeby nowe pasowały do starych. FLUX 3 warto brać do rekwizytów i do edycji obrazu (tył i bok z referencji), bo ma też tryb edycji.
 
+## Halloween (noc 17/18.10.2026, gałąź `noc/halloween`)
+Z-Image Turbo, 4 obrazy na postać, potem Pixal3D z samego przodu (25000 trójkątów), `optimize.sh … pixal` i `lighter.sh 0.5` (ok. 12 400 trójkątów, bez plamek). Wybrane: `dyniak-image-turbo_00002_WYBRANY.png`, `duszek-image-turbo_00004_WYBRANY.png`, modele `dyniak_00001.glb` i `duszek_00001.glb`. Na żadnym obrazku nie wyszły listki przy ogonku dyni.
+
+### Dyniak (`dyniak`)
+Choroba w grze: kicha pestkami. Lekarstwo: eliksir z kociołka (różowy). Seed 31101.
+```
+cute little pumpkin creature, round orange pumpkin body with soft ribs, a curly green stem and two small green leaves on top of its head, a friendly carved jack-o'-lantern smile, rosy cheeks, tiny stubby arms and short legs, round chubby body, standing straight, arms at sides,
+```
+
+### Duszek (`duszek`)
+Choroba w grze: znika co chwilę. Lekarstwo: woda ze źródełka (niebieska). Seed 31201.
+```
+cute little ghost creature, soft white plush body shaped like a rounded sheet ghost with a big round head, a wavy hem at the bottom resting on the floor, two tiny rounded arms, rosy cheeks, a small orange knitted scarf, happy open smile, round chubby body, standing straight, arms at sides,
+```
+Do każdego dopisz akapit stylu z góry pliku.
+
 ## Nazwy plików
 Zapisuj wybrane do `D:\ComfyUI-Shared\output\FS` jak dotąd, np. `Nessie-image-turbo_00003.png`, `nessie_tył_00001.png`, `nessie_lewy_00001.png`, a modele `nessie.glb`. Resztę przejrzę, wybiorę i oznaczę `WYBRANY`.
