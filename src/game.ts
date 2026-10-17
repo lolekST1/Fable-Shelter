@@ -2421,9 +2421,13 @@ export class Game {
   private updateGuide() {
     let target: THREE.Vector3 | null = null;
     const first = this.stations[0];
+    // a patient that needs something in the keeper's arms; with full arms of things nobody needs, the basket
+    // (a new player with four vials and only a hungry resident was sent to the berry bush and could not take any)
     const cure = () => {
-      const p = this.patients.find((p) => p.state === 'waiting' || p.state === 'arriving');
-      return p && this.carry.some((v) => v.userData.kind === p.sp.cure) ? p.c.root.position.clone().setY(p.c.height + 1.3) : first.pos.clone().setY(1.5);
+      const p = this.patients.find((p) => (p.state === 'waiting' || p.state === 'arriving') && this.carry.some((v) => v.userData.kind === p.sp.cure));
+      if (p) return p.c.root.position.clone().setY(p.c.height + 1.3);
+      if (this.carry.length >= this.capacity) return this.basket.position.clone().setY(1.2);
+      return first.pos.clone().setY(1.5);
     };
     if (this.step === 0) target = first.pos.clone().setY(1.5);
     else if (this.step === 1) target = cure();
@@ -2431,12 +2435,19 @@ export class Game {
       const r = this.residents.find((r) => r.need);
       if (r?.need === 'food') {
         const berries = this.stations.find((s) => s.kind === 'berry')!;
-        target = this.carry.some((v) => v.userData.kind === 'berry') ? r.c.root.position.clone().setY(r.c.height + 1.3) : berries.pos.clone().setY(1.4);
+        target = this.carry.some((v) => v.userData.kind === 'berry') ? r.c.root.position.clone().setY(r.c.height + 1.3)
+          : this.carry.length < this.capacity ? berries.pos.clone().setY(1.4) : cure(); // no room for berries: free the arms first
       } else if (r?.need === 'sleep') target = r.bed.pos.clone().setY(0.9);
     } else if (this.step === 3) {
       const s = this.spots.find((s) => s.index === this.bought);
       if (!this.ground.length && s && this.coins >= s.def.price) target = s.pos.clone().setY(1);
       else if (!this.ground.length) target = cure(); // not enough yet: back to curing for more coins
+      else {
+        // coins still lying about: the nearest one (it used to hide the arrow until they were picked up, for ever if out of the way)
+        const k = this.d.keeper.root.position;
+        const c = this.ground.filter((c) => !c.magnet && !c.toKeeper).sort((a, b) => a.m.position.distanceTo(k) - b.m.position.distanceTo(k))[0];
+        if (c) target = c.m.position.clone().setY(0.9);
+      }
     } else {
       // ponytail: one hint at a time, first match wins
       const fresh = this.stations.find((s) => !this.seen.has(s.kind) && s.tray.length);

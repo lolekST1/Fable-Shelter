@@ -26,8 +26,8 @@ const check = (ok, what) => { console.log((ok ? 'OK   ' : 'FAIL ') + what); if (
 check(await follow(90, () => window.__G().step >= 4), 'tutorial finished by following the arrow only');
 await p.screenshot({ path: 'out/newplayer1.png', timeout: 150000 });
 
-// a station of a new kind (as if a new area had just opened)
-await p.evaluate(() => window.__G().addStation('purple', 2, 4, false));
+// a station of a new kind (as if a new area had just opened); empty arms, or the arrow first (rightly) frees them
+await p.evaluate(() => { const G = window.__G(); while (G.carry.length) G.carry.pop().removeFromParent(); G.addStation('purple', 2, 4, false); });
 await p.waitForTimeout(6000);
 let g = await guide();
 check(g.on && Math.hypot(g.x - 2, g.z - 4) < 0.1, 'arrow points at the new station');
@@ -39,6 +39,7 @@ g = await guide();
 await p.waitForTimeout(500);
 g = await guide();
 const c = await p.evaluate(() => window.__G().chest.position);
+console.log('  guide', JSON.stringify(g), 'chest', JSON.stringify(c), await p.evaluate(() => { const G = window.__G(); return JSON.stringify({ carry: G.carry.length, fresh: G.stations.filter((s) => !G.seen.has(s.kind)).map((s) => s.kind + s.tray.length) }); }));
 check(g.on && Math.hypot(g.x - c.x, g.z - c.z) < 0.1, 'arrow points at the chest');
 check(await follow(15, () => !window.__G().chest), 'arrow led to the chest');
 
