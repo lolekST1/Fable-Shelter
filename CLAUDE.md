@@ -111,6 +111,9 @@ Po zmianach (teren 4, progi 15/30/50/70/90/110, jagody tylko dla głodnych) cał
 Po obniżce cen zatoczki automatyczny gracz przechodzi wszystko (34 zakupy) w 136 minut gry. Zakupy zatoczki trwają po 5,6–7,6 minuty, tak jak na Śnieżnym wzgórzu. Progi serduszek nie blokują ani sekundy. Przy pierwszych cenach zatoczki jej zakupy zajmowały 7–14 minut.
 Pułapki znalezione przez ten test: kieszeń między domkiem a końcem wydmy (opiekun utykał tam na zawsze) i pacjenci obozu sadzani przy domku, poza zasięgiem opiekuna. Jeśli nie ma wolnego miejsca, pacjent przy domku nie siada i przychodzi później.
 
+## Tempo gry po poprawkach testera (test całej gry, noc 17/18.10.2026)
+Dwa przejścia: wszystkie 34 zakupy w 128 i 132 minuty gry (wcześniej 136), bez zacięć, progi serduszek nie blokują ani sekundy. Dłuższe ścielenie (1,6 s) i kosz z opóźnieniem nie spowolniły gry. Czas opiekuna: pożegnania ok. 42%, ścielenie ok. 22%, leczenie ok. 11%. Ok. 300 pacjentów na przejście odchodzi z braku wolnych legowisk.
+
 ## Otwarte sprawy
 - Płynność (noc 17/18.10.2026, gałąź `noc/plynnosc`): przycinanie brało się z liczby trójkątów, nie z wywołań rysowania (obóz ma ich ok. 50) ani z pikseli (połowa rozdzielczości dawała tylko 15%). W pełnym obozie było ok. 360 tys. trójkątów na klatkę, w tym 210 tys. z 1500 kępek trawy. Teraz kępki to półkule po 40 trójkątów (pod śniegiem w ogóle ich nie ma), a modele są uproszczone (`models/lighter.sh`), więc zostało ok. 130 tys. W przeglądarce testowej klatka trwa 132 ms zamiast 203. Logika gry zajmuje poniżej 1 ms. Do pomiarów: `tests/perf.mjs` i `tests/looks.mjs` (zrzuty przed i po).
 - Fiolki „chodzące same”: nie udało się odtworzyć. `tests/vials.mjs` sprawdza fiolki klatka po klatce (`__items()`) przez 100 rund w pełnym obozie i niczego nie znalazł. Podejrzenie: to fiolka niesiona na głowie przez pomagającego mieszkańca. Usunięto też martwy kod starego wynajętego krakena-pomocnika. Nadal potrzebny zrzut ekranu od użytkownika.
