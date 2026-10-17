@@ -32,6 +32,12 @@ check(await G(() => !window.__G().focus && !document.getElementById('story')), '
 // the wardrobe opens during the tutorial too
 const door = await G(() => { const t = window.__G().tapTarget({ intersectObject: () => [] }, { x: -9.2, y: 0, z: -1.4 }); return { x: t.x, z: t.z }; });
 check(Math.hypot(door.x + 9.2, door.z + 1.4) > 1, `a tap on the house walks to the door (${door.x.toFixed(1)}, ${door.z.toFixed(1)})`);
+// walking past the door must not open it
+await G(() => window.__walk(-6.6, -2.6)); await p.waitForTimeout(6000);
+await G(() => window.__walk(-7.6, 2.4));
+let opened = false;
+for (let i = 0; i < 20; i++) { await p.waitForTimeout(150); opened ||= await G(() => window.__G().wardrobe.isOpen); }
+check(!opened, 'walking past the house door does not open the wardrobe');
 await G(([x, z]) => window.__go(x, z), [door.x, door.z]);
 await p.waitForFunction(() => document.querySelector('#wardrobe.on, .wardrobe.on, [id*=ward].on'), null, { timeout: 30000 }).then(() => check(true, 'wardrobe opens during the tutorial'), () => check(false, 'wardrobe opens during the tutorial'));
 await shot(2);

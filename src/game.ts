@@ -182,6 +182,8 @@ function progressRing(r0: number, r1: number, color: number) {
 const FLUFF_TIME = 1.6;
 /** seconds of standing at the basket before it starts taking things */
 const BASKET_WAIT = 1.0;
+/** seconds of standing at the house door before the wardrobe opens (walking past must not open it) */
+const DOOR_WAIT = 1.2;
 const HOUSE = new THREE.Vector3(-9.2, 0, -1.4);
 const HOUSE_FACING = Math.PI / 4;
 const HOUSE_DOOR = HOUSE.clone().add(new THREE.Vector3(Math.sin(HOUSE_FACING) * 1.9, 0, Math.cos(HOUSE_FACING) * 1.9));
@@ -427,6 +429,8 @@ export class Game {
   private trail?: string;
   private trailT = 0;
   private atDoor = false;
+  private doorT = 0;
+  private doorRing!: THREE.Mesh;
   private savedDaily?: DailyState;
 
   constructor(private d: GameDeps) {
@@ -493,6 +497,9 @@ export class Game {
     this.binRing = progressRing(0.7, 0.86, 0xe8604c);
     this.binRing.position.set(2.4, 0.05, 6.3);
     d.scene.add(this.binRing);
+    this.doorRing = progressRing(0.45, 0.6, 0xffc21a);
+    this.doorRing.position.copy(HOUSE_DOOR).setY(0.05);
+    d.scene.add(this.doorRing);
     const house = (this.house = shelterHouseMesh());
     house.position.copy(HOUSE);
     house.rotation.y = HOUSE_FACING;
@@ -2045,8 +2052,11 @@ export class Game {
     }
     // the wardrobe opens when the keeper comes to the house door (and again only after walking away)
     const atDoor = Math.hypot(k.x - HOUSE_DOOR.x, k.z - HOUSE_DOOR.z) < 0.8;
-    if (atDoor && !this.atDoor) { this.wardrobe.open(); this.seen.add('wardrobe'); }
-    this.atDoor = atDoor || (this.atDoor && Math.hypot(k.x - HOUSE_DOOR.x, k.z - HOUSE_DOOR.z) < 1.6);
+    this.doorT = atDoor && !this.atDoor ? this.doorT + dt : 0;
+    this.doorRing.userData.fill(this.doorT / DOOR_WAIT);
+    if (this.doorT >= DOOR_WAIT) { this.doorT = 0; this.wardrobe.open(); this.seen.add('wardrobe'); }
+    // opened once: it opens again only after walking away
+    this.atDoor = this.wardrobe.isOpen || (this.atDoor && Math.hypot(k.x - HOUSE_DOOR.x, k.z - HOUSE_DOOR.z) < 1.6);
     if (this.trail && keeper.walk > 0.3) {
       this.trailT -= dt;
       if (this.trailT <= 0) {
