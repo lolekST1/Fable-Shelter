@@ -35,8 +35,8 @@ export interface GameDeps {
 const PROP_MODEL: Record<string, [string, number, number?]> = {
   pink: ['prop_kociolek', 1.15], blue: ['prop_zrodelko', 1.25], green: ['prop_ziola', 1.1], purple: ['prop_lilia', 1.3], gold: ['prop_ul', 1.05],
   camp: ['prop_legowisko', 1.15], pond: ['prop_legowiskolisc', 1.15], basket: ['prop_kosz', 0.95], house: ['prop_domek', 3.0, -0.45],
-  berry: ['prop_krzak', 1.1], glade: ['prop_legowiskomech', 1.15], snow: ['prop_legowiskokoc', 1.15], cocoa: ['prop_ognisko', 1.2], bonfire: ['prop_duzeognisko', 1.6], pearl: ['prop_perla', 1.2], sea: ['prop_legowiskomuszla', 1.2], lighthouse: ['prop_latarniamorska', 1.3],
-  sign: ['prop_drogowskaz', 1.1], lantern: ['prop_latarnia', 0.8], mushroom: ['prop_lampka', 0.9],
+  berry: ['prop_krzak', 1.1], glade: ['prop_legowiskomech', 1.15], snow: ['prop_legowiskokoc', 1.15], cocoa: ['prop_ognisko', 1.2], bonfire: ['prop_duzeognisko', 1.6], pearl: ['prop_perla', 1.2], sea: ['prop_legowiskomuszla', 1.2], lighthouse: ['prop_latarniamorska', 1.9],
+  sign: ['prop_drogowskaz', 1.1], lantern: ['prop_latarnia', 1.1], mushroom: ['prop_lampka', 0.9],
 };
 
 /** how a resident helps around the camp once it feels at home (has at least one heart):

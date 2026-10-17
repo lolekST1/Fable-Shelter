@@ -67,17 +67,26 @@ export function itemMesh(id: string): THREE.Group | null {
       g.add(ear, inner);
     }
   } else if (id === 'crown') {
-    const goldM = mat(0xffcf4a, { metalness: 0.6, roughness: 0.3, emissive: 0x7a4a00, emissiveIntensity: 0.2 });
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.08, 18, 1, true), goldM);
-    band.position.y = HAT + 0.03;
+    // a gold band hugging the top of the hat (seen from both sides, so its back shows too), five points growing out of
+    // its top edge with a pearl on each tip, one point facing the front, and gems set in the band between the points
+    const goldM = mat(0xffcf4a, { metalness: 0.6, roughness: 0.3, emissive: 0x7a4a00, emissiveIntensity: 0.25, side: THREE.DoubleSide });
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.15, 0.07, 28, 1, true), goldM);
+    band.position.y = HAT;
     g.add(band);
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2;
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.1, 6), goldM);
-      spike.position.set(Math.cos(a) * 0.14, HAT + 0.11, Math.sin(a) * 0.14);
-      const gem = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), mat(i % 2 ? 0xff5f86 : 0x6fc3ff));
-      gem.position.set(Math.cos(a) * 0.152, HAT + 0.03, Math.sin(a) * 0.152);
-      g.add(spike, gem);
+    const pearl = mat(0xfff6f8, { roughness: 0.2, emissive: 0xffe8f0, emissiveIntensity: 0.2 });
+    for (let i = 0; i < 5; i++) {
+      const a = Math.PI / 2 + (i / 5) * Math.PI * 2;
+      const point = new THREE.Mesh(new THREE.ConeGeometry(0.052, 0.12, 4), goldM);
+      point.position.set(Math.cos(a) * 0.155, HAT + 0.09, Math.sin(a) * 0.155);
+      point.rotation.y = -a + Math.PI / 4;
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.017, 10, 8), pearl);
+      tip.position.set(Math.cos(a) * 0.155, HAT + 0.155, Math.sin(a) * 0.155);
+      const b = a + Math.PI / 5;
+      const gem = new THREE.Mesh(new THREE.SphereGeometry(0.022, 10, 8), mat(i % 2 ? 0xff5f86 : 0x6fc3ff, { roughness: 0.15, metalness: 0.2 }));
+      gem.scale.set(1, 1, 0.5);
+      gem.position.set(Math.cos(b) * 0.158, HAT, Math.sin(b) * 0.158);
+      gem.rotation.y = -b + Math.PI / 2;
+      g.add(point, tip, gem);
     }
   } else if (id === 'scarf' || id === 'stripes') {
     const a = mat(id === 'scarf' ? 0xe8435a : 0x59c25a), b = mat(id === 'scarf' ? 0xe8435a : 0xffffff);
