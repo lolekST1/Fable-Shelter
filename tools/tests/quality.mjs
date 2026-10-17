@@ -1,0 +1,21 @@
+// Saving mode: a slow browser (swiftshader) posing as a sharp phone screen must step quality down and keep it after a reload.
+import { chromium } from 'playwright';
+const BASE = process.env.GAME_URL ?? 'http://localhost:4173/';
+const b = await chromium.launch({ executablePath: process.env.CHROME_PATH, args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'] });
+const p = await b.newPage({ viewport:{width:390,height:844}, deviceScaleFactor: 3 });
+p.on('pageerror',e=>console.log('ERR '+e.message));
+let fail = 0;
+const check = (ok, what) => { console.log((ok ? 'OK   ' : 'FAIL ') + what); if (!ok) fail++; };
+await p.goto(BASE + '?reset=1&fps');
+const q0 = await p.evaluate(() => [window.__quality(), window.__G()?.d?.renderer?.getPixelRatio?.()]);
+await p.waitForTimeout(25000);
+const st = await p.evaluate(() => ({ q: window.__quality(), fps: document.body.lastElementChild.textContent }));
+console.log('start', JSON.stringify(q0), 'after 25 s', JSON.stringify(st));
+check(st.q > 0, 'slow browser lowered the quality');
+await p.screenshot({ path: 'out/quality.png', timeout: 150000 });
+await p.goto(BASE + '?fps'); await p.waitForTimeout(3000);
+const q1 = await p.evaluate(() => window.__quality());
+check(q1 >= st.q, `level kept after a reload (${q1})`);
+await b.close();
+console.log(fail ? `${fail} FAILED` : 'all OK');
+process.exit(fail ? 1 : 0);

@@ -6,7 +6,9 @@ import fs from 'fs'; fs.mkdirSync('out', { recursive: true });
 const b = await chromium.launch({ executablePath: process.env.CHROME_PATH, args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'] });
 const p = await b.newPage({ viewport:{width:390,height:844} });
 p.on('pageerror',e=>console.log('ERR '+e.message));
-await p.goto(BASE+'?dtmax=0.4&reset=1'); await p.waitForTimeout(12000);
+await p.goto(BASE+'?dtmax=0.4&reset=1');
+// the first load after a build is slow: wait for the game and its first station, not a fixed time
+await p.waitForFunction(() => window.__G?.()?.stations?.length, null, { timeout: 120000 }); await p.waitForTimeout(3000);
 const guide = () => p.evaluate(() => { const G = window.__G(), g = G.guide; return { step: G.step, on: g.visible, x: g.position.x, z: g.position.z }; });
 const follow = async (rounds, done) => {
   for (let i = 0; i < rounds; i++) {

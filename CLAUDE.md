@@ -65,7 +65,7 @@ npm run build      # tsc --noEmit + vite build -> dist/
 - Starsze tereny mają się automatyzować przez pomocników, a gracz zajmuje się najnowszym terenem i kolejnymi progami. Powód: w środku gry było kilkanaście osób do obsłużenia naraz (opinia użytkownika z 15.10.2026).
 
 ## PWA
-- `public/manifest.webmanifest`, ikony `icon-192/512.png` i `apple-touch-icon.png` (serduszko), `public/sw.js`: najpierw sieć, a bez sieci kopia z pamięci podręcznej, więc gra działa offline po pierwszym wczytaniu (modele i muzyka trafiają do pamięci dopiero, gdy raz się pobiorą). Na `localhost` service worker się nie rejestruje, żeby nie mieszać w testach. PWA lokalnie sprawdzisz pod `http://fs.localhost:4173` (panel przeglądarki w aplikacji Claude nie ma service workerów, trzeba Playwrighta albo Chrome).
+- `public/manifest.webmanifest`, ikony `icon-192/512.png` i `apple-touch-icon.png` (serduszko), `public/sw.js`: najpierw sieć, a bez sieci kopia z pamięci podręcznej, więc gra działa offline po pierwszym wczytaniu (modele i muzyka trafiają do pamięci dopiero, gdy raz się pobiorą). Na `localhost` service worker się nie rejestruje, żeby nie mieszać w testach. Tryb oszczędny (`watchFps` w `main.ts`): co 3 s mierzy klatki i poniżej 40 fps obniża jakość o poziom (ostrość 2 → 1,5 → 1,25 → 1, na końcu prostsze cienie). Nigdy nie wraca w górę, a poziom zapamiętuje w `fable-shelter-quality`. `?fps` pokazuje licznik w lewym dolnym rogu, `?quality=N` wymusza poziom, `__quality()` go podaje. W testach (swiftshader) gra schodzi do poziomu 4, czyli na samych prostszych cieniach. PWA lokalnie sprawdzisz pod `http://fs.localhost:4173` (panel przeglądarki w aplikacji Claude nie ma service workerów, trzeba Playwrighta albo Chrome).
 
 ## Haki debug (URL i konsola)
 - `?speed=N` robi N kroków gry (po 1/30 s) na klatkę, `?norender` rysuje co 30. klatkę, a `window.__tick(dt)` (jeśli test go ustawi) jest wołany przed każdym krokiem. `__G()` zwraca obiekt `Game`. Tego używa test całej gry.
@@ -92,7 +92,7 @@ node viewer/eyes.mjs nessie                      # oczy + powieki -> src/lids.js
 Skrypty Playwright na Chromium z swiftshader. Robią zrzuty do `tools/out/`.
 ```
 npm run build && npx vite preview --port 4173     # w katalogu głównym
-cd tools && node tests/care.mjs                   # też: pond, prog, lids, helpers, vials, glade, snow, workers, water, adoption, album, decor, collide, variant, daily, play, daynight, sea, wardrobe, music, perf, offline, newplayer (gracz idzie tylko za strzałką)
+cd tools && node tests/care.mjs                   # też: pond, prog, lids, helpers, vials, glade, snow, workers, water, adoption, album, decor, collide, variant, daily, play, daynight, sea, wardrobe, music, perf, offline, newplayer (gracz idzie tylko za strzałką), quality (tryb oszczędny)
 RUNS=2 CAREFUL=1 node tests/playthrough.mjs       # cała gra od zera, kilka minut na przejście; bez CAREFUL gracz idzie prosto przez krzaki
 ```
 W środowisku chmurowym Claude Chromium leży w `/opt/pw-browsers`, a Playwright jest przypięty do 1.56.0, żeby pasował. Lokalnie może być potrzebne `npx playwright install chromium`.

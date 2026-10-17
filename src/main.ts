@@ -295,6 +295,40 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+// Saving mode for slow phones: every 3 s under 40 fps drops one quality level (sharpness first, then softer shadows)
+// and remembers it for the next visit. Never goes back up, so it can't flicker. ?fps shows a counter, ?quality=N forces a level.
+const QUALITY_KEY = 'fable-shelter-quality';
+const LEVELS = [Math.min(window.devicePixelRatio, 2), 1.5, 1.25, 1];
+let quality = 0;
+function setQuality(q: number) {
+  quality = Math.min(LEVELS.length, Math.max(0, q));
+  renderer.setPixelRatio(Math.min(LEVELS[0], LEVELS[Math.min(quality, LEVELS.length - 1)]));
+  renderer.shadowMap.type = quality >= LEVELS.length ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+  resize();
+  try { localStorage.setItem(QUALITY_KEY, String(quality)); } catch { /* ignore */ }
+}
+{
+  let saved = 0;
+  try { saved = +(localStorage.getItem(QUALITY_KEY) ?? 0) || 0; } catch { /* ignore */ }
+  const forced = new URLSearchParams(location.search).get('quality');
+  if (forced !== null || saved) setQuality(forced !== null ? +forced : saved);
+}
+const fpsBox = new URLSearchParams(location.search).has('fps') ? document.body.appendChild(document.createElement('div')) : null;
+if (fpsBox) fpsBox.style.cssText = 'position:fixed;left:8px;bottom:calc(8px + env(safe-area-inset-bottom));font:12px system-ui;color:#234;background:rgba(255,255,255,.7);padding:2px 6px;border-radius:6px;pointer-events:none';
+let fpsFrames = 0, fpsFrom = performance.now(), fpsWarm = performance.now() + 6000; // models are still loading at first
+function watchFps() {
+  fpsFrames++;
+  const now = performance.now(), span = now - fpsFrom;
+  if (span < 3000) return;
+  const fps = (fpsFrames * 1000) / span;
+  fpsFrames = 0;
+  fpsFrom = now;
+  if (fpsBox) fpsBox.textContent = `${fps.toFixed(0)} fps · jakość ${quality}`;
+  // a longer window means the tab was hidden or the phone paused: not a real measurement
+  if (now > fpsWarm && span < 4000 && fps < 40 && quality < LEVELS.length) setQuality(quality + 1);
+}
+(window as unknown as { __quality: () => number }).__quality = () => quality;
+
 // ?dtmax= lets slow test browsers run game time at a normal pace
 const params = new URLSearchParams(location.search);
 const DT_MAX = +(params.get('dtmax') ?? 0.05);
@@ -338,4 +372,5 @@ renderer.setAnimationLoop(() => {
   weather.update(dt, W, camTarget.x, camTarget.z);
   sfx.setMusicMix(1 - L); // the lullaby comes in at dusk
   if (!NORENDER || frame++ % 30 === 0) renderer.render(scene, camera);
+  watchFps();
 });
