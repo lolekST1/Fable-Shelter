@@ -735,7 +735,6 @@ export class Game {
     return out;
   }
 
-  /** creatures the player can tap to make them hop */
   /** once a year while Halloween lasts, after the tutorial: a card about the event (remembered in `seen`) */
   private halloweenCard() {
     const key = 'halloween' + today().slice(0, 4);
@@ -750,6 +749,7 @@ export class Game {
     return onHouse ? HOUSE_DOOR.clone() : p;
   }
 
+  /** creatures the player can tap to make them hop */
   tappables(): Creature[] {
     return [...this.patients.map((p) => p.c), ...this.residents.map((r) => r.c)];
   }

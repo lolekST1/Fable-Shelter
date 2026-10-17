@@ -204,7 +204,7 @@ for (let run = 1; run <= RUNS; run++) {
   const p = await b.newPage({ viewport: { width: 390, height: 844 } });
   p.on('pageerror', (e) => console.log('ERR ' + e.message));
   await p.addInitScript(bot);
-  await p.goto(BASE + `?reset=1&norender&speed=${SPEED}${process.env.CAREFUL ? '&careful' : ''}`);
+  await p.goto(BASE + `?reset=1&norender&nostory&speed=${SPEED}${process.env.CAREFUL ? '&careful' : ''}${process.env.EXTRA ? '&' + process.env.EXTRA : ''}`); // EXTRA=halloween etc.
   let last = -1;
   for (;;) {
     await p.waitForTimeout(10000);
