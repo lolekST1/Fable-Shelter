@@ -164,33 +164,39 @@ export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture, bare: 
   const dummy = new THREE.Object3D();
 
   // plush grass pompoms: small squashed spheres in three greens
-  const pomGeo = new THREE.SphereGeometry(0.12, 10, 8);
+  // only the top half ever shows above the ground, and it is small on screen: 40 triangles instead of 140
+  // (1500 of them were over half of all the triangles drawn each frame, which made older phones stutter)
+  const pomGeo = new THREE.SphereGeometry(0.12, 8, 3, 0, Math.PI * 2, 0, Math.PI / 2);
   pomGeo.scale(1, 0.55, 1);
+  pomGeo.translate(0, -0.012, 0);
   const N = 1500;
   const tufts = new THREE.InstancedMesh(pomGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), N);
   const tuftColor = new THREE.Color();
+  let px = 0, pz = 0, n = 0;
   for (let i = 0; i < N; i++) {
     let x = 0, z = 0;
     if (i % 3 === 0) {
       do { x = (r() - 0.5) * 30; z = (r() - 0.5) * 30; } while (x * x + z * z < 5 || x * x + z * z > 230);
     } else {
       // cluster next to the previous pompom
-      const prev = new THREE.Matrix4(); tufts.getMatrixAt(i - 1, prev);
-      const pp = new THREE.Vector3().setFromMatrixPosition(prev);
-      x = pp.x + (r() - 0.5) * 0.3; z = pp.z + (r() - 0.5) * 0.3;
+      x = px + (r() - 0.5) * 0.3; z = pz + (r() - 0.5) * 0.3;
     }
-    dummy.position.set(x, isBare(x, z) ? -1 : 0.02, z);
+    px = x; pz = z;
+    dummy.position.set(x, 0.02, z);
     dummy.rotation.set(0, r() * 6.28, 0);
     dummy.scale.setScalar(0.6 + r() * 0.9);
     dummy.updateMatrix();
-    tufts.setMatrixAt(i, dummy.matrix);
-    tufts.setColorAt(i, tuftColor.setHSL(0.25 + r() * 0.07, 0.6, 0.3 + r() * 0.12));
+    tuftColor.setHSL(0.25 + r() * 0.07, 0.6, 0.3 + r() * 0.12);
+    if (isBare(x, z)) continue;
+    tufts.setMatrixAt(n, dummy.matrix);
+    tufts.setColorAt(n++, tuftColor);
   }
+  tufts.count = n;
   scene.add(tufts);
 
   // flowers: stem + round head
   const palette = [0xff8fb0, 0xffe066, 0xffffff, 0xb9a3ff, 0xffa66b, 0x8fd3ff];
-  const headGeo = new THREE.SphereGeometry(0.09, 10, 8);
+  const headGeo = new THREE.SphereGeometry(0.09, 8, 5);
   const stemGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.28, 5);
   stemGeo.translate(0, 0.14, 0);
   const heads = new THREE.InstancedMesh(headGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), 260);
@@ -219,7 +225,7 @@ export function buildGround(scene: THREE.Scene, shadowTex: THREE.Texture, bare: 
   for (const [x, z, s] of bushes) {
     const g = new THREE.Group();
     for (let k = 0; k < 4; k++) {
-      const m = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 12), bushMat);
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 8), bushMat);
       m.position.set((r() - 0.5) * 0.8, 0.4 + r() * 0.3, (r() - 0.5) * 0.6);
       m.scale.setScalar(0.8 + r() * 0.5);
       g.add(m);

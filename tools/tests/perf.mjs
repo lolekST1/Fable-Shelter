@@ -8,7 +8,8 @@ const b = await chromium.launch({ executablePath: process.env.CHROME_PATH, args:
 const p = await b.newPage({ viewport: { width: 390, height: 844 } });
 p.on('pageerror', (e) => console.log('ERR ' + e.message));
 await p.addInitScript(() => localStorage.setItem('fable-shelter-save-v3', JSON.stringify({ ver: 2, coins: 0, bought: 99, hearts: 200 })));
-await p.goto(BASE + '?dtmax=0.4'); await p.waitForTimeout(12000);
+// full quality, locked: the saving mode would turn shadows off in this slow browser
+await p.goto(BASE + '?dtmax=0.4&quality=0&nostory'); await p.waitForTimeout(12000);
 const places = [['obóz', 0, 3], ['ozdoby', 4, 8], ['staw', 0, -13], ['polana', 15, 1.5], ['śnieg', -12.5, 6], ['zatoczka', -12.5, -5.5], ['obóz', 0, 3]];
 const out = {};
 for (const [name, x, z] of places) {

@@ -300,6 +300,8 @@ resize();
 const QUALITY_KEY = 'fable-shelter-quality';
 const LEVELS = [Math.min(window.devicePixelRatio, 2), 1.5, 1.25, 1];
 const MAX_Q = LEVELS.length + 1;
+// ?quality=N fixes the level for this visit (measurements, screenshots): no automatic drops
+const QUALITY_LOCKED = new URLSearchParams(location.search).has('quality');
 let quality = 0;
 function setQuality(q: number) {
   quality = Math.min(MAX_Q, Math.max(0, q));
@@ -328,7 +330,7 @@ function watchFps() {
   fpsFrom = now;
   if (fpsBox) fpsBox.textContent = `${fps.toFixed(0)} fps · jakość ${quality}`;
   // a longer window means the tab was hidden or the phone paused: not a real measurement
-  if (now > fpsWarm && span < 3000 && fps < 40 && quality < MAX_Q) setQuality(quality + 1);
+  if (!QUALITY_LOCKED && now > fpsWarm && span < 3000 && fps < 40 && quality < MAX_Q) setQuality(quality + 1);
 }
 (window as unknown as { __quality: () => number }).__quality = () => quality;
 
@@ -340,6 +342,7 @@ const DT_MAX = +(params.get('dtmax') ?? 0.05);
 const STEPS = Math.max(1, Math.floor(+(params.get('speed') ?? 1)));
 const NORENDER = params.has('norender');
 (window as unknown as { __G: () => Game | null }).__G = () => game;
+(window as unknown as { __renderer: THREE.WebGLRenderer }).__renderer = renderer; // for profiling (tools/tests/perf.mjs)
 let frame = 0;
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
