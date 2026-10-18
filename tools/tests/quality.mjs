@@ -16,6 +16,15 @@ await p.screenshot({ path: 'out/quality.png', timeout: 150000 });
 await p.goto(BASE + '?fps'); await p.waitForTimeout(3000);
 const q1 = await p.evaluate(() => window.__quality());
 check(q1 >= st.q, `level kept after a reload (${q1})`);
+// an old tablet (no WebGL 2) that stays slow without shadows: down to half the pixels (the Adreno 308 ran 16-60 fps there)
+const t = await b.newPage({ viewport: { width: 390, height: 844 } });
+await t.addInitScript(() => { const get = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (k, ...r) { return k === 'webgl2' ? null : get.call(this, k, ...r); }; });
+await t.goto(BASE + '?reset=1&nostory');
+await t.waitForFunction(() => window.__renderer, null, { timeout: 60000 });
+const r0 = await t.evaluate(() => window.__renderer.getPixelRatio());
+await t.waitForTimeout(25000);
+const r1 = await t.evaluate(() => [window.__quality(), window.__renderer.getPixelRatio()]);
+check(r0 <= 0.7 && r1[1] === 0.5, `old tablet: starts at ${r0} of the pixels, slow so down to ${r1[1]} (level ${r1[0]})`);
 await b.close();
 console.log(fail ? `${fail} FAILED` : 'all OK');
 process.exit(fail ? 1 : 0);

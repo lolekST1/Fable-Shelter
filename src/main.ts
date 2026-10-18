@@ -344,14 +344,17 @@ resize();
 const params0 = new URLSearchParams(location.search);
 const QUALITY_KEY = 'fable-shelter-quality';
 const LEVELS = [Math.min(window.devicePixelRatio, 2), 1.5, 1.25, 1];
-const MAX_Q = LEVELS.length + 1;
+const MAX_Q = LEVELS.length + 1; // shadows off from here
+// still slow without shadows (the Adreno 308 tablet: 16-60 fps at 0.5): two more steps of fewer pixels
+const LOW = [0.6, 0.5];
+const TOP_Q = MAX_Q + LOW.length;
 // ?quality=N fixes the level for this visit (measurements, screenshots): no automatic drops
 const QUALITY_LOCKED = new URLSearchParams(location.search).has('quality');
 let quality = 0;
 function setQuality(q: number) {
-  quality = Math.min(MAX_Q, Math.max(0, q));
+  quality = Math.min(TOP_Q, Math.max(0, q));
   // devices without WebGL 2 (old tablets) draw at 0.7 of the screen's pixels: the Adreno 308 stuttered badly at 1
-  renderer.setPixelRatio(Math.min(LEVELS[0], LEVELS[Math.min(quality, LEVELS.length - 1)], NO_WEBGL2 ? +(params0.get('ratio') ?? 0.7) : 9));
+  renderer.setPixelRatio(Math.min(LEVELS[0], LEVELS[Math.min(quality, LEVELS.length - 1)], NO_WEBGL2 ? +(params0.get('ratio') ?? 0.7) : 9, quality > MAX_Q ? LOW[quality - MAX_Q - 1] : 9));
   renderer.shadowMap.type = quality >= LEVELS.length ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
   renderer.shadowMap.enabled = quality < MAX_Q;
   resize();
@@ -378,7 +381,7 @@ function watchFps() {
   fpsFrom = now;
   if (fpsBox) fpsBox.textContent = `${fps.toFixed(0)} fps · jakość ${quality}`;
   // a longer window means the tab was hidden or the phone paused: not a real measurement
-  if (!QUALITY_LOCKED && now > fpsWarm && span < 3000 && fps < 40 && quality < MAX_Q) setQuality(quality + 1);
+  if (!QUALITY_LOCKED && now > fpsWarm && span < 3000 && fps < 40 && quality < TOP_Q) setQuality(quality + 1);
 }
 (window as unknown as { __quality: () => number }).__quality = () => quality;
 (window as unknown as { __audio: () => string }).__audio = () => (sfx as unknown as { ctx: AudioContext | null }).ctx?.state ?? 'none'; // tests: is the sound running
