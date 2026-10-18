@@ -258,10 +258,19 @@ function moveKeeper(dt: number) {
   move.set(0, 0, 0);
   if (joy.active) move.set(joy.x, 0, joy.y); // camera looks straight down -z, so screen axes map to x / z
   else if (walkTo.length) {
-    // waypoints are passed through (also when slipping past one round an obstacle), the last one is walked up to
+    // waypoints are passed through (also when slipping past one round an obstacle), the last one is walked up to;
+    // a gate or bridge point is skipped that way only if the straight way on stays on its side of the fence or the
+    // brook (from inside the pen the keeper is nearer the cauldron than the front gate is, and went west into the fence)
+    const sameSide = (a: THREE.Vector3, b: THREE.Vector3) => {
+      if (!game) return true;
+      const za = game.zone(a), n = Math.ceil(Math.hypot(b.x - k.x, b.z - k.z) / 0.25), p = new THREE.Vector3();
+      for (let i = 0; i <= n; i++) if (game.zone(p.lerpVectors(k, b, i / n)) !== za) return false;
+      return true;
+    };
     while (walkTo.length > 1) {
       const [a, b] = walkTo;
-      if (Math.hypot(k.x - a.x, k.z - a.z) < 0.5 || Math.hypot(k.x - b.x, k.z - b.z) < Math.hypot(a.x - b.x, a.z - b.z)) walkTo.shift();
+      const past = Math.hypot(k.x - b.x, k.z - b.z) < Math.hypot(a.x - b.x, a.z - b.z) && sameSide(a, b);
+      if (Math.hypot(k.x - a.x, k.z - a.z) < 0.5 || past) walkTo.shift();
       else break;
     }
     move.set(walkTo[0].x - k.x, 0, walkTo[0].z - k.z);
@@ -374,8 +383,26 @@ if (params.has('glinfo')) {
     `fragUniforms ${gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS)} vertUniforms ${gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)} varyings ${gl.getParameter(gl.MAX_VARYING_VECTORS)} textures ${gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)}`,
     'ext: ' + ext.map((e) => (gl.getExtension(e) ? '+' : '-') + e.replace(/^(OES|EXT|WEBGL|ANGLE)_/, '')).join(' '),
   ].join('\n');
+  // ?gltest=clear,nosky,nofog,notone,basic: switch one suspect off at a time on a device with a black scene.
+  // clear: pink background (pink = nothing drawn there, black = drawn but black); nosky: hide the sky dome;
+  // nofog: no fog; notone: no tone mapping; basic: every lit material replaced by an unlit one of the same colour/texture
+  const T = (params.get('gltest') ?? '').split(',');
+  if (T.includes('clear')) renderer.setClearColor(0xff40c0, 1);
+  if (T.includes('nofog')) { const f = scene.fog as THREE.Fog; f.near = 1e4; f.far = 1e5; } // kept (the sky tint uses it), just never reached
+  if (T.includes('notone')) renderer.toneMapping = THREE.NoToneMapping;
+  const swap = () => scene.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh || !m.material || Array.isArray(m.material)) return;
+    const mat = m.material as THREE.MeshStandardMaterial;
+    if (T.includes('nosky') && (mat as unknown as THREE.ShaderMaterial).isShaderMaterial && mat.side === THREE.BackSide) m.visible = false;
+    if (T.includes('basic') && (mat.isMeshStandardMaterial || (mat as unknown as THREE.MeshLambertMaterial).isMeshLambertMaterial)) {
+      m.material = new THREE.MeshBasicMaterial({ color: mat.color, map: mat.map, transparent: mat.transparent, opacity: mat.opacity, side: mat.side, vertexColors: mat.vertexColors });
+    }
+  });
+  swap();
+  setInterval(swap, 1000);
   setInterval(() => {
-    box.textContent = `${fixed}\nquality ${(window as unknown as { __quality: () => number }).__quality?.()} shadows ${renderer.shadowMap.enabled} calls ${renderer.info.render.calls} programs ${renderer.info.programs?.length}\nerrors (${errs.length}):\n${errs.slice(0, 6).join('\n')}`;
+    box.textContent = `${fixed}\ngltest ${T.join(',') || '-'}\nquality ${(window as unknown as { __quality: () => number }).__quality?.()} shadows ${renderer.shadowMap.enabled} calls ${renderer.info.render.calls} programs ${renderer.info.programs?.length}\nerrors (${errs.length}):\n${errs.slice(0, 6).join('\n')}`;
   }, 1000);
 }
 const DT_MAX = +(params.get('dtmax') ?? 0.05);
