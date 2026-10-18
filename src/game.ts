@@ -1649,7 +1649,7 @@ export class Game {
     this.residents.push(r);
   }
 
-  private zone(v: THREE.Vector3): 'pen' | 'camp' | 'pond' | 'glade' | 'snow' | 'sea' {
+  zone(v: THREE.Vector3): 'pen' | 'camp' | 'pond' | 'glade' | 'snow' | 'sea' {
     if (Math.hypot(v.x, v.z) < 3.6) return 'pen';
     if (v.x > 10 && Math.hypot(v.x, v.z) > 10.6) return 'glade';
     if (Math.hypot(v.x - SNOW_C.x, v.z - SNOW_C.z) < SNOW_R + 1.5 && Math.hypot(v.x, v.z) > 10.6) return 'snow';
