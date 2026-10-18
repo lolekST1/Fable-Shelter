@@ -203,7 +203,11 @@ const sendKeeper = (to: THREE.Vector3) => {
   walkTo = keeper && game ? game.route(keeper.root.position.clone(), to) : [to];
 };
 const MUSIC_DAY = ['music/oboz1.mp3', 'music/oboz2.mp3'], MUSIC_NIGHT = ['music/noc1.mp3', 'music/noc2.mp3'];
-renderer.domElement.addEventListener('pointerdown', () => { sfx.unlock(); sfx.music(MUSIC_DAY, MUSIC_NIGHT); });
+// Sound may only start on a real user gesture: on touch screens Chrome counts the finger lifting (pointerup, click,
+// touchend), not pointerdown, so the music used to stay silent until the mute button was tapped. Any gesture anywhere
+// on the page counts, the story cards too (they keep taps away from the game). Both calls do nothing once done.
+const startSound = () => { sfx.unlock(); sfx.music(MUSIC_DAY, MUSIC_NIGHT); };
+for (const ev of ['pointerdown', 'pointerup', 'click', 'touchend', 'keydown']) document.addEventListener(ev, startSound, { capture: true, passive: true });
 
 // sound on/off, remembered between visits
 const muteBtn = document.createElement('button');
@@ -377,6 +381,7 @@ function watchFps() {
   if (!QUALITY_LOCKED && now > fpsWarm && span < 3000 && fps < 40 && quality < MAX_Q) setQuality(quality + 1);
 }
 (window as unknown as { __quality: () => number }).__quality = () => quality;
+(window as unknown as { __audio: () => string }).__audio = () => (sfx as unknown as { ctx: AudioContext | null }).ctx?.state ?? 'none'; // tests: is the sound running
 
 // ?dtmax= lets slow test browsers run game time at a normal pace
 const params = new URLSearchParams(location.search);
