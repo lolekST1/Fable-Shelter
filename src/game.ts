@@ -191,6 +191,8 @@ const BASKET_WAIT = 1.0;
 const DOOR_WAIT = 1.2;
 const HOUSE = new THREE.Vector3(-9.2, 0, -1.4);
 const HOUSE_FACING = Math.PI / 4;
+/** the way round the house on the camp side, south of the door (route() goes through it) */
+const HOUSE_FRONT = new THREE.Vector3(HOUSE.x + 1.9, 0, HOUSE.z - 1.45);
 const HOUSE_DOOR = HOUSE.clone().add(new THREE.Vector3(Math.sin(HOUSE_FACING) * 1.9, 0, Math.cos(HOUSE_FACING) * 1.9));
 /** who comes to adopt: model name and height; a recoloured keeper stands in until a model exists */
 const ADOPTERS: [string, number][] = [['dziewczynka', 1.2], ['chlopiec', 1.2], ['babcia', 1.4], ['dziadek', 1.45]];
@@ -1682,6 +1684,12 @@ export class Game {
         const closest = from.clone().addScaledVector(d, t);
         // (a leg whose nearest point is in a gate opening, |x| < 0.9, goes through the gate, not across the fence)
         if (Math.hypot(closest.x, closest.z) < 3.9 && Math.abs(closest.x) > 0.9) via = [...enterPen(from), ...leavePen(to)];
+        // a leg across the shelter house goes round its front: round its back the keeper was pushed into the corner
+        // between the house and the barrier beside the dune and stuck there (on the way to the bay from the north-west)
+        else {
+          const u = Math.max(0, Math.min(1, new THREE.Vector3().subVectors(HOUSE, from).dot(d) / Math.max(1e-6, d.lengthSq())));
+          if (from.clone().addScaledVector(d, u).distanceTo(HOUSE) < 1.8) via = [HOUSE_FRONT.clone()];
+        }
       }
     } else if (zf === 'camp' && zt === 'pen') via = enterPen(from);
     else if (zf === 'pen' && zt === 'camp') via = leavePen(to);
