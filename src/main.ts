@@ -12,7 +12,11 @@ import { Joystick } from './joystick';
 import { Game, SEA_C, SEA_R, SNOW_C, SNOW_R } from './game';
 import chmurnikData from './chmurnik.json';
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+// ?gltest=nofacing / mediump / noaa (see ?glinfo below): on the Adreno 308 tablet every lit material came out black,
+// even with only an ambient light; unlit ones were fine. Known Adreno 3xx suspects: gl_FrontFacing and highp.
+const GLT = (new URLSearchParams(location.search).get('gltest') ?? '').split(',');
+if (GLT.includes('nofacing')) THREE.ShaderChunk.normal_fragment_begin = THREE.ShaderChunk.normal_fragment_begin.replace('gl_FrontFacing ? 1.0 : - 1.0', '1.0');
+const renderer = new THREE.WebGLRenderer({ antialias: !GLT.includes('noaa'), powerPreference: 'high-performance', ...(GLT.includes('mediump') ? { precision: 'mediump' as const } : {}) });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
