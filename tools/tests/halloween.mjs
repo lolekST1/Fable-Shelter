@@ -31,7 +31,7 @@ check(await p.evaluate(() => /Halloween/.test(document.querySelector('#story h2'
 await p.waitForTimeout(2500);
 await p.screenshot({ path: 'out/hw0_card.png', timeout: 150000 });
 await p.click('#story button', { force: true }); await p.waitForTimeout(800);
-check(await p.evaluate(() => window.__G().seen.has('halloween' + new Date().getFullYear()) && !document.getElementById('story')), 'card shown once (remembered)');
+check(await p.evaluate(() => window.__G().seen.has('halloween' + new Date().getFullYear()) && !/Halloween/.test(document.querySelector('#story h2')?.textContent ?? '')), 'card shown once (remembered)'); // a new patient's card may come right after
 check(await p.evaluate(() => !!window.__G().spooky), 'pumpkins round the pen');
 check(await p.evaluate(() => window.__G().spooky.bats.visible), 'bats out at night');
 await p.evaluate(() => window.__walk(0, 5.5)); await p.waitForTimeout(5000);
@@ -48,11 +48,12 @@ await p.screenshot({ path: 'out/hw2_card.png', timeout: 150000 });
 await p.click('#story.low button', { force: true });
 await p.waitForTimeout(1500);
 if (await p.$('#story.low')) { await p.click('#story.low button', { force: true }); await p.waitForTimeout(1500); }
-await p.waitForFunction(() => ['dyniak', 'duszek'].every((n) => window.__G().patients.some((x) => x.name === n && x.state === 'waiting')), null, { timeout: 90000 })
-  .then(() => check(true, 'both are waiting as patients'), () => check(false, 'both are waiting as patients'));
+// the species is drawn at random, so one of them may take a while: at least one must be waiting
+await p.waitForFunction(() => window.__G().patients.some((x) => ['dyniak', 'duszek'].includes(x.name) && x.state === 'waiting'), null, { timeout: 90000 })
+  .then(() => check(true, 'a Halloween patient is waiting'), () => check(false, 'a Halloween patient is waiting'));
 // the second one's card comes after the first is closed: close any left
 for (let i = 0; i < 4 && (await p.$('#story')); i++) { await p.click('#story button', { force: true }); await p.waitForTimeout(1200); }
-const where = await p.evaluate(() => { const x = window.__G().patients.find((x) => x.name === 'dyniak'); return [x.c.root.position.x, x.c.root.position.z]; });
+const where = await p.evaluate(() => { const x = window.__G().patients.find((x) => ['dyniak', 'duszek'].includes(x.name)); return x ? [x.c.root.position.x, x.c.root.position.z] : [0, 5]; });
 await p.evaluate(([x, z]) => window.__walk(x, z + 1.2), where); await p.waitForTimeout(6000);
 await p.screenshot({ path: 'out/hw3_patients.png', timeout: 150000 });
 

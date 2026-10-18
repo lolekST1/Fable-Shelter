@@ -26,7 +26,19 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xd6eef5, 24, 50);
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-scene.environmentIntensity = 0.45;
+// three.js r162 (the last one that runs on WebGL 1, e.g. Adreno 308 tablets) has no scene.environmentIntensity:
+// the same dimming goes on each lit material's envMapIntensity, refreshed when it changes or new things appear
+let envLevel = -1, envT = 0;
+function setEnvironment(level: number, dt: number) {
+  envT -= dt;
+  if (Math.abs(level - envLevel) < 0.01 && envT > 0) return;
+  envLevel = level;
+  envT = 1; // things loaded since (creatures, props) pick it up within a second
+  scene.traverse((o) => {
+    const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | THREE.MeshStandardMaterial[] | undefined;
+    for (const x of Array.isArray(m) ? m : m ? [m] : []) if ('envMapIntensity' in x) x.envMapIntensity = level;
+  });
+}
 
 const camera = new THREE.PerspectiveCamera(32, window.innerWidth / window.innerHeight, 0.1, 120);
 // follow camera: fixed angle, glides after the keeper
@@ -373,7 +385,7 @@ renderer.setAnimationLoop(() => {
   sun.intensity = (0.45 + 1.75 * L) * (1 - 0.5 * W);
   sun.color.copy(NIGHT_SUN).lerp(DAY_SUN, L);
   rim.intensity = 0.5 + 0.4 * L;
-  scene.environmentIntensity = 0.45 * (0.3 + 0.7 * L) * (1 - 0.3 * W); // shiny things (the pond) reflect a darker sky too
+  setEnvironment(0.45 * (0.3 + 0.7 * L) * (1 - 0.3 * W), dt); // shiny things (the pond) reflect a darker sky too
   tintSky(clouds, scene.fog as THREE.Fog, L, W);
   weather.update(dt, W, camTarget.x, camTarget.z);
   sfx.setMusicMix(1 - L); // the lullaby comes in at dusk
