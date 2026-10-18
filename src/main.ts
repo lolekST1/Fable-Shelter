@@ -20,7 +20,7 @@ if (GLT.includes('nofacing')) THREE.ShaderChunk.normal_fragment_begin = THREE.Sh
 // material comes out black; with mediump the scene is right. So devices without WebGL 2 get mediump (?gltest=highp to try).
 const NO_WEBGL2 = !document.createElement('canvas').getContext('webgl2');
 const MEDIUMP = GLT.includes('mediump') || (NO_WEBGL2 && !GLT.includes('highp'));
-const renderer = new THREE.WebGLRenderer({ antialias: !GLT.includes('noaa'), powerPreference: 'high-performance', ...(MEDIUMP ? { precision: 'mediump' as const } : {}) });
+const renderer = new THREE.WebGLRenderer({ antialias: !GLT.includes('noaa') && !NO_WEBGL2, powerPreference: 'high-performance', ...(MEDIUMP ? { precision: 'mediump' as const } : {}) });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -50,7 +50,12 @@ function setEnvironment(level: number, dt: number) {
   envT = 1; // things loaded since (creatures, props) pick it up within a second
   scene.traverse((o) => {
     const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | THREE.MeshStandardMaterial[] | undefined;
-    for (const x of Array.isArray(m) ? m : m ? [m] : []) if ('envMapIntensity' in x) x.envMapIntensity = level;
+    for (const x of Array.isArray(m) ? m : m ? [m] : []) {
+      if ('envMapIntensity' in x) x.envMapIntensity = level;
+      // the plush sheen is the costliest part of the creatures' shading; old GPUs go without it
+      const ph = x as THREE.MeshPhysicalMaterial;
+      if (NO_WEBGL2 && ph.isMeshPhysicalMaterial && ph.sheen > 0) { ph.sheen = 0; ph.needsUpdate = true; }
+    }
   });
 }
 
@@ -128,7 +133,7 @@ async function portrait(model: string, tint: number | null) {
   const c = await spawnCreature(model, 1);
   if (tint !== null) c.setTint(tint);
   if (!snap) {
-    const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    const r = new THREE.WebGLRenderer({ antialias: !NO_WEBGL2, alpha: true, preserveDrawingBuffer: true, ...(MEDIUMP ? { precision: 'mediump' as const } : {}) });
     r.setSize(192, 192, false);
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.toneMapping = THREE.NeutralToneMapping;
@@ -332,6 +337,7 @@ resize();
 
 // Saving mode for slow phones: every 2 s under 40 fps drops one quality level (sharpness first, then simpler shadows,
 // then none) and remembers it for the next visit. Phones with few cores start a step lower. Never goes back up, so it can't flicker. ?fps shows a counter, ?quality=N forces a level.
+const params0 = new URLSearchParams(location.search);
 const QUALITY_KEY = 'fable-shelter-quality';
 const LEVELS = [Math.min(window.devicePixelRatio, 2), 1.5, 1.25, 1];
 const MAX_Q = LEVELS.length + 1;
@@ -340,7 +346,8 @@ const QUALITY_LOCKED = new URLSearchParams(location.search).has('quality');
 let quality = 0;
 function setQuality(q: number) {
   quality = Math.min(MAX_Q, Math.max(0, q));
-  renderer.setPixelRatio(Math.min(LEVELS[0], LEVELS[Math.min(quality, LEVELS.length - 1)]));
+  // devices without WebGL 2 (old tablets) draw at 0.7 of the screen's pixels: the Adreno 308 stuttered badly at 1
+  renderer.setPixelRatio(Math.min(LEVELS[0], LEVELS[Math.min(quality, LEVELS.length - 1)], NO_WEBGL2 ? +(params0.get('ratio') ?? 0.7) : 9));
   renderer.shadowMap.type = quality >= LEVELS.length ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
   renderer.shadowMap.enabled = quality < MAX_Q;
   resize();
