@@ -4,7 +4,7 @@ import type { Sfx } from './sfx';
 import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, drawAilment, drawBerry, drawCoin, drawHeart, drawMoon, drawSpotIcon, needCanvas } from './icons';
 import { Album } from './album';
 import { Daily, type DailyState, today } from './daily';
-import { halloweenStory, heartsStory, introStory, meetStory, nextCard } from './story';
+import { halloweenStory, heartsStory, introStory, meetStory, nextCard, stationStory } from './story';
 import { HALLOWEEN_CHANCE, HALLOWEEN_SPECIES, bats, halloween, pumpkins } from './halloween';
 import { Wardrobe, type WardrobeState, drawHanger, itemMesh } from './wardrobe';
 import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, carouselMesh, coinGeo, coinMat, dressUp, fountainMesh, gold, glowSprite, pedestalMesh, swingMesh, chestMesh, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery, shellBedMesh, lighthouseMesh, boardwalkGateMesh, duneMounds, seaScenery } from './props';
@@ -390,6 +390,8 @@ export class Game {
   focus: THREE.Vector3 | null = null;
   /** a new species being shown (camera on it while its card is open) */
   private meeting?: Patient;
+  /** a new station being shown (camera on it while its card is open) */
+  private showing?: THREE.Vector3;
   private noStory = new URLSearchParams(location.search).has('nostory');
   private bought = 0;
   private fx: Fx;
@@ -463,9 +465,10 @@ export class Game {
     }
     this.buildHud();
     this.guide = new THREE.Group();
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.5, 4), new THREE.MeshStandardMaterial({ color: 0xffd34d, emissive: 0xffa000, emissiveIntensity: 0.5, roughness: 0.4 }));
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.68, 4), new THREE.MeshStandardMaterial({ color: 0xffd34d, emissive: 0xffa000, emissiveIntensity: 0.5, roughness: 0.4, depthTest: false }));
     cone.rotation.x = Math.PI;
     cone.rotation.y = Math.PI / 4;
+    cone.renderOrder = 20; // drawn last and through everything: info bubbles (renderOrder 10) used to hide it
     this.guide.add(cone);
     d.scene.add(this.guide);
     // the guide gets a screen-edge arrow too: at the start the cauldron is off screen
@@ -774,6 +777,14 @@ export class Game {
     this.stations.push(s);
     this.dress(s.body, kind);
     if (!instant) this.popIn(s.group);
+    // a new medicine: players did not know to look for it, so the camera goes there and a card says whom it cures
+    if (!instant && kind !== 'berry' && !this.noStory) {
+      const healed = Object.entries(SPECIES).filter(([n, sp]) => sp.cure === kind && !HALLOWEEN_SPECIES.includes(n)).slice(0, 4).map(([name, sp]) => ({ name, ailment: sp.ailment }));
+      void nextCard(() => {
+        this.showing = s.pos;
+        return stationStory(kind, healed).then(() => { this.showing = undefined; });
+      });
+    }
   }
 
   addBed(instant: boolean, zone: Zone = 'camp') {
@@ -2316,7 +2327,8 @@ export class Game {
       c.root.position.y = this.groundY(c.root.position.x, c.root.position.z);
     this.updateGuide();
     this.updateGhost();
-    if (this.meeting) this.focus = this.meeting.c.root.position.clone().add(new THREE.Vector3(0, 0, 2.6)); // south of it: it shows above the card
+    const shown = this.meeting?.c.root.position ?? this.showing;
+    if (shown) this.focus = shown.clone().add(new THREE.Vector3(0, 0, 2.6)); // south of it: it shows above the card
     else if (this.focus && !this.adopters.some((a) => a.first)) this.focus = null;
     this.saveT += dt;
     if (this.saveT > 5) {
@@ -2471,7 +2483,7 @@ export class Game {
     // (a new player with four vials and only a hungry resident was sent to the berry bush and could not take any)
     const cure = () => {
       const p = this.patients.find((p) => (p.state === 'waiting' || p.state === 'arriving') && this.carry.some((v) => v.userData.kind === p.sp.cure));
-      if (p) return p.c.root.position.clone().setY(p.c.height + 1.3);
+      if (p) return p.c.root.position.clone().setY(p.c.height + 1.55);
       if (this.carry.length >= this.capacity) return this.basket.position.clone().setY(1.2);
       return first.pos.clone().setY(1.5);
     };
@@ -2481,7 +2493,7 @@ export class Game {
       const r = this.residents.find((r) => r.need);
       if (r?.need === 'food') {
         const berries = this.stations.find((s) => s.kind === 'berry')!;
-        target = this.carry.some((v) => v.userData.kind === 'berry') ? r.c.root.position.clone().setY(r.c.height + 1.3)
+        target = this.carry.some((v) => v.userData.kind === 'berry') ? r.c.root.position.clone().setY(r.c.height + 1.55)
           : this.carry.length < this.capacity ? berries.pos.clone().setY(1.4) : cure(); // no room for berries: free the arms first
       } else if (r?.need === 'sleep') target = r.bed.pos.clone().setY(0.9);
     } else if (this.step === 3) {

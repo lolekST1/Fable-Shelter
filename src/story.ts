@@ -60,7 +60,7 @@ export function story(title: string, rows: Panel[][], low = false, joint = '➜'
     const r = document.createElement('div');
     r.className = 'row';
     row.forEach((p, i) => {
-      if (i) {
+      if (i && joint) {
         const a = document.createElement('div');
         a.className = 'arrow';
         a.textContent = joint;
@@ -130,6 +130,12 @@ export const meetStory = (name: string, ailment: Ailment, cure: Medicine, portra
     { draw: (g) => drawMedicine(g, cure, 34, 36, 22), label: CURE_TEXT[cure] },
   ],
 ], true);
+
+/** a new medicine station was built: what it gives and whom it cures (the camera looks at it meanwhile) */
+export const stationStory = (cure: Medicine, healed: { name: string; ailment: Ailment }[]) => story('Nowe lekarstwo!', [
+  [{ draw: (g) => drawMedicine(g, cure, 34, 36, 24), label: CURE_TEXT[cure] }],
+  healed.map((h) => ({ draw: (g: CanvasRenderingContext2D) => drawAilment(g, h.ailment, 34, 34, 26), label: NAMES[h.name] ?? h.name })),
+], true, '');
 
 /** the first visit while Halloween lasts: who comes and what there is to get */
 export const halloweenStory = (portrait: (name: string) => Promise<string>) => story('Halloween w schronisku!', [

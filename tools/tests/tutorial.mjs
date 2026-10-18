@@ -94,6 +94,19 @@ await p.waitForTimeout(800);
 check(await G(() => !!document.getElementById('story')), 'hearts card after the album');
 await shot(9);
 
+// a new medicine station: the camera goes there and a card says what it gives and whom it cures
+for (let i = 0; i < 4 && (await p.$('#story')); i++) { await p.click('#story button', { force: true }); await p.waitForTimeout(1000); }
+await G(() => window.__G().addStation('blue', 5.8, 3.2, false));
+await p.waitForSelector('#story.low', { timeout: 20000 }).catch(() => {});
+await p.waitForTimeout(2500);
+check(await G(() => /Nowe lekarstwo/.test(document.querySelector('#story.low h2')?.textContent ?? '') && /źródełka/.test(document.querySelector('#story.low').innerText)), 'new station card (what it gives, whom it cures)');
+check(await G(() => { const f = window.__G().focus; return !!f && Math.hypot(f.x - 5.8, f.z - 3.2 - 2.6) < 0.1; }), 'camera on the new station');
+await shot(10);
+await p.click('#story.low button', { force: true });
+await p.waitForTimeout(1500);
+check(await G(() => !window.__G().focus), 'camera back after the card');
+await shot(11);
+
 await b.close();
 console.log(fail ? `${fail} FAILED` : 'all OK');
 process.exit(fail ? 1 : 0);
