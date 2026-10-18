@@ -367,7 +367,7 @@ function watchFps() {
 const params = new URLSearchParams(location.search);
 
 // ?glinfo: what the GPU offers and what went wrong, for devices we cannot debug from here (photo of the screen)
-if (params.has('glinfo')) {
+if (params.has('glinfo') || params.has('gltest')) { // gltest alone shows the overlay too
   const errs: string[] = [];
   for (const k of ['error', 'warn'] as const) {
     const orig = console[k].bind(console);
