@@ -25,7 +25,13 @@ document.body.prepend(renderer.domElement);
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xd6eef5, 24, 50);
 const pmrem = new THREE.PMREMGenerator(renderer);
-scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+// WebGL 1 (old tablets, e.g. Adreno 308): the scene came out black there. Start safe: no environment reflections
+// (their half-float maps are often missing on such GPUs) and no shadows (see the quality levels). ?env and ?quality=N
+// turn them back on to test, ?glinfo shows what the GPU can do and any shader errors.
+const URLQ = new URLSearchParams(location.search);
+const WEBGL1 = !renderer.capabilities.isWebGL2;
+const ENV = !(WEBGL1 || URLQ.has('noenv')) || URLQ.has('env');
+if (ENV) scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 // three.js r162 (the last one that runs on WebGL 1, e.g. Adreno 308 tablets) has no scene.environmentIntensity:
 // the same dimming goes on each lit material's envMapIntensity, refreshed when it changes or new things appear
 let envLevel = -1, envT = 0;
@@ -328,7 +334,9 @@ function setQuality(q: number) {
   try { saved = +(localStorage.getItem(QUALITY_KEY) ?? 0) || 0; } catch { /* ignore */ }
   const forced = new URLSearchParams(location.search).get('quality');
   const few = (navigator.hardwareConcurrency || 8) <= 4;
-  if (forced !== null || saved || few) setQuality(forced !== null ? +forced : saved || 1);
+  if (forced !== null) setQuality(+forced);
+  else if (WEBGL1) setQuality(MAX_Q); // no shadows: old GPUs are slow, and shadows are a suspect for the black scene
+  else if (saved || few) setQuality(saved || 1);
 }
 const fpsBox = new URLSearchParams(location.search).has('fps') ? document.body.appendChild(document.createElement('div')) : null;
 if (fpsBox) fpsBox.style.cssText = 'position:fixed;left:8px;bottom:calc(8px + env(safe-area-inset-bottom));font:12px system-ui;color:#234;background:rgba(255,255,255,.7);padding:2px 6px;border-radius:6px;pointer-events:none';
@@ -348,6 +356,28 @@ function watchFps() {
 
 // ?dtmax= lets slow test browsers run game time at a normal pace
 const params = new URLSearchParams(location.search);
+
+// ?glinfo: what the GPU offers and what went wrong, for devices we cannot debug from here (photo of the screen)
+if (params.has('glinfo')) {
+  const errs: string[] = [];
+  for (const k of ['error', 'warn'] as const) {
+    const orig = console[k].bind(console);
+    console[k] = (...a: unknown[]) => { errs.push(a.map(String).join(' ').slice(0, 160)); orig(...a); };
+  }
+  const box = document.body.appendChild(document.createElement('div'));
+  box.style.cssText = 'position:fixed;left:8px;right:8px;top:120px;max-height:60%;overflow:auto;font:11px monospace;color:#123;background:rgba(255,255,255,.85);padding:6px;border-radius:8px;z-index:50;pointer-events:none;white-space:pre-wrap';
+  const gl = renderer.getContext();
+  const ext = ['OES_texture_float', 'OES_texture_half_float', 'OES_texture_half_float_linear', 'EXT_color_buffer_half_float', 'WEBGL_color_buffer_float', 'WEBGL_depth_texture', 'OES_standard_derivatives', 'EXT_shader_texture_lod', 'ANGLE_instanced_arrays', 'OES_element_index_uint'];
+  const fixed = [
+    `WebGL2 ${renderer.capabilities.isWebGL2} precision ${renderer.capabilities.precision} env ${ENV}`,
+    `GPU ${(() => { const d = gl.getExtension('WEBGL_debug_renderer_info'); return d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : '?'; })()}`,
+    `fragUniforms ${gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS)} vertUniforms ${gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)} varyings ${gl.getParameter(gl.MAX_VARYING_VECTORS)} textures ${gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)}`,
+    'ext: ' + ext.map((e) => (gl.getExtension(e) ? '+' : '-') + e.replace(/^(OES|EXT|WEBGL|ANGLE)_/, '')).join(' '),
+  ].join('\n');
+  setInterval(() => {
+    box.textContent = `${fixed}\nquality ${(window as unknown as { __quality: () => number }).__quality?.()} shadows ${renderer.shadowMap.enabled} calls ${renderer.info.render.calls} programs ${renderer.info.programs?.length}\nerrors (${errs.length}):\n${errs.slice(0, 6).join('\n')}`;
+  }, 1000);
+}
 const DT_MAX = +(params.get('dtmax') ?? 0.05);
 // balance tests: ?speed=N runs N fixed game steps per frame, ?norender draws only every 30th frame,
 // and window.__tick (if a test sets it) is called before each step, e.g. to steer the keeper
