@@ -390,6 +390,11 @@ if (params.has('glinfo') || params.has('gltest')) { // gltest alone shows the ov
   if (T.includes('clear')) renderer.setClearColor(0xff40c0, 1);
   if (T.includes('nofog')) { const f = scene.fog as THREE.Fog; f.near = 1e4; f.far = 1e5; } // kept (the sky tint uses it), just never reached
   if (T.includes('notone')) renderer.toneMapping = THREE.NoToneMapping;
+  // the lights one by one (basic,notone,nofog showed the scene on the Adreno 308 tablet: lit materials come out black)
+  if (T.includes('nosun')) sun.visible = false;
+  if (T.includes('norim')) rim.visible = false;
+  if (T.includes('nohemi')) hemi.visible = false;
+  if (T.includes('amb')) scene.add(new THREE.AmbientLight(0xffffff, 1.6));
   const swap = () => scene.traverse((o) => {
     const m = o as THREE.Mesh;
     if (!m.isMesh || !m.material || Array.isArray(m.material)) return;
