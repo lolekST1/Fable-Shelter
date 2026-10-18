@@ -27,6 +27,34 @@
       <path d="M22 14v26l-6-6c-3-3-8 1-5 5l12 14c2 3 5 5 9 5h10c6 0 10-4 10-10V30c0-3-4-4-6-2v-3c0-3-5-4-6-1v-2c0-3-5-4-6-1V14c0-4-6-4-6 0z" fill="#fff" stroke="#5b7f73" stroke-width="2.5" stroke-linejoin="round" />
     </svg>
     <div id="ver">prototype 0.8</div>
+    <script>
+      // When the game cannot start (an old device without WebGL 2, a script error), say why instead of a blank sky.
+      // A plain script, so it runs even where the game's module cannot.
+      (function () {
+        var shown = false;
+        function why(msg) {
+          if (shown || document.querySelector('canvas')) return;
+          shown = true;
+          var gl2 = false, gl1 = '';
+          try { gl2 = !!document.createElement('canvas').getContext('webgl2'); } catch (e) {}
+          try {
+            var g = document.createElement('canvas').getContext('webgl');
+            var d = g && g.getExtension('WEBGL_debug_renderer_info');
+            gl1 = g ? (d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : 'tak') : 'brak';
+          } catch (e) { gl1 = 'błąd'; }
+          var box = document.createElement('div');
+          box.style.cssText = 'position:fixed;left:16px;right:16px;top:20%;padding:18px;border-radius:18px;background:#fff8ec;color:#5b4a1a;font:15px system-ui,sans-serif;box-shadow:0 6px 24px rgba(40,70,60,.3);z-index:99';
+          box.innerHTML = '<b style="font-size:18px">Gra nie może się uruchomić na tym urządzeniu</b><p>' +
+            (gl2 ? '' : 'Ta przeglądarka nie ma WebGL 2, którego gra potrzebuje do grafiki 3D. Spróbuj w najnowszym Chrome.') +
+            '</p><p style="font-size:12px;opacity:.75;word-break:break-word">Błąd: ' + String(msg).slice(0, 300) + '<br>WebGL 2: ' + (gl2 ? 'tak' : 'nie') + ', WebGL 1: ' + gl1 + '<br>' + navigator.userAgent + '</p>';
+          document.body.appendChild(box);
+          var h = document.getElementById('hint'); if (h) h.style.display = 'none';
+        }
+        window.addEventListener('error', function (e) { why(e.message || (e.target && e.target.src ? 'nie wczytał się ' + e.target.src : 'nieznany')); }, true);
+        window.addEventListener('unhandledrejection', function (e) { why(e.reason && e.reason.message || e.reason); });
+        setTimeout(function () { why('gra nie wystartowała w 20 s'); }, 20000);
+      })();
+    </script>
     <script type="module" src="/src/main.ts"></script>
     <script>if ('serviceWorker' in navigator && location.hostname !== 'localhost') navigator.serviceWorker.register('sw.js');</script>
   </body>
