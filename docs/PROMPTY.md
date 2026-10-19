@@ -216,5 +216,16 @@ cute little ghost creature, soft white plush body shaped like a rounded sheet gh
 ```
 Do każdego dopisz akapit stylu z góry pliku.
 
+## Teren 6: Kryształowa jaskinia (noc 20/21.10.2026, gałąź `noc/jaskinia`)
+Na południe od obozu, za skałami. Stworki w Z-Image Turbo (styl stworków z góry pliku, 3 obrazy, ziarna 61001–61004), rekwizyty we FLUX 3 Klein distilled (styl rekwizytów + `simple solid shapes,`, bez upsamplera, ziarna 62001–62004). Pixal3D: futrzaste stworki `241.resolution=512` i 40000 trójkątów, golemik 25000, rekwizyty 512 i 12000.
+- Nietoperek (`nietoperek`, czka echem, kryształ), wybrany `nietoperek_00003_WYBRANY.png`: `cute baby bat creature, soft dusty lavender purple fur, big rounded ears, small folded wings at its sides like a little cape, two tiny white fangs in a happy smile, round chubby body, short legs, standing straight, arms at sides,`
+- Kret (`kret`, zakopuje się w ziemi, zioła), `kret_00002_WYBRANY.png`: `cute baby mole creature, soft dark grey velvet fur, round pink nose, big pink paddle-shaped front paws, a little yellow miner helmet with a small lamp on its head, round chubby body, short legs, standing straight, happy face,`
+- Żuczek (`zuczek`, mieni się kolorami, kryształ), `zuczek_00002_WYBRANY.png`: `cute baby beetle creature, soft lilac plush body, a round shiny shell on its back covered with small pastel pink and aqua crystals, two short curly antennae, standing upright on two stubby feet, two small arms at its sides, chubby round body, happy face,`
+- Golemik (`golemik`, sypie się kamyczkami, kryształ), `golemik_00003_WYBRANY.png`: `cute little stone golem creature, body made of a few smooth rounded pastel grey pebbles, small glowing aqua crystals growing on its head and shoulders, stubby arms and legs, chubby round body, gentle happy face, standing straight, arms at sides,`
+- Kryształy (stacja), `rekwizyty/Krysztal_00002_WYBRANY.png`: `a cluster of big glowing pastel aqua and lilac crystals growing out of a small round grey rock, chunky cute shapes, simple solid shapes,`
+- Legowisko z kamienia, `LegowiskoKamien_00002_WYBRANY.png`: `a round cozy pet bed carved from a smooth grey stone bowl, lined with a soft lilac cushion, two tiny aqua crystals on the rim, chunky cute shapes, simple solid shapes,`
+- Kryształowa lampa, `KrysztalowaLampa_00002_WYBRANY.png`: `a tall glowing crystal lamp: one big pointed pastel aqua crystal standing upright on a short round stone base, a few small lilac crystals around its foot, chunky cute shapes, simple solid shapes,`
+- Wejście do groty (na razie tylko obrazek, w grze grota jest z prostych brył), `Jaskinia_00003_WYBRANY.png`: `a small rocky cave entrance: a low dark round opening in a mound of big smooth rounded grey stones, a few glowing aqua crystals at its sides, chunky cute shapes, simple solid shapes,`
+
 ## Nazwy plików
 Zapisuj wybrane do `D:\ComfyUI-Shared\output\FS` jak dotąd, np. `Nessie-image-turbo_00003.png`, `nessie_tył_00001.png`, `nessie_lewy_00001.png`, a modele `nessie.glb`. Resztę przejrzę, wybiorę i oznaczę `WYBRANY`.

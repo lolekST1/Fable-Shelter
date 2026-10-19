@@ -7,7 +7,7 @@ import { Daily, type DailyState, today } from './daily';
 import { halloweenStory, heartsStory, introStory, meetStory, nextCard, stationStory } from './story';
 import { HALLOWEEN_CHANCE, HALLOWEEN_SPECIES, bats, halloween, pumpkins } from './halloween';
 import { Wardrobe, type WardrobeState, drawHanger, itemMesh } from './wardrobe';
-import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, carouselMesh, coinGeo, coinMat, dressUp, fountainMesh, gold, glowSprite, pedestalMesh, swingMesh, chestMesh, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery, shellBedMesh, lighthouseMesh, boardwalkGateMesh, duneMounds, seaScenery } from './props';
+import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, carouselMesh, coinGeo, coinMat, dressUp, fountainMesh, gold, glowSprite, pedestalMesh, swingMesh, chestMesh, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery, shellBedMesh, lighthouseMesh, boardwalkGateMesh, duneMounds, seaScenery, stoneBedMesh, crystalLampMesh, caveGateMesh, rockMounds, caveScenery } from './props';
 
 /**
  * Fable Shelter loop:
@@ -38,13 +38,14 @@ const PROP_MODEL: Record<string, [string, number, number?]> = {
   pink: ['prop_kociolek', 1.15], blue: ['prop_zrodelko', 1.25], green: ['prop_ziola', 1.1], purple: ['prop_lilia', 1.3], gold: ['prop_ul', 1.05],
   camp: ['prop_legowisko', 1.15], pond: ['prop_legowiskolisc', 1.15], basket: ['prop_kosz', 0.95], house: ['prop_domek', 3.0, -0.45],
   berry: ['prop_krzak', 1.1], glade: ['prop_legowiskomech', 1.15], snow: ['prop_legowiskokoc', 1.15], cocoa: ['prop_ognisko', 1.2], bonfire: ['prop_duzeognisko', 1.6], pearl: ['prop_perla', 1.2], sea: ['prop_legowiskomuszla', 1.2], lighthouse: ['prop_latarniamorska', 1.9],
+  crystal: ['prop_krysztal', 1.25], cave: ['prop_legowiskokamien', 1.2], crystallamp: ['prop_krysztalowalampa', 1.2],
   sign: ['prop_drogowskaz', 1.1], lantern: ['prop_latarnia', 1.1], mushroom: ['prop_lampka', 0.9],
 };
 
 /** how a resident helps around the camp once it feels at home (has at least one heart):
  *  boost a station (it brews twice as fast for a while) or carry things for the keeper */
 type Skill = { boost: Medicine } | { carry: 'cure' | 'berry' };
-type Zone = 'camp' | 'pond' | 'glade' | 'snow' | 'sea';
+type Zone = 'camp' | 'pond' | 'glade' | 'snow' | 'sea' | 'cave';
 interface Species {
   height: number; ailment: Ailment; cure: Medicine; tint: number; coins: number; skill: Skill;
   /** where it lives: the camp meadow, the pond beyond the brook, the heather glade east of the camp or the snowy hill south-west */
@@ -73,7 +74,7 @@ export const SPECIES: Record<string, Species> = {
   skrzat: { height: 0.95, ailment: 'shrink', cure: 'green', tint: 0xd8f0c0, coins: 12, skill: { boost: 'gold' }, zone: 'glade' },
   sowka: { height: 1.0, ailment: 'dizzy', cure: 'gold', tint: 0xe8d8ff, coins: 12, skill: { carry: 'cure' }, zone: 'glade' },
   bazyliszek: { height: 1.0, ailment: 'stone', cure: 'green', tint: 0xbfc4c8, coins: 8, skill: { carry: 'berry' } },
-  // snowy hill creatures (stand-in models, tinted, until their own are made)
+  // snowy hill creatures (
   yeti: { height: 1.2, ailment: 'snowball', cure: 'cocoa', tint: 0xc8dcff, coins: 13, skill: { boost: 'cocoa' }, zone: 'snow' },
   renifer: { height: 1.2, ailment: 'nose', cure: 'cocoa', tint: 0xffd0c0, coins: 13, skill: { carry: 'berry' }, zone: 'snow' },
   balwanek: { height: 1.1, ailment: 'melt', cure: 'blue', tint: 0xd8f0ff, coins: 14, skill: { boost: 'blue' }, zone: 'snow' },
@@ -86,6 +87,11 @@ export const SPECIES: Record<string, Species> = {
   foczka: { height: 1.0, ailment: 'sand', cure: 'blue', tint: 0xfff0d0, coins: 15, skill: { carry: 'berry' }, zone: 'sea' },
   zolwik: { height: 1.0, ailment: 'hide', cure: 'pearl', tint: 0xd0ffe8, coins: 16, skill: { carry: 'cure' }, zone: 'sea' },
   syrenka: { height: 1.05, ailment: 'tangle', cure: 'pearl', tint: 0xd8ffd8, coins: 16, skill: { boost: 'blue' }, zone: 'sea' },
+  // the crystal cave creatures
+  nietoperek: { height: 1.0, ailment: 'echo', cure: 'crystal', tint: 0xe0d0ff, coins: 17, skill: { carry: 'cure' }, zone: 'cave' },
+  kret: { height: 0.95, ailment: 'dig', cure: 'green', tint: 0xe0d8d0, coins: 17, skill: { carry: 'berry' }, zone: 'cave' },
+  zuczek: { height: 0.95, ailment: 'glitter', cure: 'crystal', tint: 0xf0e0ff, coins: 18, skill: { boost: 'crystal' }, zone: 'cave' },
+  golemik: { height: 1.15, ailment: 'pebbles', cure: 'crystal', tint: 0xd8e0e8, coins: 18, skill: { boost: 'green' }, zone: 'cave' },
 };
 
 /** the album's pages, one per area, in the order the species turn up; a full page pays its reward (in coins) once */
@@ -95,6 +101,7 @@ const ALBUM_PAGES: { zone: Zone; icon: SpotIcon; reward: number; species: string
   { zone: 'glade', icon: 'mossbed', reward: 350, species: ['leszy', 'wilkolaczek', 'skrzat', 'sowka'] },
   { zone: 'snow', icon: 'snowbed', reward: 450, species: ['yeti', 'renifer', 'balwanek', 'pingwinek'] },
   { zone: 'sea', icon: 'shellbed', reward: 550, species: ['krabik', 'foczka', 'zolwik', 'syrenka'] },
+  { zone: 'cave', icon: 'stonebed', reward: 650, species: ['nietoperek', 'kret', 'zuczek', 'golemik'] },
   { zone: 'camp', icon: 'pumpkin', reward: 300, species: HALLOWEEN_SPECIES, seasonal: true },
 ];
 
@@ -162,13 +169,33 @@ const DUNE: [number, number][] = Array.from({ length: 9 }, (_, i) => {
   const a = SEA_A + (i - 4) * 0.065;
   return [Math.cos(a) * 10.6, Math.sin(a) * 10.6];
 });
-const ZONE_BEDS: Record<Zone, [number, number][]> = { camp: BEDS, pond: POND_BEDS, glade: GLADE_BEDS, snow: SNOW_BEDS, sea: SEA_BEDS };
+/** the crystal cave south of the camp, between the herb bed and the fountain, behind a wall of rocks:
+ *  a stone floor, a rocky hill with the dark cave mouth on its far side */
+const CAVE_A = 1.385;
+export const CAVE_C = new THREE.Vector3(Math.cos(CAVE_A) * 15, 0, Math.sin(CAVE_A) * 15);
+export const CAVE_R = 5;
+const CAVE_GAP = new THREE.Vector3(Math.cos(CAVE_A) * 10.45, 0, Math.sin(CAVE_A) * 10.45);
+/** the cave mouth (where its patients come out) is on the east side: the camera looks north and would never show the far side */
+const CAVE_MOUTH = CAVE_A - 1.3;
+/** in the cave, relative to its middle (x away from the camp, z sideways), like onSnow */
+const onCave = (out: number, side: number): [number, number] => [
+  CAVE_C.x + Math.cos(CAVE_A) * out - Math.sin(CAVE_A) * side, CAVE_C.z + Math.sin(CAVE_A) * out + Math.cos(CAVE_A) * side,
+];
+const CAVE_BEDS: [number, number][] = [onCave(0.6, -2.4), onCave(2.0, 2.0), onCave(-0.6, 3.4)];
+const CAVE_STATION = onCave(-1.8, -2.6);
+const CAVE_LAMP = onCave(1.4, -1.0);
+const ROCKS: [number, number][] = Array.from({ length: 9 }, (_, i) => {
+  const a = CAVE_A + (i - 4) * 0.0825;
+  return [Math.cos(a) * 10.6, Math.sin(a) * 10.6];
+});
+const ZONE_BEDS: Record<Zone, [number, number][]> = { camp: BEDS, pond: POND_BEDS, glade: GLADE_BEDS, snow: SNOW_BEDS, sea: SEA_BEDS, cave: CAVE_BEDS };
 /** the open areas beyond the meadow edge (glade, snowy hill): middle, radius, the angle of the way in */
 /** w: half the angle of the way in once it is open (the hedge, drift and dune keep standing on both sides of it) */
 const RIMS = [
   { zone: 'glade' as const, c: GLADE_C, r: GLADE_R, a: GLADE_A, gap: GAP, w: 0.19 },
   { zone: 'snow' as const, c: SNOW_C, r: SNOW_R, a: SNOW_A, gap: SNOW_GAP, w: 0.19 },
   { zone: 'sea' as const, c: SEA_C, r: SEA_R, a: SEA_A, gap: SEA_GAP, w: 0.14 },
+  { zone: 'cave' as const, c: CAVE_C, r: CAVE_R, a: CAVE_A, gap: CAVE_GAP, w: 0.19 },
 ];
 const angleTo = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 /** a flat ring that fills clockwise: set .userData.fill(0..1) */
@@ -199,7 +226,7 @@ const ADOPTERS: [string, number][] = [['dziewczynka', 1.2], ['chlopiec', 1.2], [
 /** extra coins (each worth 2) when the keeper is there to say goodbye */
 const FAREWELL_BONUS = 8;
 /** where each area's hired helper waits between jobs */
-const WORKER_HOME: Record<Zone, THREE.Vector3> = { camp: new THREE.Vector3(3.4, 0, 5.4), pond: new THREE.Vector3(2.8, 0, -11.2), glade: new THREE.Vector3(13.0, 0, 3.6), snow: new THREE.Vector3(onSnow(-1.6, 2.2)[0], 0, onSnow(-1.6, 2.2)[1]), sea: new THREE.Vector3(onSea(-2.4, -0.4)[0], 0, onSea(-2.4, -0.4)[1]) };
+const WORKER_HOME: Record<Zone, THREE.Vector3> = { camp: new THREE.Vector3(3.4, 0, 5.4), pond: new THREE.Vector3(2.8, 0, -11.2), glade: new THREE.Vector3(13.0, 0, 3.6), snow: new THREE.Vector3(onSnow(-1.6, 2.2)[0], 0, onSnow(-1.6, 2.2)[1]), sea: new THREE.Vector3(onSea(-2.4, -0.4)[0], 0, onSea(-2.4, -0.4)[1]), cave: new THREE.Vector3(onCave(-2.2, 1.2)[0], 0, onCave(-2.2, 1.2)[1]) };
 
 interface Flight { obj: THREE.Object3D; from: THREE.Vector3; to: () => THREE.Vector3; t: number; dur: number; arc: number; done: () => void }
 
@@ -319,6 +346,12 @@ const SPOTS: SpotDef[] = [
   { icon: 'lighthouse', price: 3000, hearts: 170, at: SEA_LIGHT, apply: (g, i) => { g.addLighthouse(SEA_LIGHT[0], SEA_LIGHT[1], i); g.unlock('zolwik'); } },
   { icon: 'shellbed', price: 3200, at: SEA_BEDS[2], apply: (g, i) => { g.addBed(i, 'sea'); g.unlock('syrenka'); } },
   { icon: 'helper', price: 3500, at: [WORKER_HOME.sea.x, WORKER_HOME.sea.z], apply: (g, i) => void g.addWorker('sea', i) },
+  // the crystal cave through the rocks
+  { icon: 'pickaxe', price: 3800, hearts: 190, at: [Math.cos(CAVE_A) * 9.3, Math.sin(CAVE_A) * 9.3], apply: (g, i) => g.openCave(i) },
+  { icon: 'stonebed', price: 3900, at: CAVE_BEDS[1], apply: (g, i) => { g.addBed(i, 'cave'); g.unlock('kret'); } },
+  { icon: 'crystallamp', price: 4100, hearts: 210, at: CAVE_LAMP, apply: (g, i) => { g.addCrystalLamp(CAVE_LAMP[0], CAVE_LAMP[1], i); g.unlock('zuczek'); } },
+  { icon: 'stonebed', price: 4300, at: CAVE_BEDS[2], apply: (g, i) => { g.addBed(i, 'cave'); g.unlock('golemik'); } },
+  { icon: 'helper', price: 4600, at: [WORKER_HOME.cave.x, WORKER_HOME.cave.z], apply: (g, i) => void g.addWorker('cave', i) },
 ];
 
 const DECOR_BONUS = 2;
@@ -368,9 +401,11 @@ export class Game {
   gladeOpen = false;
   snowOpen = false;
   seaOpen = false;
+  caveOpen = false;
   private hedge: THREE.Group[] = [];
   private drift: THREE.Group[] = [];
   private dune: THREE.Group[] = [];
+  private rocks: THREE.Group[] = [];
   carry: THREE.Group[] = [];
   capacity = 4;
   maxPatients = 1;
@@ -431,6 +466,7 @@ export class Game {
   private saveT = 0;
   private strayT = 1;
   private tmp = new THREE.Vector3();
+  private tmpColor = new THREE.Color();
   private album: Album;
   /** the request of the day (see daily.ts) */
   daily: Daily;
@@ -502,6 +538,11 @@ export class Game {
     this.dune = duneMounds(DUNE);
     d.scene.add(...this.dune);
     d.scene.add(...this.drift);
+    const cave = caveScenery(CAVE_C.x, CAVE_C.z, CAVE_R, CAVE_A, CAVE_MOUTH);
+    d.scene.add(cave);
+    this.props.push(cave); // its crystals pulse (userData.tick)
+    this.rocks = rockMounds(ROCKS);
+    d.scene.add(...this.rocks);
     this.basket = basketMesh();
     this.basket.position.set(2.4, 0, 6.3);
     d.scene.add(this.basket);
@@ -773,7 +814,7 @@ export class Game {
   }
 
   addStation(kind: Medicine, x: number, z: number, instant: boolean) {
-    const brew = { pink: 2.6, blue: 3.0, green: 3.4, berry: 2.2, purple: 3.2, gold: 3.4, cocoa: 3.4, pearl: 3.6 }[kind];
+    const brew = { pink: 2.6, blue: 3.0, green: 3.4, berry: 2.2, purple: 3.2, gold: 3.4, cocoa: 3.4, pearl: 3.6, crystal: 3.8 }[kind];
     const s = new Station(kind, new THREE.Vector3(x, 0, z), brew, this.d.shadowTex);
     this.d.scene.add(s.group);
     this.stations.push(s);
@@ -791,7 +832,7 @@ export class Game {
 
   addBed(instant: boolean, zone: Zone = 'camp') {
     const [x, z] = ZONE_BEDS[zone][this.beds.filter((b) => b.zone === zone).length];
-    const mesh = { camp: bedMesh, pond: lilyBedMesh, glade: mossBedMesh, snow: snowBedMesh, sea: shellBedMesh }[zone]();
+    const mesh = { camp: bedMesh, pond: lilyBedMesh, glade: mossBedMesh, snow: snowBedMesh, sea: shellBedMesh, cave: stoneBedMesh }[zone]();
     this.dress(mesh, zone);
     mesh.position.set(x, 0, z);
     // pulsing ring around a bed that needs plumping up
@@ -872,6 +913,35 @@ export class Game {
     if (!instant) this.popIn(arch);
   }
 
+  /** break through the middle of the rock wall and put up a mine frame: the cave opens with its crystals and a first stone bed */
+  openCave(instant: boolean) {
+    this.rocks.forEach((h, i) => {
+      if (!HEDGE_GAP(i)) return;
+      if (!instant) this.fx.emit('pebble', h.position.clone().setY(0.6), 12, { speed: 1.8, up: 1.6, g: 5, life: 0.9, size: 1.6 });
+      h.parent?.remove(h);
+    });
+    const arch = caveGateMesh();
+    arch.position.copy(CAVE_GAP);
+    arch.rotation.y = -CAVE_A;
+    this.d.scene.add(arch);
+    this.caveOpen = true;
+    this.addStation('crystal', CAVE_STATION[0], CAVE_STATION[1], instant);
+    this.addBed(instant, 'cave');
+    this.unlock('nietoperek');
+    if (!instant) this.popIn(arch);
+  }
+
+  addCrystalLamp(x: number, z: number, instant: boolean) {
+    const g = crystalLampMesh();
+    this.dress(g, 'crystallamp');
+    this.addGlow(g, 1.2, 0x7fe8f0, 3.4);
+    g.position.set(x, 0, z);
+    this.d.scene.add(g);
+    this.props.push(g);
+    this.maxPatients = 9;
+    if (!instant) this.popIn(g);
+  }
+
   addLighthouse(x: number, z: number, instant: boolean) {
     const g = lighthouseMesh();
     this.dress(g, 'lighthouse');
@@ -925,7 +995,7 @@ export class Game {
     if (!instant) this.popIn(g);
   }
   private newDay(saved?: DailyState) {
-    const zone: Zone = this.seaOpen ? 'sea' : this.snowOpen ? 'snow' : this.gladeOpen ? 'glade' : this.pondOpen ? 'pond' : 'camp';
+    const zone: Zone = this.caveOpen ? 'cave' : this.seaOpen ? 'sea' : this.snowOpen ? 'snow' : this.gladeOpen ? 'glade' : this.pondOpen ? 'pond' : 'camp';
     const pool = this.species.filter((n) => (SPECIES[n].zone ?? 'camp') === zone);
     this.daily.ensure(saved, pool, 50 + this.bought * 15);
   }
@@ -1059,7 +1129,7 @@ export class Game {
     if (k.z > -9) {
       // the meadow, plus the glade and the snowy hill once their ways in are open; outside all, back onto the nearest edge
       const r = Math.hypot(k.x, k.z);
-      const open = RIMS.filter((m) => ({ glade: this.gladeOpen, snow: this.snowOpen, sea: this.seaOpen })[m.zone]);
+      const open = RIMS.filter((m) => ({ glade: this.gladeOpen, snow: this.snowOpen, sea: this.seaOpen, cave: this.caveOpen })[m.zone]);
       // the meadow ends in front of the hedge, drift or dune (a hard edge, so big steps can't slip through); once a way
       // in is open, only in front of it: beside it the barrier still stands (no pockets behind its ends, e.g. by the house)
       const shut = RIMS.some((m) => { const d = angleTo(Math.atan2(k.z, k.x), m.a); return d < 0.42 && (!open.includes(m) || d > m.w); });
@@ -1264,7 +1334,7 @@ export class Game {
     // usually someone the keeper already carries the cure for, so a full pile is rarely useless;
     // otherwise favour the newest species so a fresh station gets used
     // every open area beyond the camp (pond, glade) keeps one patient of its own
-    const open: Zone[] = ['camp', ...(this.pondOpen ? ['pond' as const] : []), ...(this.gladeOpen ? ['glade' as const] : []), ...(this.snowOpen ? ['snow' as const] : []), ...(this.seaOpen ? ['sea' as const] : [])];
+    const open: Zone[] = ['camp', ...(this.pondOpen ? ['pond' as const] : []), ...(this.gladeOpen ? ['glade' as const] : []), ...(this.snowOpen ? ['snow' as const] : []), ...(this.seaOpen ? ['sea' as const] : []), ...(this.caveOpen ? ['cave' as const] : [])];
     const zoneOf = (n: string) => SPECIES[n].zone ?? 'camp';
     const lonely = open.find((z) => z !== 'camp' && !this.patients.some((p) => (p.sp.zone ?? 'camp') === z && p.state !== 'cured' && p.state !== 'leaving'));
     const pool = this.species.filter((n) => (lonely ? zoneOf(n) === lonely : open.includes(zoneOf(n))));
@@ -1293,6 +1363,11 @@ export class Game {
         theta = SEA_A + (Math.random() - 0.5) * 2.4;
         const rr = 1.4 + Math.random() * 3;
         seat = new THREE.Vector3(SEA_C.x + Math.cos(theta) * rr, 0, Math.max(-7.4, SEA_C.z + Math.sin(theta) * rr));
+      } else if (zone === 'cave') {
+        // on the cave floor, coming out of the cave mouth
+        theta = CAVE_A + (Math.random() - 0.5) * 2.4;
+        const rr = 1.4 + Math.random() * 3;
+        seat = new THREE.Vector3(CAVE_C.x + Math.cos(theta) * rr, 0, CAVE_C.z + Math.sin(theta) * rr);
       } else if (zone === 'snow') {
         // in the snow, coming down from the pines on the far side
         theta = SNOW_A + (Math.random() - 0.5) * 2.4;
@@ -1307,6 +1382,9 @@ export class Game {
         // nor from the west-north-west, where the bay and its dune are, round to the shelter house
         const seaT = Math.atan2(SEA_C.x, SEA_C.z), houseT = Math.atan2(HOUSE.x, HOUSE.z) + 0.35;
         if (theta > seaT - 0.4 && theta < houseT) theta = houseT;
+        // nor from the south, where the cave and its rocks are
+        const caveT = Math.atan2(CAVE_C.x, CAVE_C.z);
+        if (Math.abs(theta - caveT) < 0.45) theta = theta > caveT ? caveT + 0.45 : caveT - 0.45;
         const rr = 5 + Math.random() * 4;
         seat = new THREE.Vector3(Math.sin(theta) * rr, 0, Math.cos(theta) * rr);
       }
@@ -1326,6 +1404,7 @@ export class Game {
     const exit = zone === 'pond' ? new THREE.Vector3(POND_C.x + Math.cos(theta) * 12, 0, POND_C.z - 6 + Math.sin(theta) * 4)
       : zone === 'glade' ? new THREE.Vector3(GLADE_C.x + Math.cos(theta) * 9, 0, GLADE_C.z + Math.sin(theta) * 9)
       : zone === 'snow' ? new THREE.Vector3(SNOW_C.x + Math.cos(theta) * 9, 0, SNOW_C.z + Math.sin(theta) * 9)
+      : zone === 'cave' ? new THREE.Vector3(CAVE_C.x + Math.cos(CAVE_MOUTH) * 4.8, 0, CAVE_C.z + Math.sin(CAVE_MOUTH) * 4.8)
       : zone === 'sea' ? new THREE.Vector3(SEA_C.x + Math.cos(theta) * 9, 0, Math.max(-8, SEA_C.z + Math.sin(theta) * 9))
         : new THREE.Vector3(Math.sin(theta) * 13, 0, Math.cos(theta) * 13);
     const c = await this.d.spawnCreature(sp.model ?? name, sp.height);
@@ -1519,6 +1598,38 @@ export class Game {
           if (Math.random() < dt * 10) this.fx.emit('flake', c.root.position.clone().setY(0.1), 1, { speed: 0.8, up: 0.4, g: 2, life: 0.5 });
         }
         break;
+      case 'echo':
+        // hiccups, and the hiccup echoes round the cave: it hops and rings of sound float off
+        if (p.fxT <= 0) {
+          p.fxT = 2.2 + Math.random();
+          c.twitch(1);
+          c.hop();
+          this.fx.emit('zzz', head.clone().setY(h * 1.0), 4, { speed: 0.6, up: 0.7, g: -0.3, life: 1.4, size: 2.4 });
+          if (loud) this.d.sfx.hiccup();
+        }
+        break;
+      case 'dig':
+        // keeps digging itself into the ground, then pops out again
+        if (p.fxT <= 0) { p.fxT = 3 + Math.random(); if (loud) this.d.sfx.squeak(); }
+        c.root.scale.set(1, p.fxT > 1.8 ? 0.5 : 1, 1);
+        if (p.fxT > 1.8 && Math.random() < dt * 10) this.fx.emit('pebble', c.root.position.clone().setY(0.15), 1, { speed: 1.2, up: 1.4, g: 5, life: 0.6, size: 0.7 });
+        break;
+      case 'glitter':
+        // shimmers through every colour of the crystals
+        c.setTint(this.tmpColor.setHSL((this.t * 0.45) % 1, 0.75, 0.78).getHex());
+        if (Math.random() < dt * 3) this.fx.emit('star', head.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, h * 0.2, (Math.random() - 0.5) * 0.6)), 1, { speed: 0.2, up: 0.3, g: 0, life: 0.6, size: 0.6 });
+        if (p.fxT <= 0) { p.fxT = 2.8 + Math.random(); c.twitch(0.6); }
+        break;
+      case 'pebbles':
+        // crumbling: pebbles keep dropping off it, and now and then a shake sends a shower down
+        if (Math.random() < dt * 2) this.fx.emit('pebble', c.root.position.clone().setY(h * (0.4 + Math.random() * 0.5)), 1, { speed: 0.3, g: 5, life: 0.5 });
+        if (p.fxT <= 0) {
+          p.fxT = 2.6 + Math.random();
+          c.twitch(1.2);
+          this.fx.emit('pebble', head.clone(), 10, { speed: 1.2, up: 0.8, g: 6, life: 0.7 });
+          if (loud) this.d.sfx.shiver();
+        }
+        break;
       case 'pinch':
         // its claw keeps pinching its own nose: it jumps and little stars fly
         if (p.fxT <= 0) {
@@ -1651,12 +1762,13 @@ export class Game {
     this.residents.push(r);
   }
 
-  zone(v: THREE.Vector3): 'pen' | 'camp' | 'pond' | 'glade' | 'snow' | 'sea' {
+  zone(v: THREE.Vector3): 'pen' | 'camp' | 'pond' | 'glade' | 'snow' | 'sea' | 'cave' {
     if (Math.hypot(v.x, v.z) < 3.6) return 'pen';
     if (v.x > 10 && Math.hypot(v.x, v.z) > 10.6) return 'glade';
     if (Math.hypot(v.x - SNOW_C.x, v.z - SNOW_C.z) < SNOW_R + 1.5 && Math.hypot(v.x, v.z) > 10.6) return 'snow';
     // the bay circle reaches round the end of the dune by the house: only inside it (not the meadow beside it) is the bay
     if (Math.hypot(v.x - SEA_C.x, v.z - SEA_C.z) < SEA_R + 0.3 && Math.hypot(v.x, v.z) > 10.6 && v.z > -9) return 'sea';
+    if (Math.hypot(v.x - CAVE_C.x, v.z - CAVE_C.z) < CAVE_R + 0.3 && Math.hypot(v.x, v.z) > 10.6) return 'cave';
     return v.z < -9 ? 'pond' : 'camp';
   }
 
@@ -2171,7 +2283,7 @@ export class Game {
     // patients
     this.spawnT -= dt;
     const active = this.patients.filter((p) => p.state !== 'cured' && p.state !== 'leaving').length;
-    if (!this.spawning && active < this.maxPatients + (this.pondOpen ? 1 : 0) + (this.gladeOpen ? 1 : 0) + (this.snowOpen ? 1 : 0) + (this.seaOpen ? 1 : 0) && this.spawnT <= 0) {
+    if (!this.spawning && active < this.maxPatients + (this.pondOpen ? 1 : 0) + (this.gladeOpen ? 1 : 0) + (this.snowOpen ? 1 : 0) + (this.seaOpen ? 1 : 0) + (this.caveOpen ? 1 : 0) && this.spawnT <= 0) {
       this.spawnT = 3.5;
       void this.spawnPatient();
     }
