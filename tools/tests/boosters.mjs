@@ -61,7 +61,12 @@ const G = (p, f, a) => p.evaluate(f, a);
 // 3. a 'boost' resident (smok) plumps up a sleepy neighbour's bed while the keeper stays away
 {
   const p = await open({ ver: 2, coins: 0, bought: 9, hearts: 20, residents: [{ name: 'smok', hearts: 2 }, { name: 'gryf', hearts: 1 }] });
-  await G(p, () => { const g = window.__G(); g.workers.length = 0; window.__walk(0, 7); });
+  // plumping takes only a second or two: the page notes every state of the smok itself (a test step can be slower)
+  await G(p, () => {
+    const g = window.__G(); g.workers.length = 0; window.__walk(0, 7);
+    window.__smok = new Set();
+    window.setInterval(() => window.__smok.add(g.residents.find((r) => r.name === 'smok')?.state), 50);
+  });
   let ok = false, saw = false;
   for (let i = 0; i < 40 && !ok; i++) {
     const s = await G(p, () => {
@@ -70,7 +75,7 @@ const G = (p, f, a) => p.evaluate(f, a);
       if (smok.need) smok.need = null;
       if (!gryf.need && gryf.state === 'idle') { gryf.need = 'sleep'; gryf.needT = 99; g.drawNeed(gryf); }
       smok.helpT = Math.min(smok.helpT, 0.1);
-      return { smok: smok.state, gryf: gryf.state };
+      return { smok: window.__smok.has('helpWork') ? 'helpWork' : smok.state, gryf: gryf.state };
     });
     if (s.smok === 'helpWork') saw = true;
     if (saw && (s.gryf === 'toSleep' || s.gryf === 'sleeping')) ok = true;
