@@ -406,6 +406,8 @@ export class Game {
   private drift: THREE.Group[] = [];
   private dune: THREE.Group[] = [];
   private rocks: THREE.Group[] = [];
+  /** the cave scenery: its crystals and floor light up at night */
+  private cave?: THREE.Group;
   carry: THREE.Group[] = [];
   capacity = 4;
   maxPatients = 1;
@@ -541,6 +543,7 @@ export class Game {
     const cave = caveScenery(CAVE_C.x, CAVE_C.z, CAVE_R, CAVE_A, CAVE_MOUTH);
     d.scene.add(cave);
     this.props.push(cave); // its crystals pulse (userData.tick)
+    this.cave = cave;
     this.rocks = rockMounds(ROCKS);
     d.scene.add(...this.rocks);
     this.basket = basketMesh();
@@ -1092,6 +1095,7 @@ export class Game {
     const glow = 1 - this.daylight;
     for (const g of this.glows) { g.visible = glow > 0.02; (g.material as THREE.SpriteMaterial).opacity = glow * 0.85; }
     this.spooky?.pumpkins.userData.glow(glow);
+    this.cave?.userData.glow(glow);
     this.spooky?.bats.userData.tick(this.t, glow);
   }
 

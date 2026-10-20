@@ -1604,7 +1604,13 @@ export function caveScenery(cx: number, cz: number, r: number, away: number, mou
   }
   crystals.forEach((c, k) => { c.count = count[k]; c.castShadow = true; });
   g.add(rocks, hill, mouth, ...crystals);
-  g.userData.tick = (t: number) => { glow.emissiveIntensity = 0.55 + Math.sin(t * 1.2) * 0.2; lil.emissiveIntensity = 0.45 + Math.sin(t * 1.2 + 1.5) * 0.2; };
+  // at night (glow 1) the crystals shine brighter and the floor keeps a faint lilac light, so the cave is not a dark hole
+  let night = 0;
+  const floorMat = floor.material as THREE.MeshLambertMaterial;
+  floorMat.emissive.set(0x6a5a9a);
+  g.userData.glow = (n: number) => { night = n; floorMat.emissiveIntensity = n * 0.45; };
+  g.userData.glow(0);
+  g.userData.tick = (t: number) => { glow.emissiveIntensity = 0.55 + night * 0.8 + Math.sin(t * 1.2) * 0.2; lil.emissiveIntensity = 0.45 + night * 0.7 + Math.sin(t * 1.2 + 1.5) * 0.2; };
   return g;
 }
 
