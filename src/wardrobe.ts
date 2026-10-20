@@ -291,12 +291,20 @@ export class Wardrobe {
     this.dress(this.state.worn);
   }
 
+  /** called on every open (true) and close (false): gameplay pauses meanwhile */
+  onToggle?: (open: boolean) => void;
+
   open() {
     this.render();
     this.panel.classList.add('on');
+    this.onToggle?.(true);
   }
 
-  close() { this.panel.classList.remove('on'); }
+  close() {
+    if (!this.isOpen) return;
+    this.panel.classList.remove('on');
+    this.onToggle?.(false);
+  }
 
   /** tap a card: buy it if not owned yet (and put it on), else put it on or take it off */
   tap(id: string) {

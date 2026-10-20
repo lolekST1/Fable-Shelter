@@ -18,9 +18,16 @@ export class Sfx {
     if (this.ctx.state === 'suspended') void this.ctx.resume();
   }
 
+  /** silent for a while without touching the player's own mute setting (an ad is playing) */
+  private hushed = false;
+  hush(on: boolean) {
+    this.hushed = on;
+    if (this.master) this.master.gain.value = this.muted || on ? 0 : 1;
+  }
+
   setMuted(m: boolean) {
     this.muted = m;
-    if (this.master) this.master.gain.value = m ? 0 : 1;
+    if (this.master) this.master.gain.value = m || this.hushed ? 0 : 1;
     try { localStorage.setItem('fable-shelter-muted', m ? '1' : '0'); } catch { /* ignore */ }
   }
 

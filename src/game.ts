@@ -3,6 +3,9 @@ import type { Creature } from './creature';
 import type { Sfx } from './sfx';
 import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, drawAilment, drawBerry, drawCoin, drawHeart, drawMoon, drawSpotIcon, needCanvas } from './icons';
 import { Album } from './album';
+import { backupBox, keepStorage } from './backup';
+import { adsOn, pauseBreak, playing, rewarded, track } from './platform';
+import { BOOST_TIME, type Booster, Boosters } from './boosters';
 import { Daily, type DailyState, today } from './daily';
 import { halloweenStory, heartsStory, introStory, meetStory, nextCard, stationStory } from './story';
 import { HALLOWEEN_CHANCE, HALLOWEEN_SPECIES, bats, halloween, pumpkins } from './halloween';
@@ -262,7 +265,8 @@ interface Resident {
   path: THREE.Vector3[];
   helpT: number;
   /** what it is doing while helping */
-  job: { station: Station; patient?: Patient; resident?: Resident; item?: THREE.Group } | null;
+  /** carrying: station + patient or resident to feed; plumping a bed: resident (the sleepy one) and no station */
+  job: { station?: Station; patient?: Patient; resident?: Resident; item?: THREE.Group } | null;
   stateT: number;
   target: THREE.Vector3;
   wanderT: number;
@@ -293,6 +297,8 @@ interface Worker {
   path: THREE.Vector3[];
   job: { station?: Station; patient?: Patient; resident?: Resident; item?: THREE.Group } | null;
   t: number;
+  /** a volunteer from a booster: leaves at this game time */
+  until?: number;
 }
 
 interface SpotDef {
@@ -496,6 +502,10 @@ export class Game {
         return d.portrait(SPECIES[name].model ?? name, key === name ? SPECIES[name].base ?? null : variantTint(name));
       },
     );
+    this.album.addFooter(backupBox(() => this.saveData(), (json) => this.restoreBackup(json)));
+    keepStorage();
+    this.album.onToggle = (open) => this.menuToggle(open);
+    this.boosters = new Boosters(() => rewarded((h) => this.d.sfx.hush(h)), (b) => this.startBooster(b), () => this.t, (open) => this.menuToggle(open));
     this.daily = new Daily((name) => d.portrait(SPECIES[name].model ?? name, SPECIES[name].base ?? null), (name) => SPECIES[name].ailment);
     for (let i = 0; i < 10; i++) {
       const s = new THREE.Object3D();
@@ -562,11 +572,11 @@ export class Game {
     d.scene.add(house);
     this.dress(house, 'house');
     // the wardrobe: a coat hanger sign over the house door; standing at the door opens it
-    this.wardrobe = new Wardrobe(
+    this.wardrobe = this.wireMenu(new Wardrobe(
       (price) => { if (this.coins < price) return false; this.setCoins(this.coins - price); this.d.sfx.pay(); this.save(); return true; },
       (worn) => this.wear(worn),
       () => this.coins,
-    );
+    ));
     const hc = document.createElement('canvas');
     hc.width = hc.height = 128;
     const hg = hc.getContext('2d')!;
@@ -637,24 +647,70 @@ export class Game {
     if (!data.seen?.some((k) => k.startsWith('sp:'))) for (const s of this.species) if (n > 0) this.seen.add('sp:' + s);
   }
 
+  private wireMenu<T extends { onToggle?: (open: boolean) => void }>(m: T): T {
+    m.onToggle = (open) => this.menuToggle(open);
+    return m;
+  }
+
+  /** a menu (album, wardrobe) opened or closed: gameplay pauses; closing it is a natural break for an ad on Poki */
+  private menuToggle(open: boolean) {
+    if (open) playing(false);
+    else void pauseBreak((h) => this.d.sfx.hush(h));
+  }
+
+  /** boosters for a rewarded ad (see boosters.ts) */
+  private boosters!: Boosters;
+  private chestAsking = false;
+  /** coins ×2 while the gold booster runs (cures and adoptions) */
+  private get goldMul() { return this.boosters.active('gold') ? 2 : 1; }
+
+  /** a booster was earned: the gold one just runs (see goldMul); the volunteer is a helper for the area the keeper is in */
+  private startBooster(b: Booster) {
+    track('booster', b, 'granted');
+    const k = this.d.keeper.root.position;
+    this.fx.emit('star', k.clone().setY(1.2), 40, { speed: 3, up: 2.5, life: 1.2 });
+    this.d.sfx.build();
+    if (b === 'volunteer') {
+      const z = this.zone(k);
+      void this.addWorker(z === 'pen' ? 'camp' : z, false, k.clone().add(new THREE.Vector3(0.8, 0, 0.6))).then((w) => { w.until = this.t + BOOST_TIME; });
+    }
+  }
+
+  /** set while a backup is being loaded: the page reloads and must not write the old game over it on the way out */
+  private frozen = false;
+
   private save() {
-    try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({
-        ver: 2,
-        savedAt: Date.now(),
-        chest: this.chestCoins || undefined,
-        coins: this.coins,
-        bought: this.bought,
-        hearts: this.hearts,
-        residents: this.residents.filter((r) => r.state !== 'leaving').map((r) => ({ name: r.name, hearts: r.hearts, ...(r.variant ? { v: 1 } : {}) })),
-        // added later; older saves just start with an empty album
-        album: this.album.counts,
-        albumPaid: this.album.paid,
-        daily: this.daily.state ?? undefined,
-        wardrobe: this.wardrobe.state,
-        seen: [...this.seen],
-      }));
-    } catch { /* ignore */ }
+    if (this.frozen) return;
+    try { localStorage.setItem(SAVE_KEY, this.saveData()); } catch { /* ignore */ }
+  }
+
+  /** load a game from a backup code (see backup.ts): it becomes the save and the page starts over with it */
+  private restoreBackup(json: string) {
+    track('backup', 'save', 'load');
+    this.frozen = true;
+    try { localStorage.setItem(SAVE_KEY, json); } catch { this.frozen = false; return; }
+    // start over with it; without ?reset, which would wipe it straight away
+    const url = new URL(location.href);
+    url.searchParams.delete('reset');
+    location.replace(url.toString());
+  }
+
+  private saveData() {
+    return JSON.stringify({
+      ver: 2,
+      savedAt: Date.now(),
+      chest: this.chestCoins || undefined,
+      coins: this.coins,
+      bought: this.bought,
+      hearts: this.hearts,
+      residents: this.residents.filter((r) => r.state !== 'leaving').map((r) => ({ name: r.name, hearts: r.hearts, ...(r.variant ? { v: 1 } : {}) })),
+      // added later; older saves just start with an empty album
+      album: this.album.counts,
+      albumPaid: this.album.paid,
+      daily: this.daily.state ?? undefined,
+      wardrobe: this.wardrobe.state,
+      seen: [...this.seen],
+    });
   }
 
   // ------------------------------------------------------------ hud
@@ -1060,10 +1116,11 @@ export class Game {
   }
 
   /** the keeper opens the chest: its coins fly over */
-  private openChest() {
+  private openChest(mul: 1 | 2 = 1) {
     const at = CHEST_AT.clone().setY(0.5);
     this.fx.emit('star', at, 40, { speed: 3, up: 2.5, life: 1.2 });
-    this.dropCoins(at, Math.round(this.chestCoins / 2), true); // a coin is worth 2
+    if (mul === 2) track('booster', 'chest', 'granted');
+    this.dropCoins(at, Math.round((this.chestCoins * mul) / 2), true); // a coin is worth 2
     this.d.sfx.build();
     this.setChest(0);
     this.save();
@@ -1731,8 +1788,8 @@ export class Game {
     this.d.sfx.heal();
     const at = p.c.root.position.clone().setY(p.c.height * 0.7);
     this.fx.emit('star', at, 26, { speed: 2.6, up: 2.2, life: 1.1 });
-    this.dropCoins(at, (p.sp.coins + this.cheer * DECOR_BONUS) * (p.variant ? 2 : 1));
-    if (this.step === 1) this.step = 2;
+    this.dropCoins(at, (p.sp.coins + this.cheer * DECOR_BONUS) * (p.variant ? 2 : 1) * this.goldMul);
+    if (this.step === 1) { this.step = 2; track('tutorial', 'cure', 'complete'); }
     this.dailyHit('cure', p.name);
   }
 
@@ -1842,9 +1899,17 @@ export class Game {
     const pos = r.c.root.position;
     const near = (list: Station[]) => list.sort((a, b) => a.pos.distanceTo(pos) - b.pos.distanceTo(pos))[0];
     if ('boost' in skill) {
-      const st = near(this.stations.filter((s) => s.kind === skill.boost && s.boost <= 0 && s.tray.length < 6));
-      if (!st) return false;
-      r.job = { station: st };
+      // plump up a sleepy neighbour's bed: the stations always keep up with the keeper (the old station boost did
+      // nothing), while plumping beds takes a fifth of the keeper's time
+      const taken = new Set(this.residents.map((o) => (o.job && !o.job.station ? o.job.resident : undefined)));
+      const other = this.residents
+        .filter((o) => o !== r && o.need === 'sleep' && o.state === 'idle' && !taken.has(o))
+        .sort((a, b) => a.bed.pos.distanceTo(pos) - b.bed.pos.distanceTo(pos))[0];
+      if (!other) return false;
+      r.job = { resident: other };
+      r.path = this.route(pos, other.bed.pos);
+      r.state = 'helpGo';
+      return true;
     } else if (skill.carry === 'cure') {
       const p = this.patients.find((p) => (p.state === 'waiting' || p.state === 'arriving') && !p.claimed && this.stations.some((s) => s.kind === p.sp.cure && s.tray.length));
       if (!p) return false;
@@ -1857,7 +1922,7 @@ export class Game {
       other.fedIncoming = true;
       r.job = { station: st, resident: other };
     }
-    const front = r.job.station.pos.clone().add(new THREE.Vector3(-0.2, 0, 0.8));
+    const front = r.job.station!.pos.clone().add(new THREE.Vector3(-0.2, 0, 0.8));
     r.path = this.route(pos, front);
     r.state = 'helpGo';
     return true;
@@ -1908,7 +1973,7 @@ export class Game {
     r.needT = 6 + Math.random() * 5;
     this.fx.emit('heart', r.c.root.position.clone().setY(r.c.height + 0.2), 8, { speed: 0.8, up: 1.2, g: -0.2, life: 1.4, size: 1.6 });
     this.d.sfx.pop(6);
-    if (this.step === 2) { this.step = 3; this.markSeen(); }
+    if (this.step === 2) { this.step = 3; this.markSeen(); track('tutorial', 'care', 'complete'); }
     if (r.hearts >= MAX_HEARTS) this.adopt(r);
     this.drawNeed(r);
   }
@@ -1946,6 +2011,7 @@ export class Game {
 
   /** the adopter and the resident meet: the adoption heart, coins, a bonus if the keeper came to say goodbye */
   private farewell(r: Resident) {
+    if ([1, 5, 10, 25, 50, 100, 200, 400].includes(this.hearts + 1)) track('adopt', `n${this.hearts + 1}`, 'complete');
     const bonus = this.d.keeper.root.position.distanceTo(r.c.root.position) < 3;
     r.state = 'leaving';
     r.bed.owner = null;
@@ -1954,7 +2020,7 @@ export class Game {
     const at = r.c.root.position.clone().setY(r.c.height * 0.7);
     this.fx.emit('heart', at, bonus ? 45 : 30, { speed: 2.2, up: 2.5, g: 1, life: 1.6, size: 1.8 });
     this.fx.emit('star', at, 20, { speed: 2.4, up: 2, life: 1.1 });
-    this.dropCoins(at, ADOPT_COINS + (bonus ? FAREWELL_BONUS : 0));
+    this.dropCoins(at, (ADOPT_COINS + (bonus ? FAREWELL_BONUS : 0)) * this.goldMul);
     this.setHearts(this.hearts + 1);
     if (bonus) this.dailyHit('goodbye');
     for (const sp of this.spots) this.drawSpot(sp);
@@ -2061,7 +2127,8 @@ export class Game {
         }
         // sleepy: stand on its bed for a moment to plump it up, then it goes to sleep
         if (r.need === 'sleep') {
-          const on = [k, ...this.workers.map((w) => w.c.root.position)].some((p) => Math.hypot(p.x - r.bed.pos.x, p.z - r.bed.pos.z) < 0.6);
+          const helpers = this.residents.filter((o) => o.state === 'helpWork' && o.job?.resident === r).map((o) => o.c.root.position);
+          const on = [k, ...this.workers.map((w) => w.c.root.position), ...helpers].some((p) => Math.hypot(p.x - r.bed.pos.x, p.z - r.bed.pos.z) < 0.6);
           r.bed.fluff = on ? r.bed.fluff + dt / FLUFF_TIME : Math.max(0, r.bed.fluff - dt * 2);
           r.bed.mesh.scale.set(1 + Math.sin(this.t * 20) * 0.04 * (on ? 1 : 0), 1, 1);
           r.bed.fill.userData.fill(r.bed.fluff);
@@ -2092,10 +2159,11 @@ export class Game {
         if (r.stateT > 5) { r.state = 'idle'; c.eyesShut = undefined; c.hop(); this.addHeart(r); }
       } else if (r.state === 'helpGo') {
         const job = r.job!;
-        const lost = job.patient && (job.patient.state === 'cured' || job.patient.state === 'leaving' || job.patient.state === 'incoming');
+        const lost = (job.patient && (job.patient.state === 'cured' || job.patient.state === 'leaving' || job.patient.state === 'incoming'))
+          || (!job.station && (!job.resident || job.resident.need !== 'sleep' || !this.residents.includes(job.resident)));
         if (lost) { this.dropJob(r); r.state = 'helpBack'; r.path = this.route(pos, nearBed); }
         else if (this.follow(c, r.path, 1.9, dt)) {
-          if ('boost' in SPECIES[r.name].skill) { r.state = 'helpWork'; r.stateT = 0; c.lookAt(job.station.pos.x, job.station.pos.z); }
+          if (!job.station) { r.state = 'helpWork'; r.stateT = 0; c.hop(); }
           else if (job.station.tray.length) {
             // pick up one item and carry it on its head
             const v = job.station.tray.pop()!;
@@ -2115,24 +2183,21 @@ export class Game {
           } else { this.dropJob(r); r.state = 'helpBack'; r.path = this.route(pos, nearBed); }
         }
       } else if (r.state === 'helpWork') {
-        // the species' own way of helping: rain on the bush, fire under the cauldron, magic, spores
-        const st = r.job!.station;
+        // plumping up a bed, each species its own way: a little rain, warm sparks, spores, magic stars
+        const other = r.job?.resident;
         const kind = SPECIES[r.name].skill;
-        if (Math.random() < dt * 8) {
-          const at = st.pos.clone().setY(0.9);
+        if (!other || other.need !== 'sleep' || !this.residents.includes(other) || r.stateT > 8) {
+          this.dropJob(r);
+          r.state = 'helpBack';
+          r.path = this.route(pos, nearBed);
+        } else if (Math.random() < dt * 8) {
+          const at = other.bed.pos.clone().setY(0.6);
           if ('boost' in kind && kind.boost === 'berry') this.fx.emit('bubble', at.clone().setY(1.6), 1, { speed: 0.3, g: 3, life: 0.7, size: 0.5 });
           else if ('boost' in kind && kind.boost === 'pink') this.fx.emit('spark', at.clone().setY(0.3), 2, { speed: 0.8, up: 1.2, g: 1, life: 0.6 });
           else if ('boost' in kind && kind.boost === 'green') this.fx.emit('spore', at, 2, { speed: 0.6, up: 0.6, g: 0.2, life: 1 });
           else this.fx.emit('star', at, 1, { speed: 0.8, up: 0.8, life: 0.7, size: 0.7 });
         }
-        if (Math.floor(r.stateT * 2) !== Math.floor((r.stateT - dt) * 2)) c.twitch(0.5);
-        if (r.stateT > 2.2) {
-          st.boost = 15;
-          this.fx.emit('star', st.pos.clone().setY(1.2), 14, { speed: 2, up: 1.5, life: 0.9 });
-          this.dropJob(r);
-          r.state = 'helpBack';
-          r.path = this.route(pos, nearBed);
-        }
+        if (Math.floor(r.stateT * 2) !== Math.floor((r.stateT - dt) * 2)) { c.twitch(0.5); c.hop(); }
       } else if (r.state === 'helpBring') {
         const job = r.job!;
         const tgt = job.patient ? job.patient.c : job.resident!.c;
@@ -2227,9 +2292,18 @@ export class Game {
       if (e >= 1) { o.scale.setScalar(1); delete o.userData.pop; }
     }
 
+    this.boosters.show(this.step >= 4 && adsOn());
+    this.boosters.tick();
+
     if (this.chest) {
       this.chestBubble!.position.y = 1.6 + Math.sin(this.t * 3) * 0.05;
-      if (Math.hypot(k.x - CHEST_AT.x, k.z - CHEST_AT.z) < 1.0) this.openChest();
+      if (Math.hypot(k.x - CHEST_AT.x, k.z - CHEST_AT.z) < 1.0 && !this.chestAsking) {
+        // with ads on offer the player chooses: the coins, or twice as many for an ad
+        if (adsOn() && this.step >= 4) {
+          this.chestAsking = true;
+          void this.boosters.chest(this.chestCoins).then((m) => { this.chestAsking = false; this.openChest(m); });
+        } else this.openChest();
+      }
     }
     // the wardrobe opens when the keeper comes to the house door (and again only after walking away)
     const atDoor = Math.hypot(k.x - HOUSE_DOOR.x, k.z - HOUSE_DOOR.z) < 0.8;
@@ -2278,6 +2352,7 @@ export class Game {
         this.seen.add(s.kind);
         if (this.step === 0) {
           this.step = 1;
+          track('tutorial', 'pickup', 'complete');
           this.onFirstPickup?.();
         }
         break;
@@ -2413,10 +2488,11 @@ export class Game {
           this.d.scene.remove(s.mesh);
           this.spots.splice(i, 1);
           this.bought++;
+          track('build', `${this.bought}-${s.def.icon}`, 'complete');
           s.def.apply(this, false);
           this.refreshSpots();
           this.save();
-          if (this.step === 3) { this.step = 4; this.halloweenCard(); }
+          if (this.step === 3) { this.step = 4; this.halloweenCard(); track('tutorial', 'build', 'complete'); }
         }
       }
       (s.mesh.material as THREE.MeshBasicMaterial).opacity *= next ? 1 : 0.45;
@@ -2463,21 +2539,23 @@ export class Game {
   }
 
   /** hire the helper for one area: the keeper's apprentice appears by its post */
-  async addWorker(zone: Zone, instant: boolean) {
-    const home = WORKER_HOME[zone].clone();
+  async addWorker(zone: Zone, instant: boolean, at?: THREE.Vector3) {
+    const home = (at ?? WORKER_HOME[zone]).clone();
     const c = await this.d.spawnCreature('opiekun', 0.85);
-    c.setTint(0xc8f0ff);
+    c.setTint(at ? 0xffe08a : 0xc8f0ff); // a volunteer is golden
     c.root.position.copy(home);
     this.d.scene.add(c.root);
     const slot = new THREE.Object3D();
     slot.position.set(0, 0.95, 0.15);
     c.attach(slot);
-    this.workers.push({ zone, c, home, slot, state: 'idle', path: [], job: null, t: 0 });
+    const w: Worker = { zone, c, home, slot, state: 'idle', path: [], job: null, t: 0 };
+    this.workers.push(w);
     if (!instant) {
       this.fx.emit('star', home.clone().setY(0.8), 30, { speed: 3, up: 2, life: 1 });
       this.d.sfx.build();
       c.hop();
     }
+    return w;
   }
 
   /** the next useful thing in the worker's area: tuck in a sleepy resident, feed a hungry one, cure a patient */
@@ -2524,6 +2602,13 @@ export class Game {
 
   private updateWorkers(dt: number) {
     const gone = (p: Patient) => !this.patients.includes(p) || p.state === 'cured' || p.state === 'leaving' || p.state === 'incoming';
+    for (const w of this.workers.filter((v) => v.until !== undefined && this.t > v.until)) {
+      // the volunteer's time is up: it waves goodbye in a puff of stars
+      this.dropWork(w);
+      this.fx.emit('star', w.c.root.position.clone().setY(0.8), 24, { speed: 2.4, up: 2, life: 0.9 });
+      this.d.scene.remove(w.c.root);
+      this.workers.splice(this.workers.indexOf(w), 1);
+    }
     for (const w of this.workers) {
       const c = w.c, pos = c.root.position, j = w.job;
       c.update(dt);

@@ -96,9 +96,19 @@ export class Album {
     this.grid = document.createElement('div');
     book.append(close, this.grid);
     this.panel.appendChild(book);
+    this.book = book;
     // tapping the dimmed edge closes it too; nothing reaches the game underneath
     this.panel.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (e.target === this.panel) this.close(); });
     document.body.appendChild(this.panel);
+  }
+
+  private book!: HTMLDivElement;
+  private footer?: HTMLElement & { refresh?: () => void };
+
+  /** a box under the last page (the save backup); refreshed whenever the album opens */
+  addFooter(el: HTMLElement & { refresh?: () => void }) {
+    this.footer = el;
+    this.book.appendChild(el);
   }
 
   /** restore from a save */
@@ -133,8 +143,12 @@ export class Album {
   /** called once when the album is closed next (the first adoption tells about hearts after it) */
   onClose?: () => void;
 
+  /** called on every open (true) and close (false): gameplay pauses meanwhile */
+  onToggle?: (open: boolean) => void;
+
   private close() {
     this.panel.classList.remove('on');
+    this.onToggle?.(false);
     const f = this.onClose;
     this.onClose = undefined;
     f?.();
@@ -142,8 +156,10 @@ export class Album {
 
   open() {
     this.render();
+    this.footer?.refresh?.();
     this.panel.classList.add('on');
     this.dot.classList.remove('on');
+    this.onToggle?.(true);
   }
 
   private render() {

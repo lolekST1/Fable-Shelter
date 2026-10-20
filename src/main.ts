@@ -11,6 +11,10 @@ import { Sfx } from './sfx';
 import { Joystick } from './joystick';
 import { CAVE_C, CAVE_R, Game, SEA_C, SEA_R, SNOW_C, SNOW_R } from './game';
 import chmurnikData from './chmurnik.json';
+import { firstInput, initPlatform, loadingFinished, sessionStart } from './platform';
+
+initPlatform();
+sessionStart();
 
 // ?gltest=nofacing / mediump / noaa (see ?glinfo below): on the Adreno 308 tablet every lit material came out black,
 // even with only an ambient light; unlit ones were fine. Known Adreno 3xx suspects: gl_FrontFacing and highp.
@@ -185,6 +189,7 @@ Promise.all(
     });
   if (game) game.onFirstPickup = () => hint.classList.add('hidden');
   if (game?.restored) hint.classList.add('hidden');
+  loadingFinished();
 });
 
 // input: drag anywhere to walk the keeper (floating joystick); tap a creature to make it hop,
@@ -206,7 +211,7 @@ const MUSIC_DAY = ['music/oboz1.mp3', 'music/oboz2.mp3'], MUSIC_NIGHT = ['music/
 // Sound may only start on a real user gesture: on touch screens Chrome counts the finger lifting (pointerup, click,
 // touchend), not pointerdown, so the music used to stay silent until the mute button was tapped. Any gesture anywhere
 // on the page counts, the story cards too (they keep taps away from the game). Both calls do nothing once done.
-const startSound = () => { sfx.unlock(); sfx.music(MUSIC_DAY, MUSIC_NIGHT); };
+const startSound = () => { sfx.unlock(); sfx.music(MUSIC_DAY, MUSIC_NIGHT); firstInput(); };
 for (const ev of ['pointerdown', 'pointerup', 'click', 'touchend', 'keydown']) document.addEventListener(ev, startSound, { capture: true, passive: true });
 
 // sound on/off, remembered between visits
