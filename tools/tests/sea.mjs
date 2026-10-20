@@ -24,7 +24,7 @@ const check = (ok, what) => { console.log(ok ? 'OK  ' : 'FAIL', what); if (!ok) 
 // 1. everything up to the decorations bought: the dune stops the keeper; the next spot is the boardwalk
 await run({ ver: 2, coins: 0, bought: 29, hearts: 140 }, async (p) => {
   const sp = await p.evaluate(() => window.__spots());
-  check(sp.total === 34 && sp.spots[0]?.[0] === 29 && sp.spots[0][4] === 150 && sp.spots[0][3] === 2800, `boardwalk spot next, 150 hearts (${JSON.stringify(sp.spots[0])})`);
+  check(sp.total >= 34 && sp.spots[0]?.[0] === 29 && sp.spots[0][4] === 150 && sp.spots[0][3] === 2800, `boardwalk spot next, 150 hearts (${JSON.stringify(sp.spots[0])})`);
   await walk(p, SX + 1, SZ + 2, 9000);
   const k = await K(p);
   check(Math.hypot(k[0], k[1]) < 11.2, `the dune blocks the keeper (at ${k.map((v) => v.toFixed(1))})`);

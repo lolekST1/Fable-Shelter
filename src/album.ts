@@ -18,6 +18,7 @@ export const NAMES: Record<string, string> = {
   bazyliszek: 'Bazyliszek', zabiksiaze: 'Żabi książę', nessie: 'Nessie', swietlik: 'Świetlik', wodnik: 'Wodnik', leszy: 'Leszy',
   wilkolaczek: 'Wilkołaczek', skrzat: 'Skrzat', sowka: 'Sówka', yeti: 'Yeti', renifer: 'Renifer', balwanek: 'Bałwanek',
   pingwinek: 'Pingwinek', krabik: 'Krabik', foczka: 'Foczka', zolwik: 'Żółwik', syrenka: 'Syrenka',
+  nietoperek: 'Nietoperek', kret: 'Kret', zuczek: 'Żuczek', golemik: 'Golemik',
   dyniak: 'Dyniak', duszek: 'Duszek',
 };
 

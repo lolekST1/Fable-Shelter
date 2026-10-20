@@ -1,6 +1,6 @@
 /** Small hand-drawn canvas icons, so nothing in the game depends on text or emoji fonts. */
 
-export type Ailment = 'snow' | 'smoke' | 'sparks' | 'spores' | 'feathers' | 'bubbles' | 'confetti' | 'stone' | 'crown' | 'fountain' | 'drip' | 'flicker' | 'leaves' | 'shrink' | 'howl' | 'dizzy' | 'snowball' | 'nose' | 'melt' | 'slide' | 'pinch' | 'sand' | 'hide' | 'tangle' | 'seeds' | 'fade';
+export type Ailment = 'snow' | 'smoke' | 'sparks' | 'spores' | 'feathers' | 'bubbles' | 'confetti' | 'stone' | 'crown' | 'fountain' | 'drip' | 'flicker' | 'leaves' | 'shrink' | 'howl' | 'dizzy' | 'snowball' | 'nose' | 'melt' | 'slide' | 'pinch' | 'sand' | 'hide' | 'tangle' | 'seeds' | 'fade' | 'echo' | 'dig' | 'glitter' | 'pebbles';
 
 /** a musical note (for howling) */
 function note(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
@@ -463,6 +463,64 @@ export function drawAilment(g: CanvasRenderingContext2D, kind: Ailment, x: numbe
     g.setLineDash([]);
     g.fillStyle = '#2a2a3a';
     g.beginPath(); g.arc(x - r * 0.2, y - r * 0.15, r * 0.08, 0, Math.PI * 2); g.arc(x + r * 0.2, y - r * 0.15, r * 0.08, 0, Math.PI * 2); g.fill();
+  } else if (kind === 'echo') {
+    // hiccups that echo round the cave: a little hic and three widening sound waves
+    g.fillStyle = '#8a6cc8';
+    g.beginPath();
+    g.arc(x - r * 0.55, y, r * 0.2, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = '#a98ae8';
+    for (const [k, w] of [[0, 0.14], [1, 0.12], [2, 0.1]]) {
+      g.lineWidth = r * w;
+      g.globalAlpha = 1 - k * 0.25;
+      g.beginPath();
+      g.arc(x - r * 0.55, y, r * (0.48 + k * 0.38), -0.75, 0.75);
+      g.stroke();
+    }
+    g.globalAlpha = 1;
+  } else if (kind === 'dig') {
+    // keeps digging itself in: a heap of earth with clods flying up
+    g.fillStyle = '#8a5a3a';
+    g.beginPath();
+    g.ellipse(x, y + r * 0.45, r * 0.85, r * 0.42, 0, Math.PI, 0);
+    g.closePath();
+    g.fill();
+    g.fillStyle = '#6a4228';
+    g.beginPath();
+    g.ellipse(x, y + r * 0.45, r * 0.4, r * 0.14, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#a8704a';
+    for (const [dx, dy, s] of [[-0.45, -0.35, 0.13], [0.1, -0.7, 0.11], [0.55, -0.4, 0.14], [-0.1, -0.25, 0.09]]) {
+      g.beginPath();
+      g.arc(x + dx * r, y + dy * r, s * r, 0, Math.PI * 2);
+      g.fill();
+    }
+  } else if (kind === 'glitter') {
+    // shimmers in every colour: a rainbow of little diamonds
+    const cols = ['#ff6f91', '#ffd34d', '#59c25a', '#4fb4ff', '#a46cff'];
+    [[-0.45, -0.35, 0.3], [0.35, -0.5, 0.24], [0.5, 0.3, 0.3], [-0.3, 0.45, 0.26], [0.02, 0, 0.22]].forEach(([dx, dy, s], i) => {
+      const cx = x + dx * r, cy = y + dy * r, rr = s * r;
+      g.fillStyle = cols[i];
+      g.beginPath();
+      g.moveTo(cx, cy - rr); g.lineTo(cx + rr * 0.7, cy); g.lineTo(cx, cy + rr); g.lineTo(cx - rr * 0.7, cy);
+      g.closePath();
+      g.fill();
+    });
+  } else if (kind === 'pebbles') {
+    // crumbling: grey pebbles tumbling down
+    g.fillStyle = '#9aa3ad';
+    g.strokeStyle = '#6d757e';
+    g.lineWidth = r * 0.07;
+    for (const [dx, dy, s] of [[-0.35, -0.5, 0.24], [0.3, -0.2, 0.3], [-0.25, 0.35, 0.28], [0.45, 0.55, 0.2]]) {
+      g.beginPath();
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * Math.PI * 2 + dx, rr = s * r * (k % 2 ? 0.82 : 1);
+        g.lineTo(x + dx * r + Math.cos(a) * rr, y + dy * r + Math.sin(a) * rr);
+      }
+      g.closePath();
+      g.fill();
+      g.stroke();
+    }
   } else {
     // hiccup bubbles
     for (const [dx, dy, s] of [[-0.3, 0.3, 0.5], [0.42, -0.05, 0.36], [0.05, -0.62, 0.26]]) {
@@ -500,7 +558,31 @@ export function drawCoin(g: CanvasRenderingContext2D, x: number, y: number, r: n
 }
 
 /** things the keeper can carry: three medicines and berries for the residents */
-export type Medicine = 'pink' | 'blue' | 'green' | 'berry' | 'purple' | 'gold' | 'cocoa' | 'pearl';
+export type Medicine = 'pink' | 'blue' | 'green' | 'berry' | 'purple' | 'gold' | 'cocoa' | 'pearl' | 'crystal';
+
+/** a glowing crystal shard: aqua with a lilac side */
+export function drawCrystal(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  g.lineJoin = 'round';
+  g.fillStyle = '#7fe0e8';
+  g.beginPath();
+  g.moveTo(x, y - r * 0.9); g.lineTo(x + r * 0.42, y - r * 0.35); g.lineTo(x + r * 0.32, y + r * 0.7); g.lineTo(x - r * 0.32, y + r * 0.7); g.lineTo(x - r * 0.42, y - r * 0.35);
+  g.closePath();
+  g.fill();
+  g.lineWidth = r * 0.08;
+  g.strokeStyle = '#3aa8b8';
+  g.stroke();
+  g.fillStyle = '#c4a8ff';
+  g.beginPath();
+  g.moveTo(x, y - r * 0.9); g.lineTo(x + r * 0.42, y - r * 0.35); g.lineTo(x + r * 0.32, y + r * 0.7); g.lineTo(x + r * 0.05, y + r * 0.7);
+  g.closePath();
+  g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.8)';
+  g.beginPath();
+  g.ellipse(x - r * 0.17, y - r * 0.15, r * 0.07, r * 0.28, 0.1, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+}
 
 /** hot cocoa: a mug with steam and a marshmallow */
 export function drawCocoa(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
@@ -745,9 +827,10 @@ export function drawMedicine(g: CanvasRenderingContext2D, m: Medicine, x: number
   else if (m === 'gold') drawHoney(g, x, y, r);
   else if (m === 'cocoa') drawCocoa(g, x, y, r);
   else if (m === 'pearl') drawPearl(g, x, y, r);
+  else if (m === 'crystal') drawCrystal(g, x, y, r);
   else drawBerry(g, x, y, r);
 }
-export const MED_COLOR: Record<Medicine, string> = { pink: '#ff5fa8', blue: '#4fb4ff', green: '#59c25a', berry: '#e8435a', purple: '#a46cff', gold: '#f5b301', cocoa: '#9a5b34', pearl: '#e898b8' };
+export const MED_COLOR: Record<Medicine, string> = { pink: '#ff5fa8', blue: '#4fb4ff', green: '#59c25a', berry: '#e8435a', purple: '#a46cff', gold: '#f5b301', cocoa: '#9a5b34', pearl: '#e898b8', crystal: '#5fd0dc' };
 
 /** a cauldron silhouette, for the build spot that makes one */
 export function drawCauldron(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
@@ -1108,9 +1191,9 @@ export function drawBonfire(g: CanvasRenderingContext2D, x: number, y: number, r
   g.restore();
 }
 
-export type SpotIcon = 'cauldron' | 'spring' | 'herbs' | 'backpack' | 'shoes' | 'sign' | 'bed' | 'berry' | 'bridge' | 'lily' | 'lilybed' | 'lantern' | 'gate' | 'mossbed' | 'mushroom' | 'helper' | 'shovel' | 'snowbed' | 'bonfire' | 'swing' | 'fountain' | 'carousel' | 'statue' | 'boardwalk' | 'shellbed' | 'lighthouse' | 'pumpkin';
+export type SpotIcon = 'cauldron' | 'spring' | 'herbs' | 'backpack' | 'shoes' | 'sign' | 'bed' | 'berry' | 'bridge' | 'lily' | 'lilybed' | 'lantern' | 'gate' | 'mossbed' | 'mushroom' | 'helper' | 'shovel' | 'snowbed' | 'bonfire' | 'swing' | 'fountain' | 'carousel' | 'statue' | 'boardwalk' | 'shellbed' | 'lighthouse' | 'pumpkin' | 'pickaxe' | 'stonebed' | 'crystallamp';
 export function drawSpotIcon(g: CanvasRenderingContext2D, icon: SpotIcon, x: number, y: number, r: number) {
-  ({ cauldron: drawCauldron, spring: drawSpring, herbs: drawHerbs, backpack: drawBackpack, shoes: drawShoe, sign: drawSign, bed: drawBed, berry: drawBerry, bridge: drawBridge, lily: drawLily, lilybed: drawLilyBed, lantern: drawLantern, gate: drawGate, mossbed: drawMossBed, mushroom: drawMushroom, helper: drawHelper, shovel: drawShovel, snowbed: drawSnowBed, bonfire: drawBonfire, swing: drawSwing, fountain: drawFountain, carousel: drawCarousel, statue: drawStatue, boardwalk: drawBoardwalk, shellbed: drawShellBed, lighthouse: drawLighthouse, pumpkin: drawPumpkin })[icon](g, x, y, r);
+  ({ cauldron: drawCauldron, spring: drawSpring, herbs: drawHerbs, backpack: drawBackpack, shoes: drawShoe, sign: drawSign, bed: drawBed, berry: drawBerry, bridge: drawBridge, lily: drawLily, lilybed: drawLilyBed, lantern: drawLantern, gate: drawGate, mossbed: drawMossBed, mushroom: drawMushroom, helper: drawHelper, shovel: drawShovel, snowbed: drawSnowBed, bonfire: drawBonfire, swing: drawSwing, fountain: drawFountain, carousel: drawCarousel, statue: drawStatue, boardwalk: drawBoardwalk, shellbed: drawShellBed, lighthouse: drawLighthouse, pumpkin: drawPumpkin, pickaxe: drawPickaxe, stonebed: drawStoneBed, crystallamp: drawCrystalLamp })[icon](g, x, y, r);
 }
 
 function bubbleBase(g: CanvasRenderingContext2D) {
@@ -1307,7 +1390,77 @@ export function drawShellBed(g: CanvasRenderingContext2D, x: number, y: number, 
   g.restore();
 }
 
-/** a striped lighthouse with a glowing lamp: more patients find the bay */
+/** a pickaxe over a pile of rocks: the way into the crystal cave */
+export function drawPickaxe(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  g.fillStyle = '#9aa3ad';
+  for (const [dx, s] of [[-0.45, 0.38], [0.4, 0.42], [0, 0.48]]) {
+    g.beginPath();
+    g.arc(x + dx * r, y + r * 0.62, s * r, Math.PI, 0);
+    g.fill();
+  }
+  g.lineCap = 'round';
+  g.strokeStyle = '#a8703a';
+  g.lineWidth = r * 0.16;
+  g.beginPath();
+  g.moveTo(x - r * 0.55, y + r * 0.45);
+  g.lineTo(x + r * 0.35, y - r * 0.5);
+  g.stroke();
+  g.strokeStyle = '#6d757e';
+  g.lineWidth = r * 0.17;
+  g.beginPath();
+  g.moveTo(x - r * 0.15, y - r * 0.8);
+  g.quadraticCurveTo(x + r * 0.45, y - r * 0.75, x + r * 0.85, y - r * 0.15);
+  g.stroke();
+  g.fillStyle = '#7fe0e8';
+  g.beginPath();
+  g.moveTo(x + r * 0.65, y + r * 0.1); g.lineTo(x + r * 0.8, y + r * 0.35); g.lineTo(x + r * 0.65, y + r * 0.6); g.lineTo(x + r * 0.5, y + r * 0.35);
+  g.closePath();
+  g.fill();
+  g.restore();
+}
+
+/** a stone bowl bed with a lilac cushion, for the cave residents */
+export function drawStoneBed(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  g.fillStyle = '#8f98a2';
+  g.beginPath();
+  g.ellipse(x, y + r * 0.2, r * 0.92, r * 0.52, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#c4a8ff';
+  g.beginPath();
+  g.ellipse(x, y + r * 0.1, r * 0.66, r * 0.3, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#ffffff';
+  g.beginPath();
+  g.ellipse(x - r * 0.22, y - r * 0.02, r * 0.28, r * 0.14, -0.2, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#7fe0e8';
+  for (const dx of [-0.7, 0.72]) {
+    g.beginPath();
+    g.moveTo(x + dx * r, y - r * 0.3); g.lineTo(x + dx * r + r * 0.1, y + r * 0.05); g.lineTo(x + dx * r - r * 0.1, y + r * 0.05);
+    g.closePath();
+    g.fill();
+  }
+  g.restore();
+}
+
+/** a tall glowing crystal on a stone: more patients find the cave */
+export function drawCrystalLamp(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  g.save();
+  const glow = g.createRadialGradient(x, y - r * 0.2, r * 0.1, x, y - r * 0.2, r * 0.9);
+  glow.addColorStop(0, 'rgba(127,224,232,0.55)');
+  glow.addColorStop(1, 'rgba(127,224,232,0)');
+  g.fillStyle = glow;
+  g.fillRect(x - r, y - r, r * 2, r * 2);
+  g.fillStyle = '#8f98a2';
+  g.beginPath();
+  g.ellipse(x, y + r * 0.68, r * 0.62, r * 0.24, 0, 0, Math.PI * 2);
+  g.fill();
+  drawCrystal(g, x, y - r * 0.05, r * 0.75);
+  g.restore();
+}
+
 /** a carved pumpkin with a glowing grin (the Halloween page of the album) */
 export function drawPumpkin(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
   g.save();

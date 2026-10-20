@@ -73,7 +73,24 @@ const mats = {
   shell: new THREE.MeshStandardMaterial({ color: 0xffc2c8, roughness: 0.55, side: THREE.DoubleSide }),
   pearl: new THREE.MeshStandardMaterial({ color: 0xfff6f8, emissive: 0xffd8e8, emissiveIntensity: 0.35, roughness: 0.15, metalness: 0.2 }),
   sand: new THREE.MeshLambertMaterial({ color: 0xf4dca8 }),
+  crystal: new THREE.MeshStandardMaterial({ color: 0x8ff0f4, emissive: 0x3ac8d8, emissiveIntensity: 0.6, roughness: 0.15, metalness: 0.1, flatShading: true }),
+  crystalLilac: new THREE.MeshStandardMaterial({ color: 0xd4bcff, emissive: 0x9a6cf0, emissiveIntensity: 0.5, roughness: 0.15, metalness: 0.1, flatShading: true }),
+  rock: new THREE.MeshStandardMaterial({ color: 0x8f98a2, roughness: 0.9, flatShading: true }),
 };
+
+/** a pointed six-sided crystal standing on y = 0, `h` tall */
+function crystalGeo(h: number, w: number) {
+  const geo = new THREE.CylinderGeometry(0, w, h * 0.35, 6);
+  geo.translate(0, h * 0.825, 0);
+  const shaft = new THREE.CylinderGeometry(w, w * 0.85, h * 0.65, 6);
+  shaft.translate(0, h * 0.325, 0);
+  const merged = new THREE.BufferGeometry();
+  const a = geo.toNonIndexed(), b = shaft.toNonIndexed();
+  const pos = new Float32Array([...a.attributes.position.array, ...b.attributes.position.array]);
+  merged.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  merged.computeVertexNormals();
+  return merged;
+}
 
 /** a scallop shell: a flattened half dome with ribs, open side up, about `r` across the middle */
 function scallop(r: number, mat: THREE.Material) {
@@ -149,6 +166,14 @@ export function medicineMesh(kind: Medicine): THREE.Group {
     mallow.position.set(-0.015, 0.128, 0.01);
     mallow.rotation.y = 0.5;
     g.add(body, fill, band, handle, mallow);
+  } else if (kind === 'crystal') {
+    // a glowing shard with a little lilac one beside it
+    const big = new THREE.Mesh(crystalGeo(0.2, 0.045), mats.crystal);
+    big.rotation.z = 0.15;
+    const small = new THREE.Mesh(crystalGeo(0.11, 0.03), mats.crystalLilac);
+    small.position.set(0.05, 0, 0.02);
+    small.rotation.z = -0.5;
+    g.add(big, small);
   } else if (kind === 'pearl') {
     // a pearl in a little pink shell
     const shell = scallop(0.085, mats.shell);
@@ -241,6 +266,7 @@ export class Station {
     else if (kind === 'gold') this.buildHive();
     else if (kind === 'cocoa') this.buildCocoaFire();
     else if (kind === 'pearl') this.buildPearlShell();
+    else if (kind === 'crystal') this.buildCrystals();
     else this.buildBerryBush();
     this.body.add(...this.group.children);
     this.group.add(this.body);
@@ -482,6 +508,24 @@ export class Station {
     }
     this.group.add(rock, shell, lid, pearl);
     this.anim.push((t) => { pearl.scale.setScalar(1 + Math.sin(t * 2.2) * 0.05); lid.rotation.x = Math.PI - 1.0 - Math.sin(t * 0.9) * 0.08; });
+  }
+
+  private buildCrystals() {
+    // a cluster of glowing crystals growing out of a round rock; they pulse softly
+    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.42), mats.rock);
+    rock.scale.set(1.15, 0.5, 1);
+    rock.position.y = 0.14;
+    rock.castShadow = true;
+    this.group.add(rock);
+    const glow = mats.crystal.clone();
+    for (const [x, z, h, rx, rz, lilac] of [[0, 0, 0.9, 0, 0, 0], [0.22, 0.1, 0.6, 0.2, -0.45, 1], [-0.22, 0.08, 0.55, -0.1, 0.5, 0], [0.05, -0.2, 0.5, -0.45, 0.1, 1]]) {
+      const c = new THREE.Mesh(crystalGeo(h, 0.11), lilac ? mats.crystalLilac : glow);
+      c.position.set(x, 0.18, z);
+      c.rotation.set(rx, 0.4, rz);
+      c.castShadow = true;
+      this.group.add(c);
+    }
+    this.anim.push((t) => { glow.emissiveIntensity = 0.5 + Math.sin(t * 1.8) * 0.2; });
   }
 
   private buildBerryBush() {
@@ -1434,3 +1478,140 @@ export function chestMesh(): THREE.Group {
 }
 
 export const gold = new THREE.MeshStandardMaterial({ color: 0xffcf4a, emissive: 0x7a4a00, emissiveIntensity: 0.25, roughness: 0.3, metalness: 0.7 });
+
+/** a stone bowl bed with a lilac cushion, for the cave residents */
+export function stoneBedMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.44, 0.26, 10), mats.rock);
+  bowl.position.y = 0.13;
+  bowl.castShadow = true;
+  const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.06, 20), new THREE.MeshStandardMaterial({ color: 0xc4a8ff, roughness: 1 }));
+  pad.position.y = 0.27;
+  const pillow = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }));
+  pillow.scale.set(1.3, 0.45, 0.8);
+  pillow.position.set(0, 0.32, -0.2);
+  const gem = new THREE.Mesh(crystalGeo(0.22, 0.05), mats.crystal);
+  gem.position.set(0.5, 0.2, 0.12);
+  gem.rotation.z = -0.4;
+  g.add(bowl, pad, pillow, gem);
+  return g;
+}
+
+/** a tall glowing crystal on a stone: more patients find their way to the cave (it lights up the night) */
+export function crystalLampMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.DodecahedronGeometry(0.4), mats.rock);
+  base.scale.set(1.1, 0.45, 1);
+  base.position.y = 0.15;
+  base.castShadow = true;
+  const big = new THREE.Mesh(crystalGeo(1.7, 0.2), mats.crystal);
+  big.position.y = 0.2;
+  big.castShadow = true;
+  g.add(base, big);
+  for (const [x, z, h, rz] of [[0.28, 0.1, 0.5, -0.5], [-0.26, 0.12, 0.42, 0.55], [0.02, -0.28, 0.38, 0.1]]) {
+    const c = new THREE.Mesh(crystalGeo(h, 0.08), mats.crystalLilac);
+    c.position.set(x, 0.15, z);
+    c.rotation.set(rz === 0.1 ? -0.5 : 0, 0, rz);
+    g.add(c);
+  }
+  return g;
+}
+
+/** a mine entrance frame of logs with a lantern and two crystals: the way through the rocks to the cave, spanning along z */
+export function caveGateMesh(): THREE.Group {
+  const g = new THREE.Group();
+  for (const z of [-0.9, 0.9]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 1.6, 8), mats.darkWood);
+    post.position.set(0, 0.8, z);
+    post.castShadow = true;
+    const gem = new THREE.Mesh(crystalGeo(0.45, 0.09), mats.crystal);
+    gem.position.set(0.15, 0, z * 1.18);
+    gem.rotation.x = z > 0 ? 0.35 : -0.35;
+    g.add(post, gem);
+  }
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.1, 8), mats.wood);
+  bar.rotation.x = Math.PI / 2;
+  bar.position.y = 1.6;
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), new THREE.MeshStandardMaterial({ color: 0xfff3b0, emissive: 0xffd34d, emissiveIntensity: 0.9 }));
+  lamp.position.set(0.12, 1.38, 0);
+  g.add(bar, lamp);
+  return bake(g);
+}
+
+/** a wall of big round rocks; returns each heap so the middle ones can be broken away */
+export function rockMounds(points: [number, number][]): THREE.Group[] {
+  return points.map(([x, z], i) => {
+    const b = new THREE.Group();
+    for (let k = 0; k < 3; k++) {
+      const m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.42), mats.rock);
+      m.position.set(((k * 7 + i) % 3 - 1) * 0.25, 0.25 + k * 0.14, ((k + i) % 2 - 0.5) * 0.3);
+      m.rotation.set(i + k, k * 2, 0);
+      m.scale.set(1.15, 0.8, 1);
+      m.castShadow = true;
+      b.add(m);
+    }
+    b.position.set(x, 0, z);
+    return bake(b);
+  });
+}
+
+/** the crystal cave: a stone floor (circle of radius r), a rocky hill with a dark cave mouth at angle `mouthA`
+ *  (on the side: the camera looks north, so anything on the far south side would stay behind it),
+ *  rocks round the rim and glowing crystals growing out of the ground */
+export function caveScenery(cx: number, cz: number, r: number, away: number, mouthA: number): THREE.Group {
+  const g = new THREE.Group();
+  const ox = Math.cos(mouthA), oz = Math.sin(mouthA);
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(r + 0.6, 40), new THREE.MeshLambertMaterial({ color: 0xb8b4c4 }));
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(cx, 0.006, cz);
+  g.add(floor);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), scl = new THREE.Vector3();
+  // big rocks heaped round the rim, apart from the way in from the camp and the cave mouth
+  const R = 22;
+  const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.7), mats.rock, R);
+  rocks.castShadow = true;
+  let nr = 0;
+  for (let i = 0; i < R; i++) {
+    const a = away + Math.PI + 0.75 + i * ((Math.PI * 2 - 1.5) / (R - 1));
+    if (angleDiff(a, mouthA) < 0.32) continue;
+    const rr = r + 0.4 + (i % 2) * 0.5;
+    rocks.setMatrixAt(nr++, m4.compose(pos.set(cx + Math.cos(a) * rr, 0.2, cz + Math.sin(a) * rr), q.setFromEuler(new THREE.Euler(i, i * 2, 0)), scl.set(1 + (i % 3) * 0.3, 0.8 + (i % 2) * 0.5, 1 + (i % 3) * 0.2)));
+  }
+  rocks.count = nr;
+  // a rocky hill outside the rim, the cave mouth a dark arch at its foot facing the middle of the cave
+  const hill = new THREE.Mesh(new THREE.SphereGeometry(3, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), mats.rock);
+  hill.scale.set(1, 0.8, 1);
+  hill.position.set(cx + ox * (r + 2.7), 0, cz + oz * (r + 2.7));
+  const mouth = new THREE.Mesh(new THREE.CircleGeometry(1.0, 24, 0, Math.PI), new THREE.MeshBasicMaterial({ color: 0x1c1a2a }));
+  mouth.position.set(cx + ox * (r + 0.05), 0.02, cz + oz * (r + 0.05));
+  mouth.rotation.y = -Math.PI / 2 - mouthA; // its face (+z) toward the middle
+  mouth.scale.set(1, 1.25, 1);
+  // glowing crystals in clusters round the rim, thickest on the side facing the camp (they pulse; at night they light the cave)
+  const N = 26;
+  const glow = mats.crystal.clone();
+  const lil = mats.crystalLilac.clone();
+  const geo = crystalGeo(0.7, 0.12);
+  const crystals = [new THREE.InstancedMesh(geo, glow, N), new THREE.InstancedMesh(geo, lil, N)];
+  const count = [0, 0];
+  const CL = [-2.4, -1.75, -1.15, -0.65, 0.65, 1.15, 1.75, 2.4]; // cluster angles from the way in
+  for (let i = 0; i < CL.length * 5; i++) {
+    const a = away + Math.PI + CL[Math.floor(i / 5)] + ((i % 5) - 2) * 0.06;
+    if (angleDiff(a, mouthA) < 0.4) continue;
+    const rr = r - 0.25 + (i % 3) * 0.2;
+    const k = i % 3 === 0 ? 1 : 0;
+    if (count[k] >= N) continue;
+    crystals[k].setMatrixAt(count[k]++, m4.compose(pos.set(cx + Math.cos(a) * rr, 0, cz + Math.sin(a) * rr), q.setFromEuler(new THREE.Euler((i % 4 - 1.5) * 0.3, i, (i % 3 - 1) * 0.35)), scl.setScalar(0.6 + (i % 4) * 0.25)));
+  }
+  crystals.forEach((c, k) => { c.count = count[k]; c.castShadow = true; });
+  g.add(rocks, hill, mouth, ...crystals);
+  // at night (glow 1) the crystals shine brighter and the floor keeps a faint lilac light, so the cave is not a dark hole
+  let night = 0;
+  const floorMat = floor.material as THREE.MeshLambertMaterial;
+  floorMat.emissive.set(0x6a5a9a);
+  g.userData.glow = (n: number) => { night = n; floorMat.emissiveIntensity = n * 0.45; };
+  g.userData.glow(0);
+  g.userData.tick = (t: number) => { glow.emissiveIntensity = 0.55 + night * 0.8 + Math.sin(t * 1.2) * 0.2; lil.emissiveIntensity = 0.45 + night * 0.7 + Math.sin(t * 1.2 + 1.5) * 0.2; };
+  return g;
+}
+
+const angleDiff = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));

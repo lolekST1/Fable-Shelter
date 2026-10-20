@@ -115,11 +115,12 @@ const AILMENT_TEXT: Record<Ailment, string> = {
   flicker: 'Gaśnie mu światełko', stone: 'Kamienieje', leaves: 'Gubi liście', howl: 'Wyje do księżyca', shrink: 'Kurczy się',
   dizzy: 'Kręci mu się w głowie', snowball: 'Czka śnieżkami', nose: 'Miga mu nos', melt: 'Topnieje', slide: 'Kręci się w kółko',
   pinch: 'Szczypie się w nos', sand: 'Kicha piaskiem', hide: 'Chowa się w skorupę', tangle: 'Plącze się w wodorostach',
-  seeds: 'Kicha pestkami', fade: 'Znika co chwilę',
+  seeds: 'Kicha pestkami', fade: 'Znika co chwilę', echo: 'Czka echem', dig: 'Zakopuje się w ziemi', glitter: 'Mieni się kolorami',
+  pebbles: 'Sypie się kamyczkami',
 };
 const CURE_TEXT: Record<Medicine, string> = {
   pink: 'Eliksir z kociołka', blue: 'Woda ze źródełka', green: 'Zioła', purple: 'Nektar z lilii', gold: 'Złoty miód',
-  cocoa: 'Kakao z ogniska', pearl: 'Perła z muszli', berry: 'Jagody',
+  cocoa: 'Kakao z ogniska', pearl: 'Perła z muszli', crystal: 'Kryształ z groty', berry: 'Jagody',
 };
 
 /** the first time a species turns up: who it is, what is wrong with it and what helps */
