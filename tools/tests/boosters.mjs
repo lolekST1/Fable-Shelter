@@ -12,7 +12,7 @@ const open = async (save, extra = '') => {
   const p = await b.newPage({ viewport: { width: 390, height: 844 } });
   p.on('pageerror', (e) => console.log('ERR ' + e.message));
   if (save) await p.addInitScript((s) => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('fable-shelter-save-v3', JSON.stringify(s)); } }, save);
-  await p.goto(BASE + '?dtmax=0.4&nostory&quality=0' + extra);
+  await p.goto(BASE + '?lang=pl&dtmax=0.4&nostory&quality=0' + extra);
   await p.waitForTimeout(12000);
   return p;
 };

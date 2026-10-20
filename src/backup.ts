@@ -5,6 +5,7 @@
  */
 
 import { track } from './platform';
+import { t } from './i18n';
 
 const PREFIX = 'FS1-';
 
@@ -57,15 +58,15 @@ export function backupBox(current: () => string, load: (json: string) => void): 
   const box = document.createElement('div');
   box.id = 'backup';
   const h = document.createElement('h3');
-  h.textContent = 'Kopia zapisu';
+  h.textContent = t('Kopia zapisu');
   const out = document.createElement('textarea');
   out.readOnly = true;
   const copy = document.createElement('button');
-  copy.textContent = 'Kopiuj';
+  copy.textContent = t('Kopiuj');
   const inp = document.createElement('textarea');
-  inp.placeholder = 'Wklej kod kopii';
+  inp.placeholder = t('Wklej kod kopii');
   const loadBtn = document.createElement('button');
-  loadBtn.textContent = 'Wczytaj';
+  loadBtn.textContent = t('Wczytaj');
   const msg = document.createElement('div');
   msg.className = 'msg';
   const row1 = document.createElement('div');
@@ -80,16 +81,16 @@ export function backupBox(current: () => string, load: (json: string) => void): 
   copy.addEventListener('click', async () => {
     refresh();
     track('backup', 'save', 'copy');
-    try { await navigator.clipboard.writeText(out.value); msg.textContent = 'Skopiowano'; }
-    catch { out.select(); msg.textContent = 'Zaznacz i skopiuj'; }
+    try { await navigator.clipboard.writeText(out.value); msg.textContent = t('Skopiowano'); }
+    catch { out.select(); msg.textContent = t('Zaznacz i skopiuj'); }
   });
   let armed = false;
-  inp.addEventListener('input', () => { armed = false; loadBtn.textContent = 'Wczytaj'; loadBtn.classList.remove('warn'); msg.textContent = ''; });
+  inp.addEventListener('input', () => { armed = false; loadBtn.textContent = t('Wczytaj'); loadBtn.classList.remove('warn'); msg.textContent = ''; });
   loadBtn.addEventListener('click', () => {
     const json = decodeSave(inp.value);
-    if (!json) { msg.textContent = 'To nie jest cały kod kopii'; return; }
+    if (!json) { msg.textContent = t('To nie jest cały kod kopii'); return; }
     // loading replaces the current game: the first tap asks, the second one loads
-    if (!armed) { armed = true; loadBtn.textContent = 'Na pewno? Obecny postęp zniknie'; loadBtn.classList.add('warn'); return; }
+    if (!armed) { armed = true; loadBtn.textContent = t('Na pewno? Obecny postęp zniknie'); loadBtn.classList.add('warn'); return; }
     load(json);
   });
   return Object.assign(box, { refresh });

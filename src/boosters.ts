@@ -5,6 +5,7 @@
  * button is not green and carries the 🎬 sign; no timers until the next ad, no nagging (the player opens the menu).
  */
 import { drawCoin } from './icons';
+import { t } from './i18n';
 
 export type Booster = 'gold' | 'volunteer';
 export const BOOST_TIME = 180; // seconds a booster lasts
@@ -101,15 +102,15 @@ export class Boosters {
   }
 
   private open() {
-    this.body.innerHTML = '<h2>Pomoc dla schroniska</h2>';
+    this.body.innerHTML = `<h2>${t('Pomoc dla schroniska')}</h2>`;
     const offer = (b: Booster, img: HTMLCanvasElement, text: string) => {
       const row = document.createElement('div');
       row.className = 'offer' + (this.active(b) ? ' off' : '');
       const label = document.createElement('span');
-      label.textContent = text;
+      label.textContent = t(text);
       const ad = document.createElement('button');
       ad.className = 'ad';
-      ad.textContent = '🎬 Obejrzyj';
+      ad.textContent = t('🎬 Obejrzyj');
       ad.disabled = this.active(b);
       ad.addEventListener('click', async () => {
         ad.disabled = true; // one video per reward
@@ -124,7 +125,7 @@ export class Boosters {
     offer('volunteer', volunteerIcon(), 'Ochotnik ściele łóżka i karmi przez 3 minuty');
     const plain = document.createElement('button');
     plain.className = 'plain';
-    plain.textContent = 'Nie, dziękuję';
+    plain.textContent = t('Nie, dziękuję');
     plain.addEventListener('click', () => this.close());
     this.body.appendChild(plain);
     this.panel.classList.add('on');
@@ -146,7 +147,7 @@ export class Boosters {
   /** the offline chest: take the coins, or watch an ad for twice as many. Resolves with the multiplier. */
   chest(coins: number): Promise<1 | 2> {
     return new Promise((done) => {
-      this.body.innerHTML = '<h2>Skrzynka z monetami</h2>';
+      this.body.innerHTML = `<h2>${t('Skrzynka z monetami')}</h2>`;
       const row = document.createElement('div');
       row.className = 'offer';
       const label = document.createElement('span');
@@ -157,7 +158,7 @@ export class Boosters {
       row.append(goldIcon(), label, ad);
       const plain = document.createElement('button');
       plain.className = 'plain';
-      plain.textContent = 'Odbierz';
+      plain.textContent = t('Odbierz');
       this.body.append(row, plain);
       let left = false;
       const finish = (m: 1 | 2) => { if (left) return; left = true; this.dismiss = undefined; this.close(); done(m); };

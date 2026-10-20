@@ -12,7 +12,7 @@ const open = async (q) => {
   const p = await b.newPage({ viewport: { width: 390, height: 844 } });
   p.on('pageerror', (e) => { console.log('ERR ' + e.message); fail++; });
   await p.addInitScript((s) => localStorage.setItem('fable-shelter-save-v3', JSON.stringify(s)), save);
-  await p.goto(BASE + '?dtmax=0.4&quality=0&' + q);
+  await p.goto(BASE + '?lang=pl&dtmax=0.4&quality=0&' + q);
   await p.waitForFunction(() => window.__G?.()?.stations?.length, null, { timeout: 120000 });
   await p.waitForTimeout(4000);
   return p;

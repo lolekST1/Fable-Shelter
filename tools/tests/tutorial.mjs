@@ -12,7 +12,7 @@ const check = (ok, what) => { console.log((ok ? 'OK   ' : 'FAIL ') + what); if (
 const shot = (n) => p.screenshot({ path: `out/tut${n}.png`, timeout: 150000 });
 const G = (f, a) => p.evaluate(f, a);
 
-await p.goto(BASE + '?dtmax=0.4&reset=1&quality=0');
+await p.goto(BASE + '?lang=pl&dtmax=0.4&reset=1&quality=0');
 await p.waitForFunction(() => window.__G?.()?.stations?.length, null, { timeout: 120000 });
 await p.waitForTimeout(3000);
 check(await G(() => !!document.getElementById('story')), 'goal card at the first start');

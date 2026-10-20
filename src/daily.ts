@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { type Ailment, drawAilment, drawBerry, drawCoin, drawHeart } from './icons';
 
 /** the shelter house's round door with a heart over it (a 68 px canvas): a new home */
@@ -87,7 +88,7 @@ export class Daily {
     check.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24"><path d="M4 12.5l5 5L20 6" fill="none" stroke="#3aa65a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     const tag = document.createElement('span');
     tag.className = 'tag';
-    tag.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13"><rect x="2" y="3" width="12" height="11" rx="2" fill="#fff"/><rect x="2" y="3" width="12" height="3.5" rx="1.5" fill="#e8604c"/><path d="M8 7.6l1 2 2.2.3-1.6 1.5.4 2.2L8 12.5l-2 1.1.4-2.2-1.6-1.5 2.2-.3z" fill="#ffc21a"/></svg>Dziś';
+    tag.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13"><rect x="2" y="3" width="12" height="11" rx="2" fill="#fff"/><rect x="2" y="3" width="12" height="3.5" rx="1.5" fill="#e8604c"/><path d="M8 7.6l1 2 2.2.3-1.6 1.5.4 2.2L8 12.5l-2 1.1.4-2.2-1.6-1.5 2.2-.3z" fill="#ffc21a"/></svg>' + t('Dziś');
     const mid = document.createElement('span');
     mid.className = 'mid';
     this.bar = document.createElement('i');

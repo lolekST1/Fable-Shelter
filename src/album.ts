@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { type Ailment, drawAilment, drawCoin, drawHeart, drawSpotIcon, type SpotIcon } from './icons';
 
 /**
@@ -197,7 +198,7 @@ export class Album {
           ail.className = 'ail';
           const nm = document.createElement('div');
           nm.className = 'nm';
-          nm.textContent = NAMES[s.name.replace('*', '')] ?? s.name;
+          nm.textContent = t(NAMES[s.name.replace('*', '')] ?? s.name);
           card.append(img, nm, ail);
           if (n) {
             const c = document.createElement('div');

@@ -1,10 +1,12 @@
 import { type Ailment, type Medicine, drawAilment, drawBerry, drawBridge, drawHeart, drawMedicine, drawMoon, drawPumpkin, drawVial } from './icons';
 import { NAMES } from './album';
 import { drawHomeDoor } from './daily';
+import { t } from './i18n';
 
 /**
  * Short picture cards that say what the game is about: the goal at the very first start (cure, care, 4 hearts,
  * a new home) and what hearts are for. Big pictures in a row, two or three words under each, one button to go on.
+ * Titles and labels go through t() in story(), so the cards below are written in Polish only.
  */
 
 type Draw = (g: CanvasRenderingContext2D) => void;
@@ -53,7 +55,7 @@ export function story(title: string, rows: Panel[][], low = false, joint = '➜'
   const box = document.createElement('div');
   box.className = 'box';
   const h = document.createElement('h2');
-  h.textContent = title;
+  h.textContent = t(title);
   box.appendChild(h);
   let n = 0;
   for (const row of rows) {
@@ -74,8 +76,8 @@ export function story(title: string, rows: Panel[][], low = false, joint = '➜'
         im.alt = '';
         if (row.length === 1) im.className = 'big';
         p.img.then((u) => { im.src = u; }, () => { /* no portrait */ });
-        el.append(im, p.label);
-      } else el.append(canvas(p.draw!), p.label);
+        el.append(im, t(p.label));
+      } else el.append(canvas(p.draw!), t(p.label));
       r.appendChild(el);
     });
     box.appendChild(r);
