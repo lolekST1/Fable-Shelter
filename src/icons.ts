@@ -1225,6 +1225,19 @@ export function bubbleCanvas(kind: Ailment, cure: Medicine): HTMLCanvasElement {
   return c;
 }
 
+/** bubble over a guest in its tent: waiting for a free bed (a bed and three dots) */
+export function guestCanvas(): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = 200;
+  c.height = 196;
+  const g = c.getContext('2d')!;
+  bubbleBase(g);
+  drawBed(g, 100, 78, 52);
+  g.fillStyle = '#8f9bff';
+  for (const dx of [-26, 0, 26]) { g.beginPath(); g.arc(100 + dx, 132, 8, 0, Math.PI * 2); g.fill(); }
+  return c;
+}
+
 /** bubble over a resident: what it needs now, with its heart progress below */
 export function needCanvas(c: HTMLCanvasElement, need: 'food' | 'sleep' | null, hearts: number, max: number) {
   c.width = 200;

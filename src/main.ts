@@ -15,6 +15,12 @@ import { firstInput, initPlatform, loadingFinished, sessionStart } from './platf
 
 initPlatform();
 sessionStart();
+// inside a game portal's page (Poki) arrow keys, space and the mouse wheel must not scroll the page around the game;
+// typing in the backup box and scrolling the album still work
+window.addEventListener('keydown', (e) => {
+  if (['ArrowDown', 'ArrowUp', ' '].includes(e.key) && !(e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement)) e.preventDefault();
+});
+window.addEventListener('wheel', (e) => { if (e.target instanceof HTMLCanvasElement) e.preventDefault(); }, { passive: false });
 
 // ?gltest=nofacing / mediump / noaa (see ?glinfo below): on the Adreno 308 tablet every lit material came out black,
 // even with only an ambient light; unlit ones were fine. Known Adreno 3xx suspects: gl_FrontFacing and highp.
@@ -73,7 +79,13 @@ function placeCamera() {
   camera.lookAt(camTarget);
 }
 function frameCamera() {
-  camDist = window.innerHeight > window.innerWidth ? 15 : 10;
+  // a landscape window (Poki on a computer is 16:9) sees the meadow from a little further, and the sun's shadow
+  // area grows with it, or the edges of the wider view would have no shadows
+  const wide = window.innerHeight <= window.innerWidth;
+  camDist = wide ? 12.5 : 15;
+  const s = wide ? 8 : 6;
+  Object.assign(sun.shadow.camera, { left: -s, right: s, top: s, bottom: -s });
+  sun.shadow.camera.updateProjectionMatrix();
   placeCamera();
 }
 
@@ -121,10 +133,27 @@ function tex(url: string) {
   return t;
 }
 const binCache = new Map<string, Promise<Uint8Array>>();
+// the loading bar (index.html): models asked for and arrived while the camp is being set up
+const loadBar = document.getElementById('load');
+let modelsAsked = 0, modelsIn = 0;
+const showLoad = () => loadBar?.style.setProperty('--p', String(0.1 + 0.9 * (modelsIn / Math.max(1, modelsAsked))));
+/** the camp is there: the bar fills up and fades */
+function loadDone() {
+  loadingFinished(); // Poki: the game is ready to play
+  if (!loadBar) return;
+  loadBar.style.setProperty('--p', '1');
+  loadBar.classList.add('done');
+  window.setTimeout(() => loadBar.remove(), 600);
+}
 async function loadModel(name: string) {
-  // models ship as base64 text so the page can be served from any static host; decoded once, parsed per copy
-  if (!binCache.has(name))
-    binCache.set(name, fetch(`models/${name}.glb.txt`).then(async (r) => Uint8Array.from(atob((await r.text()).trim()), (c) => c.charCodeAt(0))));
+  // models ship as base64 text so the page can be served from any static host; decoded once, parsed per copy.
+  // Binary .glb would not be smaller on the way: hosts brotli the text (keeper and camp props: 3.0 MB as text with
+  // brotli, 3.4 MB as plain binary, 2.4 MB only if the host compresses binary too, measured 28.10.2026)
+  if (!binCache.has(name)) {
+    modelsAsked++;
+    showLoad();
+    binCache.set(name, fetch(`models/${name}.glb.txt`).then(async (r) => Uint8Array.from(atob((await r.text()).trim()), (c) => c.charCodeAt(0))).finally(() => { modelsIn++; showLoad(); }));
+  }
   const bin = await binCache.get(name)!;
   return new GLTFLoader().parseAsync(bin.slice().buffer, '');
 }
@@ -189,7 +218,9 @@ Promise.all(
     });
   if (game) game.onFirstPickup = () => hint.classList.add('hidden');
   if (game?.restored) hint.classList.add('hidden');
-  loadingFinished();
+  // the camp's props (cauldron, beds, house...) start loading with the game: the bar waits for them too, not forever
+  const waitProps = (tries: number) => (modelsIn >= modelsAsked || tries <= 0 ? loadDone() : window.setTimeout(() => waitProps(tries - 1), 200));
+  waitProps(40);
 });
 
 // input: drag anywhere to walk the keeper (floating joystick); tap a creature to make it hop,
@@ -227,6 +258,16 @@ const muteCss = document.createElement('style');
 muteCss.textContent = `#mute { position: fixed; right: calc(14px + env(safe-area-inset-right)); top: calc(14px + env(safe-area-inset-top)); width: 48px; height: 48px;
   border: 0; border-radius: 50%; background: rgba(255,255,255,.85); box-shadow: 0 3px 10px rgba(40,70,60,.2); display: grid; place-items: center; padding: 0; }`;
 document.head.appendChild(muteCss);
+// low landscape windows (Poki on a computer goes down to 640×360): the corner buttons and counters shrink, the album
+// and the wardrobe show more cards in a row (ids win over the modules' own class rules, added later)
+const shortCss = document.createElement('style');
+shortCss.textContent = `@media (orientation: landscape) and (max-height: 500px) {
+  #coins, #hearts, #daily, #mute, #albumBtn, #boostBtn { zoom: .72; }
+  body #album .book { max-width: 680px; }
+  body #album .cards { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  body #wardrobe .book { max-width: 640px; }
+}`;
+document.head.appendChild(shortCss);
 muteBtn.innerHTML = speakerSvg(!sfx.muted);
 muteBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
 muteBtn.addEventListener('click', () => {

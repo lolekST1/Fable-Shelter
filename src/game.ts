@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Creature } from './creature';
 import type { Sfx } from './sfx';
-import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, drawAilment, drawBerry, drawCoin, drawHeart, drawMoon, drawSpotIcon, needCanvas } from './icons';
+import { type Ailment, type Medicine, type SpotIcon, bubbleCanvas, guestCanvas, drawAilment, drawBerry, drawCoin, drawHeart, drawMoon, drawSpotIcon, needCanvas } from './icons';
 import { Album } from './album';
 import { backupBox, keepStorage } from './backup';
 import { adsOn, pauseBreak, playing, rewarded, track } from './platform';
@@ -10,7 +10,7 @@ import { Daily, type DailyState, today } from './daily';
 import { halloweenStory, heartsStory, introStory, meetStory, nextCard, stationStory } from './story';
 import { HALLOWEEN_CHANCE, HALLOWEEN_SPECIES, bats, halloween, pumpkins } from './halloween';
 import { Wardrobe, type WardrobeState, drawHanger, itemMesh } from './wardrobe';
-import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, carouselMesh, coinGeo, coinMat, dressUp, fountainMesh, gold, glowSprite, pedestalMesh, swingMesh, chestMesh, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery, shellBedMesh, lighthouseMesh, boardwalkGateMesh, duneMounds, seaScenery, stoneBedMesh, crystalLampMesh, caveGateMesh, rockMounds, caveScenery } from './props';
+import { Fx, Station, backpackMesh, basketMesh, bedMesh, bonfireMesh, bridgeMesh, carouselMesh, coinGeo, coinMat, dressUp, fountainMesh, gold, glowSprite, pedestalMesh, swingMesh, chestMesh, driftMounds, gateArchMesh, shelterHouseMesh, gladeScenery, hedgeBushes, lanternMesh, lilyBedMesh, mossBedMesh, mushroomLampMesh, pondScenery, signpostMesh, snowBedMesh, snowGateMesh, snowScenery, shellBedMesh, lighthouseMesh, tentMesh, boardwalkGateMesh, duneMounds, seaScenery, stoneBedMesh, crystalLampMesh, caveGateMesh, rockMounds, caveScenery } from './props';
 
 /**
  * Fable Shelter loop:
@@ -237,7 +237,8 @@ interface Patient {
   name: string;
   c: Creature;
   sp: Species;
-  state: 'arriving' | 'waiting' | 'incoming' | 'cured' | 'leaving';
+  /** guest: cured, no free bed yet, waiting in a little tent (see TENT_WAIT) */
+  state: 'arriving' | 'waiting' | 'incoming' | 'cured' | 'guest' | 'leaving';
   seat: THREE.Vector3;
   exit: THREE.Vector3;
   fxT: number;
@@ -249,6 +250,8 @@ interface Patient {
   variant: boolean;
   /** its colour while sick (the sick tint, mixed with the variant colour) */
   tint: number;
+  /** the guest tent it waits in */
+  tent?: THREE.Group;
 }
 
 interface Bed { pos: THREE.Vector3; mesh: THREE.Group; ring: THREE.Mesh; fill: THREE.Mesh; owner: Resident | null; fluff: number; zone: Zone }
@@ -361,6 +364,11 @@ const SPOTS: SpotDef[] = [
 ];
 
 const DECOR_BONUS = 2;
+
+/** a cured patient with no free bed waits up to TENT_WAIT seconds in a guest tent for one, at most TENT_MAX at a time
+ *  (in one playthrough some 250-300 cured patients used to walk away for lack of a bed) */
+const TENT_WAIT = 90;
+const TENT_MAX = 3;
 
 /** while the game is closed each hired helper earns this many coins a minute, for up to OFFLINE_CAP minutes */
 const OFFLINE_RATE = 6;
@@ -1397,7 +1405,7 @@ export class Game {
     // every open area beyond the camp (pond, glade) keeps one patient of its own
     const open: Zone[] = ['camp', ...(this.pondOpen ? ['pond' as const] : []), ...(this.gladeOpen ? ['glade' as const] : []), ...(this.snowOpen ? ['snow' as const] : []), ...(this.seaOpen ? ['sea' as const] : []), ...(this.caveOpen ? ['cave' as const] : [])];
     const zoneOf = (n: string) => SPECIES[n].zone ?? 'camp';
-    const lonely = open.find((z) => z !== 'camp' && !this.patients.some((p) => (p.sp.zone ?? 'camp') === z && p.state !== 'cured' && p.state !== 'leaving'));
+    const lonely = open.find((z) => z !== 'camp' && !this.patients.some((p) => (p.sp.zone ?? 'camp') === z && p.state !== 'cured' && p.state !== 'guest' && p.state !== 'leaving'));
     const pool = this.species.filter((n) => (lonely ? zoneOf(n) === lonely : open.includes(zoneOf(n))));
     const held = pool.filter((n) => this.carry.some((v) => v.userData.kind === SPECIES[n].cure));
     const r = Math.random();
@@ -1798,6 +1806,33 @@ export class Game {
   /** a free bed, preferring lily pads for pond creatures and the pen for everyone else */
   private freeBed(zone: Zone = 'camp'): Bed | undefined {
     return this.beds.find((b) => !b.owner && b.zone === zone) ?? this.beds.find((b) => !b.owner);
+  }
+
+  /** no free bed for a cured patient: a little tent pops up behind it and it waits there, a bed in its bubble */
+  private pitchTent(p: Patient) {
+    p.state = 'guest';
+    p.stateT = 0;
+    const tent = tentMesh();
+    const pos = p.c.root.position;
+    tent.position.set(pos.x, 0, pos.z - 0.55);
+    this.d.scene.add(tent);
+    this.props.push(tent); // the flag waves (userData.tick)
+    p.tent = tent;
+    this.popIn(tent);
+    const t = new THREE.CanvasTexture(guestCanvas());
+    t.colorSpace = THREE.SRGBColorSpace;
+    (p.bubble.material as THREE.SpriteMaterial).map = t;
+    this.d.scene.add(p.bubble);
+    p.c.lookAt(this.d.camera.position.x, this.d.camera.position.z);
+    track('guest', 'tent', 'start');
+  }
+
+  private foldTent(p: Patient) {
+    if (!p.tent) return;
+    this.fx.emit('dust', p.tent.position.clone().setY(0.4), 10, { speed: 1, up: 1, g: 2, life: 0.6 });
+    this.d.scene.remove(p.tent, p.bubble);
+    this.props.splice(this.props.indexOf(p.tent), 1);
+    p.tent = undefined;
   }
 
   /** a cured patient moves into the shelter: hand its creature over to a resident record */
@@ -2361,7 +2396,7 @@ export class Game {
 
     // patients
     this.spawnT -= dt;
-    const active = this.patients.filter((p) => p.state !== 'cured' && p.state !== 'leaving').length;
+    const active = this.patients.filter((p) => p.state !== 'cured' && p.state !== 'guest' && p.state !== 'leaving').length;
     if (!this.spawning && active < this.maxPatients + (this.pondOpen ? 1 : 0) + (this.gladeOpen ? 1 : 0) + (this.snowOpen ? 1 : 0) + (this.seaOpen ? 1 : 0) + (this.caveOpen ? 1 : 0) && this.spawnT <= 0) {
       this.spawnT = 3.5;
       void this.spawnPatient();
@@ -2397,6 +2432,20 @@ export class Game {
         if (p.stateT > 1.6) {
           // move into the shelter if there is a free bed, otherwise head home
           const bed = this.freeBed(p.sp.zone);
+          if (bed) {
+            this.patients.splice(i, 1);
+            this.admit(p, bed);
+            continue;
+          }
+          // no bed: wait in a guest tent for one (after the tutorial, a few at a time), else head home
+          if (this.step >= 4 && this.patients.filter((o) => o.state === 'guest').length < TENT_MAX) this.pitchTent(p);
+          else p.state = 'leaving';
+        }
+      } else if (p.state === 'guest') {
+        p.bubble.position.set(pos.x, pos.y + p.c.height + 0.55 + Math.sin(this.t * 3 + i) * 0.05, pos.z);
+        const bed = this.freeBed(p.sp.zone);
+        if (bed || p.stateT > TENT_WAIT) {
+          this.foldTent(p);
           if (bed) {
             this.patients.splice(i, 1);
             this.admit(p, bed);
@@ -2601,7 +2650,7 @@ export class Game {
   }
 
   private updateWorkers(dt: number) {
-    const gone = (p: Patient) => !this.patients.includes(p) || p.state === 'cured' || p.state === 'leaving' || p.state === 'incoming';
+    const gone = (p: Patient) => !this.patients.includes(p) || p.state === 'cured' || p.state === 'guest' || p.state === 'leaving' || p.state === 'incoming';
     for (const w of this.workers.filter((v) => v.until !== undefined && this.t > v.until)) {
       // the volunteer's time is up: it waves goodbye in a puff of stars
       this.dropWork(w);
