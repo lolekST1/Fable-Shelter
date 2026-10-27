@@ -227,5 +227,12 @@ Na południe od obozu, za skałami. Stworki w Z-Image Turbo (styl stworków z g�
 - Kryształowa lampa, `KrysztalowaLampa_00002_WYBRANY.png`: `a tall glowing crystal lamp: one big pointed pastel aqua crystal standing upright on a short round stone base, a few small lilac crystals around its foot, chunky cute shapes, simple solid shapes,`
 - Wejście do groty (na razie tylko obrazek, w grze grota jest z prostych brył), `Jaskinia_00003_WYBRANY.png`: `a small rocky cave entrance: a low dark round opening in a mound of big smooth rounded grey stones, a few glowing aqua crystals at its sides, chunky cute shapes, simple solid shapes,`
 
+## Miniaturka na Poki (noc 27/28.10.2026)
+Z-Image Turbo, 4 obrazy 1024×1024, ziarno 71001. Wybrana `poki/Miniaturka_00003_WYBRANY.png`, kopia w repo: `docs/poki/miniaturka.png`. Poki chce kwadratu co najmniej 628×628, bez napisów, z głównym bohaterem w ruchu i bez koloru zbliżonego do ich tła (#83FFE7).
+```
+square game cover illustration, a cheerful chibi animal keeper character in a round beige safari hat, short brown hair, white shirt and green overalls, jumping happily in mid-air and holding up a glowing pink potion bottle, next to a cute small mint and peach baby dragon and a fluffy white cloud creature with big eyes, both plush toys cheering, in a cozy fairy-tale animal shelter camp with round purple cushion beds, a little wooden fence and colorful lollipop flowers, warm golden afternoon sunlight, soft pink and orange sky,
+stylized 3D render, plush toy look, soft fuzzy fabric texture, pastel colors, big round glossy eyes, cozy storybook mood, dynamic pose, one clear main character in the foreground, simple background, strong contrast, full bleed, no text, no letters, no logo, no border
+```
+
 ## Nazwy plików
 Zapisuj wybrane do `D:\ComfyUI-Shared\output\FS` jak dotąd, np. `Nessie-image-turbo_00003.png`, `nessie_tył_00001.png`, `nessie_lewy_00001.png`, a modele `nessie.glb`. Resztę przejrzę, wybiorę i oznaczę `WYBRANY`.

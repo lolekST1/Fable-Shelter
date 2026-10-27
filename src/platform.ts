@@ -21,8 +21,8 @@ type Poki = {
 declare global { interface Window { PokiSDK?: Poki; va?: (...a: unknown[]) => void; vaq?: unknown[][] } }
 
 const params = new URLSearchParams(location.search);
-/** the game is on Poki (their game servers have poki in the name; ?poki tries the SDK anywhere) */
-export const onPoki = /poki/i.test(location.hostname) || params.has('poki');
+/** the game is on Poki: the Poki build (npm run build:poki), their game servers (poki in the name), or ?poki to try the SDK anywhere */
+export const onPoki = import.meta.env.MODE === 'poki' || /poki/i.test(location.hostname) || params.has('poki');
 const onVercel = location.hostname.endsWith('.vercel.app');
 
 let sdk: Poki | null = null;
