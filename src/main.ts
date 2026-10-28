@@ -85,7 +85,7 @@ function frameCamera() {
   // a landscape window (Poki on a computer is 16:9) sees the meadow from a little further, and the sun's shadow
   // area grows with it, or the edges of the wider view would have no shadows
   const wide = window.innerHeight <= window.innerWidth;
-  camDist = wide ? 12.5 : 15;
+  camDist = +(new URLSearchParams(location.search).get('cam') ?? 0) || (wide ? 12.5 : 15); // ?cam=N: recordings
   const s = wide ? 8 : 6;
   Object.assign(sun.shadow.camera, { left: -s, right: s, top: s, bottom: -s });
   sun.shadow.camera.updateProjectionMatrix();
