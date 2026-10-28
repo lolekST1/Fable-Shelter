@@ -234,5 +234,12 @@ square game cover illustration, a cheerful chibi animal keeper character in a ro
 stylized 3D render, plush toy look, soft fuzzy fabric texture, pastel colors, big round glossy eyes, cozy storybook mood, dynamic pose, one clear main character in the foreground, simple background, strong contrast, full bleed, no text, no letters, no logo, no border
 ```
 
+### Druga wersja miniaturki (28.10.2026, obecna)
+W pierwszej opiekun wyglądał jak piesek (rozdzielona warga, włosy jak psie uszy). Druga powstała we FLUX 3 Klein w trybie edycji (workflow `image_flux3_klein_distilled-przerabianie obrazów`, slot `11.image` = `opiekun_do_3d.png`, czyli oryginalny obrazek opiekuna, ziarna 81001–81003). Wybrana `poki/Miniaturka2_00001_WYBRANY.png`.
+```
+Square game cover illustration with exactly this same character: the same cute boy with the fluffy beige bucket hat, brown hair fringe, big dark round eyes, rosy cheeks, small smile, white shirt with rolled sleeves, green fluffy apron overalls with yellow buttons, navy shorts and brown shoes. Keep his face, hat and clothes identical, a human boy, not an animal. He is jumping happily in mid-air and holding up a glowing pink potion bottle. Next to him a cute small mint green baby dragon and a fluffy white cloud creature with big eyes cheer. Background: a cozy fairy-tale animal shelter camp on a sunny meadow with round purple cushion beds, a small striped tent, a little wooden fence and colorful flowers, warm golden afternoon light, soft pink sky. Stylized 3D render, plush toy look, soft fuzzy fabric texture, pastel colors, cozy storybook mood, one clear main character in the foreground, strong contrast, full bleed, no text, no letters, no logo, no border.
+```
+Wniosek: postać z gry generuj z referencją (`opiekun_do_3d.png` i inne `*_do_3d.png` w `input`), nie z samego opisu.
+
 ## Nazwy plików
 Zapisuj wybrane do `D:\ComfyUI-Shared\output\FS` jak dotąd, np. `Nessie-image-turbo_00003.png`, `nessie_tył_00001.png`, `nessie_lewy_00001.png`, a modele `nessie.glb`. Resztę przejrzę, wybiorę i oznaczę `WYBRANY`.
