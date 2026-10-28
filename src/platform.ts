@@ -9,6 +9,8 @@
  * no ad timers or cooldowns of our own, rewards only after a real ad, the game must work with an ad blocker.
  */
 
+import { setLanguage } from './i18n';
+
 type Poki = {
   init(): Promise<void>;
   gameLoadingFinished(): void;
@@ -17,6 +19,7 @@ type Poki = {
   commercialBreak(onStart?: () => void): Promise<void>;
   rewardedBreak(onStart?: () => void): Promise<boolean>;
   measure(category: string, what: string, action: string): void;
+  getLanguage?(): string;
 };
 declare global { interface Window { PokiSDK?: Poki; va?: (...a: unknown[]) => void; vaq?: unknown[][] } }
 
@@ -43,7 +46,9 @@ export function initPlatform() {
   if (onPoki) {
     ready = loadScript('https://game-cdn.poki.com/scripts/v2/poki-sdk.js')
       .then(() => window.PokiSDK?.init())
-      .then(() => { sdk = window.PokiSDK ?? null; }, () => { sdk = window.PokiSDK ?? null; });
+      .then(() => { sdk = window.PokiSDK ?? null; }, () => { sdk = window.PokiSDK ?? null; })
+      // the portal's language (lower-case base code, e.g. pt for pt-BR) decides the game's, see i18n.ts
+      .then(() => { try { setLanguage(sdk?.getLanguage?.()); } catch { /* keep the browser's */ } });
   } else if (onVercel) {
     // Vercel Web Analytics, same address as the game (no outside servers); visits always, events on paid plans only
     window.va = window.va || ((...a: unknown[]) => { (window.vaq = window.vaq || []).push(a); });
@@ -55,6 +60,9 @@ export function initPlatform() {
 let markLoaded: () => void = () => {};
 /** resolved by loadingFinished(): gameplayStart/Stop never go to the SDK before gameLoadingFinished */
 const loaded = new Promise<void>((ok) => { markLoaded = ok; });
+/** the SDK is loaded (or failed to): the game waits for it before it builds anything with words */
+export const platformReady = () => ready;
+
 export function loadingFinished() { void ready.then(() => { sdk?.gameLoadingFinished(); markLoaded(); }); }
 
 /** gameplay running (true) or paused by a menu or card; repeated calls with the same value are dropped (Poki asks for that) */

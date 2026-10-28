@@ -39,7 +39,8 @@ const G = (p, f, a) => p.evaluate(f, a);
   await Promise.all([q.waitForEvent('load'), q.locator('#backup button.warn').click()]);
   await q.waitForTimeout(12000);
   const st = await G(q, () => ({ coins: window.__G().coins, bought: window.__G().bought }));
-  check(st.coins === 777 && st.bought === 12, `the backup is loaded after the reload (${JSON.stringify(st)})`);
+  check(st.coins >= 777 && st.bought === 12, // the camp helper may earn a few coins meanwhile
+     `the backup is loaded after the reload (${JSON.stringify(st)})`);
   await q.close();
 }
 
@@ -67,7 +68,7 @@ const G = (p, f, a) => p.evaluate(f, a);
     window.__smok = new Set();
     window.setInterval(() => window.__smok.add(g.residents.find((r) => r.name === 'smok')?.state), 50);
   });
-  let ok = false, saw = false;
+  let ok = false, saw = false, last = null;
   for (let i = 0; i < 40 && !ok; i++) {
     const s = await G(p, () => {
       const g = window.__G();
@@ -77,11 +78,12 @@ const G = (p, f, a) => p.evaluate(f, a);
       smok.helpT = Math.min(smok.helpT, 0.1);
       return { smok: window.__smok.has('helpWork') ? 'helpWork' : smok.state, gryf: gryf.state };
     });
+    last = s;
     if (s.smok === 'helpWork') saw = true;
     if (saw && (s.gryf === 'toSleep' || s.gryf === 'sleeping')) ok = true;
     else await p.waitForTimeout(1000);
   }
-  check(saw && ok, 'a smok plumps the sleepy gryf\'s bed, the keeper far away');
+  check(saw && ok, `a smok plumps the sleepy gryf's bed, the keeper far away (${JSON.stringify({ saw, last, states: await G(p, () => [...window.__smok]) })})`);
   await p.close();
 }
 

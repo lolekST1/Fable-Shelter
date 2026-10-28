@@ -11,7 +11,7 @@ import { Sfx } from './sfx';
 import { Joystick } from './joystick';
 import { CAVE_C, CAVE_R, Game, SEA_C, SEA_R, SNOW_C, SNOW_R } from './game';
 import chmurnikData from './chmurnik.json';
-import { firstInput, initPlatform, loadingFinished, sessionStart } from './platform';
+import { firstInput, initPlatform, loadingFinished, platformReady, sessionStart } from './platform';
 
 initPlatform();
 sessionStart();
@@ -214,11 +214,13 @@ Promise.all(
     creatures.push(c);
     if (name === 'opiekun') keeper = c;
   }),
-).then(() => {
+).then(async () => {
   // compile every shader up front (including the hidden rain cloud) so the first tap does not stall
   rain.group.visible = true;
   renderer.compile(scene, camera);
   rain.group.visible = false;
+  // on Poki the language comes from the SDK: wait for it (it settles even when the SDK fails) before the cards and menus
+  await platformReady();
   if (keeper)
     game = new Game({
       scene, camera, keeper, sfx, shadowTex, spawnCreature, portrait, loadProp: async (name) => (await loadModel(name)).scene,

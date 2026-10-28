@@ -32,7 +32,8 @@ const shot = async (p, lang, name, sel) => {
     return { page: page.scrollWidth <= page.clientWidth, inside: box.left >= -1 && box.right <= innerWidth + 1, wide, text: el.innerText, lang: document.documentElement.lang };
   }, sel);
   check(r.page && r.inside && !r.wide.length, `${lang} ${name}: fits 320 px${r.wide.length ? ' (too wide: ' + r.wide.join(', ') + ')' : ''}`);
-  if (lang === 'en') check(!/[ąćęłńóśźż]/i.test(r.text), `en ${name}: no Polish (${r.text.replace(/\s+/g, ' ').slice(0, 70)})`);
+  // ó is Spanish and Portuguese too, so only the letters no other game language has
+  if (lang !== 'pl') check(!/[ąćęłńśźż]/i.test(r.text), `${lang} ${name}: no Polish (${r.text.replace(/\s+/g, ' ').slice(0, 70)})`);
   check(r.lang === lang, `${lang} ${name}: <html lang=${r.lang}>`);
   await p.screenshot({ path: `out/lang_${lang}_${name}.png` });
 };
@@ -49,7 +50,8 @@ const shot = async (p, lang, name, sel) => {
   check(pl.length > 60 && !missing.length, `${pl.length} names, illnesses and medicines have English${missing.length ? ' (missing: ' + missing.join(', ') + ')' : ''}`);
 }
 
-for (const lang of ['pl', 'en']) {
+// every language (LANGS=pl,en to pick some): pl and en first, then the ones Poki recommends
+for (const lang of (process.env.LANGS ?? 'pl,en,fr,it,de,es,tr,pt,ru,zh,ja,ko').split(',')) {
   // a new game: the goal card, then the first patient's card
   let p = await open(lang, 'reset=1');
   await shot(p, lang, 'goal', '#story .box');
@@ -79,7 +81,7 @@ for (const lang of ['pl', 'en']) {
 }
 
 // with no ?lang the browser's language decides
-for (const [locale, want] of [['pl-PL', 'pl'], ['en-US', 'en'], ['de-DE', 'en']]) {
+for (const [locale, want] of [['pl-PL', 'pl'], ['en-US', 'en'], ['de-DE', 'de'], ['pt-BR', 'pt'], ['ja-JP', 'ja'], ['nl-NL', 'en']]) {
   const c = await b.newContext({ locale });
   const p = await c.newPage();
   await p.goto(BASE + '?dtmax=0.4&quality=0');
