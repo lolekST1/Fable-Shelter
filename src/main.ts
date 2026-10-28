@@ -18,9 +18,12 @@ sessionStart();
 // inside a game portal's page (Poki) arrow keys, space and the mouse wheel must not scroll the page around the game;
 // typing in the backup box and scrolling the album still work
 window.addEventListener('keydown', (e) => {
-  if (['ArrowDown', 'ArrowUp', ' '].includes(e.key) && !(e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement)) e.preventDefault();
+  if (['ArrowDown', 'ArrowUp', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(e.key)
+    && !(e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement || (e.key === ' ' && e.target instanceof HTMLButtonElement))) e.preventDefault();
 });
-window.addEventListener('wheel', (e) => { if (e.target instanceof HTMLCanvasElement) e.preventDefault(); }, { passive: false });
+window.addEventListener('wheel', (e) => {
+  if (!(e.target as Element).closest?.('#album, #wardrobe, #backup')) e.preventDefault();
+}, { passive: false });
 
 // ?gltest=nofacing / mediump / noaa (see ?glinfo below): on the Adreno 308 tablet every lit material came out black,
 // even with only an ambient light; unlit ones were fine. Known Adreno 3xx suspects: gl_FrontFacing and highp.
@@ -136,7 +139,11 @@ const binCache = new Map<string, Promise<Uint8Array>>();
 // the loading bar (index.html): models asked for and arrived while the camp is being set up
 const loadBar = document.getElementById('load');
 let modelsAsked = 0, modelsIn = 0;
-const showLoad = () => loadBar?.style.setProperty('--p', String(0.1 + 0.9 * (modelsIn / Math.max(1, modelsAsked))));
+let shownLoad = 0; // the bar never goes back when more models are asked for later
+const showLoad = () => {
+  shownLoad = Math.max(shownLoad, 0.1 + 0.9 * (modelsIn / Math.max(1, modelsAsked)));
+  loadBar?.style.setProperty('--p', String(shownLoad));
+};
 /** the camp is there: the bar fills up and fades */
 function loadDone() {
   loadingFinished(); // Poki: the game is ready to play
@@ -218,9 +225,11 @@ Promise.all(
     });
   if (game) game.onFirstPickup = () => hint.classList.add('hidden');
   if (game?.restored) hint.classList.add('hidden');
-  // the camp's props (cauldron, beds, house...) start loading with the game: the bar waits for them too, not forever
-  const waitProps = (tries: number) => (modelsIn >= modelsAsked || tries <= 0 ? loadDone() : window.setTimeout(() => waitProps(tries - 1), 200));
-  waitProps(40);
+  // playable now: the bar goes; the camp's props (cauldron, beds, house...) pop in over their simple stand-ins
+  loadDone();
+}).catch((err) => {
+  loadDone(); // loading failed: the bar goes anyway (index.html shows the reason card)
+  console.error(err);
 });
 
 // input: drag anywhere to walk the keeper (floating joystick); tap a creature to make it hop,
@@ -266,6 +275,7 @@ shortCss.textContent = `@media (orientation: landscape) and (max-height: 500px) 
   body #album .book { max-width: 680px; }
   body #album .cards { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   body #wardrobe .book { max-width: 640px; }
+  body #wardrobe .row { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }`;
 document.head.appendChild(shortCss);
 muteBtn.innerHTML = speakerSvg(!sfx.muted);

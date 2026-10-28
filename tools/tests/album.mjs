@@ -12,7 +12,7 @@ p.on('pageerror', (e) => console.log('ERR ' + e.message));
 // the whole camp page but the basilisk, one basilisk resident about to be adopted, the pond open
 const album = { chmurnik: 4, smok: 2, feniks: 3, gryf: 1, grzybolak: 2, kraken: 1, jednorozec: 1, zabiksiaze: 2 };
 await p.addInitScript((a) => { if (!sessionStorage.getItem('loaded')) { sessionStorage.setItem('loaded', '1'); localStorage.setItem('fable-shelter-save-v3', JSON.stringify({ ver: 2, coins: 0, bought: 12, hearts: 20, residents: [{ name: 'bazyliszek', hearts: 3 }], album: a })); } }, album);
-await p.goto(BASE + '?dtmax=0.4&debug'); await p.waitForTimeout(12000);
+await p.goto(BASE + '?dtmax=0.4&debug&nostory&day=2026-09-15'); await p.waitForTimeout(12000); // a day outside Halloween: its album page would add cards
 await p.click('#albumBtn');
 await p.waitForTimeout(6000);
 await p.screenshot({ path: 'out/album_open.png', timeout: 150000 });

@@ -1334,24 +1334,41 @@ export function shellBedMesh(): THREE.Group {
 
 /** a little striped lighthouse: more patients find their way to the bay (its lamp glows at night) */
 /** a little striped guest tent: a cured patient waits in it for a free bed */
+let tentParts: {
+  cloth: THREE.Material[]; panels: THREE.BufferGeometry[]; door: THREE.BufferGeometry; doorMat: THREE.Material;
+  pole: THREE.BufferGeometry; flag: THREE.BufferGeometry; flagMat: THREE.Material;
+} | null = null;
+/** geometries and materials of the tent, made once and shared by every tent */
+function tentShared() {
+  return tentParts ??= {
+    cloth: [0xffb3c8, 0xfff3e0].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9, flatShading: true })),
+    panels: [0, 1, 2, 3].map((i) => new THREE.ConeGeometry(0.62, 0.95, 4, 1, true, (i * Math.PI) / 2, Math.PI / 2)),
+    door: new THREE.CircleGeometry(0.22, 12, 0, Math.PI),
+    doorMat: new THREE.MeshBasicMaterial({ color: 0x4a3a52 }),
+    pole: new THREE.CylinderGeometry(0.015, 0.015, 0.3, 6),
+    flag: new THREE.PlaneGeometry(0.16, 0.1),
+    flagMat: new THREE.MeshStandardMaterial({ color: 0xffc21a, side: THREE.DoubleSide }),
+  };
+}
+
 export function tentMesh(): THREE.Group {
   const g = new THREE.Group();
-  const cloth = [0xffb3c8, 0xfff3e0].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9, flatShading: true }));
+  const s = tentShared();
   // four panels of a square pyramid, alternating colours
   for (let i = 0; i < 4; i++) {
-    const panel = new THREE.Mesh(new THREE.ConeGeometry(0.62, 0.95, 4, 1, true, (i * Math.PI) / 2, Math.PI / 2), cloth[i % 2]);
+    const panel = new THREE.Mesh(s.panels[i], s.cloth[i % 2]);
     panel.position.y = 0.475;
     panel.rotation.y = Math.PI / 4;
     panel.castShadow = true;
     g.add(panel);
   }
   // the dark doorway at the front (+z) and a little flag on top
-  const door = new THREE.Mesh(new THREE.CircleGeometry(0.22, 12, 0, Math.PI), new THREE.MeshBasicMaterial({ color: 0x4a3a52 }));
+  const door = new THREE.Mesh(s.door, s.doorMat);
   door.position.set(0, 0.02, 0.44);
   door.rotation.x = -0.58;
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.3, 6), mats.darkWood);
+  const pole = new THREE.Mesh(s.pole, mats.darkWood);
   pole.position.y = 1.05;
-  const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.1), new THREE.MeshStandardMaterial({ color: 0xffc21a, side: THREE.DoubleSide }));
+  const flag = new THREE.Mesh(s.flag, s.flagMat);
   flag.position.set(0.08, 1.15, 0);
   g.add(door, pole, flag);
   g.userData.tick = (t: number) => { flag.rotation.y = Math.sin(t * 4) * 0.4; };

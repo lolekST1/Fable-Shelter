@@ -62,6 +62,7 @@
             '</p><p style="font-size:12px;opacity:.75;word-break:break-word">Błąd: ' + String(msg).slice(0, 300) + '<br>WebGL 2: ' + (gl2 ? 'tak' : 'nie') + ', WebGL 1: ' + gl1 + '<br>' + navigator.userAgent + '</p>';
           document.body.appendChild(box);
           var h = document.getElementById('hint'); if (h) h.style.display = 'none';
+          var l = document.getElementById('load'); if (l) l.style.display = 'none';
         }
         window.addEventListener('error', function (e) { why(e.message || (e.target && e.target.src ? 'nie wczytał się ' + e.target.src : 'nieznany')); }, true);
         window.addEventListener('unhandledrejection', function (e) { why(e.reason && e.reason.message || e.reason); });

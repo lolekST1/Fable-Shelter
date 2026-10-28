@@ -453,6 +453,9 @@ export class Game {
   private spots: ActiveSpot[] = [];
   private slots: THREE.Object3D[] = [];
   private props: THREE.Object3D[] = [];
+  /** the guest-tent bubble texture, drawn once and shared by all tents */
+  private guestTex: THREE.CanvasTexture | null = null;
+  private tentTracked = false;
   private basket: THREE.Group;
   private dropT = 0;
   /** how long the keeper has stood at the basket (it only starts tipping out at BASKET_WAIT) */
@@ -1249,9 +1252,10 @@ export class Game {
     this.d.sfx.build();
   }
 
-  private popIn(o: THREE.Object3D) {
+  private popIn(o: THREE.Object3D, quiet = false) {
     o.scale.setScalar(0.01);
     o.userData.pop = this.t;
+    if (quiet) return;
     this.fx.emit('star', o.position.clone().setY(0.6), 30, { speed: 3, up: 2, life: 1 });
     this.d.sfx.build();
   }
@@ -1810,28 +1814,36 @@ export class Game {
 
   /** no free bed for a cured patient: a little tent pops up behind it and it waits there, a bed in its bubble */
   private pitchTent(p: Patient) {
+    if (p.tent) return;
     p.state = 'guest';
     p.stateT = 0;
     const tent = tentMesh();
+    tent.userData.r = 0.5; // walk() steers creatures around it, new patients do not sit too close
     const pos = p.c.root.position;
     tent.position.set(pos.x, 0, pos.z - 0.55);
     this.d.scene.add(tent);
     this.props.push(tent); // the flag waves (userData.tick)
     p.tent = tent;
-    this.popIn(tent);
-    const t = new THREE.CanvasTexture(guestCanvas());
-    t.colorSpace = THREE.SRGBColorSpace;
-    (p.bubble.material as THREE.SpriteMaterial).map = t;
+    this.popIn(tent, true); // a tent is no purchase: no build sound, no stars
+    if (!this.guestTex) {
+      this.guestTex = new THREE.CanvasTexture(guestCanvas());
+      this.guestTex.colorSpace = THREE.SRGBColorSpace;
+    }
+    const mat = p.bubble.material as THREE.SpriteMaterial;
+    if (mat.map && mat.map !== this.guestTex) mat.map.dispose();
+    mat.map = this.guestTex;
+    mat.needsUpdate = true;
     this.d.scene.add(p.bubble);
     p.c.lookAt(this.d.camera.position.x, this.d.camera.position.z);
-    track('guest', 'tent', 'start');
+    if (!this.tentTracked) { this.tentTracked = true; track('guest', 'tent', 'start'); }
   }
 
   private foldTent(p: Patient) {
     if (!p.tent) return;
     this.fx.emit('dust', p.tent.position.clone().setY(0.4), 10, { speed: 1, up: 1, g: 2, life: 0.6 });
     this.d.scene.remove(p.tent, p.bubble);
-    this.props.splice(this.props.indexOf(p.tent), 1);
+    const i = this.props.indexOf(p.tent);
+    if (i >= 0) this.props.splice(i, 1);
     p.tent = undefined;
   }
 
@@ -2194,7 +2206,7 @@ export class Game {
         if (r.stateT > 5) { r.state = 'idle'; c.eyesShut = undefined; c.hop(); this.addHeart(r); }
       } else if (r.state === 'helpGo') {
         const job = r.job!;
-        const lost = (job.patient && (job.patient.state === 'cured' || job.patient.state === 'leaving' || job.patient.state === 'incoming'))
+        const lost = (job.patient && (job.patient.state === 'cured' || job.patient.state === 'leaving' || job.patient.state === 'incoming' || job.patient.state === 'guest'))
           || (!job.station && (!job.resident || job.resident.need !== 'sleep' || !this.residents.includes(job.resident)));
         if (lost) { this.dropJob(r); r.state = 'helpBack'; r.path = this.route(pos, nearBed); }
         else if (this.follow(c, r.path, 1.9, dt)) {
@@ -2237,7 +2249,7 @@ export class Game {
         const job = r.job!;
         const tgt = job.patient ? job.patient.c : job.resident!.c;
         const gone = job.patient
-          ? job.patient.state === 'cured' || job.patient.state === 'leaving' || job.patient.state === 'incoming'
+          ? job.patient.state === 'cured' || job.patient.state === 'leaving' || job.patient.state === 'incoming' || job.patient.state === 'guest'
           : !this.residents.includes(job.resident!) || job.resident!.need !== 'food';
         if (gone) { this.dropJob(r); r.state = 'helpBack'; r.path = this.route(pos, nearBed); }
         else {

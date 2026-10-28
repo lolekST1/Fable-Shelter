@@ -9,7 +9,7 @@ const check = (ok, what) => { console.log(ok ? 'OK  ' : 'FAIL', what); if (!ok) 
 const p = await b.newPage({ viewport: { width: 390, height: 844 } });
 p.on('pageerror', (e) => console.log('ERR ' + e.message));
 await p.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('fable-shelter-save-v3', JSON.stringify({ ver: 2, coins: 2000, bought: 25, hearts: 140 })); sessionStorage.setItem('seeded', '1'); } });
-await p.goto(BASE + '?dtmax=0.4'); await p.waitForTimeout(12000);
+await p.goto(BASE + '?dtmax=0.4&nostory'); await p.waitForTimeout(12000);
 const W = () => p.evaluate(() => { const G = window.__G(); return { open: G.wardrobe.isOpen, coins: G.coins, owned: G.wardrobe.state.owned, worn: G.wardrobe.state.worn, wearing: G.wearing.length }; });
 
 check(!(await W()).open, 'wardrobe closed away from the house');

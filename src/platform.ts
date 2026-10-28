@@ -52,16 +52,25 @@ export function initPlatform() {
   if (params.has('stats')) showStats();
 }
 
-export function loadingFinished() { void ready.then(() => sdk?.gameLoadingFinished()); }
+let markLoaded: () => void = () => {};
+/** resolved by loadingFinished(): gameplayStart/Stop never go to the SDK before gameLoadingFinished */
+const loaded = new Promise<void>((ok) => { markLoaded = ok; });
+export function loadingFinished() { void ready.then(() => { sdk?.gameLoadingFinished(); markLoaded(); }); }
 
 /** gameplay running (true) or paused by a menu or card; repeated calls with the same value are dropped (Poki asks for that) */
 let isPlaying = false;
 let started = false;
+/** what was actually sent to the SDK last (null = nothing yet), so the same event never goes twice in a row */
+let sent: boolean | null = null;
 export function playing(on: boolean) {
   if (on && !started) return; // the first start waits for the player's first touch (see firstInput)
   if (on === isPlaying) return;
   isPlaying = on;
-  void ready.then(() => (on ? sdk?.gameplayStart() : sdk?.gameplayStop()));
+  void Promise.all([ready, loaded]).then(() => {
+    if (!sdk || on === (sent ?? false)) return;
+    sent = on;
+    if (on) sdk.gameplayStart(); else sdk.gameplayStop();
+  });
 }
 export function firstInput() {
   if (started) return;
