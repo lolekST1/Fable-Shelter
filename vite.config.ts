@@ -8,7 +8,7 @@ const forPoki = (): Plugin => ({
   apply: 'build',
   // public/ is copied as is, so the worker and the manifest have to be removed from the output by hand
   closeBundle() {
-    for (const f of ['sw.js', 'manifest.webmanifest']) rmSync(`dist-poki/${f}`, { force: true });
+    for (const f of ['sw.js', 'manifest.webmanifest']) rmSync(`${root}/dist-poki/${f}`, { force: true });
   },
   transformIndexHtml: (html) => html
     .replace(/\s*<script>if \('serviceWorker'[^<]*<\/script>/, '')
@@ -16,7 +16,13 @@ const forPoki = (): Plugin => ({
     .replace(/\s*<div id="ver">[^<]*<\/div>/, ''),
 });
 
+// Windows: started from `d:\…` (Nushell keeps the lowercase drive letter) Vite stores index.html once as d:/… and
+// once as D:/…, and the build fails with "No matching HTML proxy module found" for the page's inline <style>.
+// One spelling of the project folder, drive letter uppercase, fixes it.
+const root = process.cwd().replace(/^[a-z]:/, (d) => d.toUpperCase());
+
 export default defineConfig(({ mode }) => ({
+  root,
   base: './',
   plugins: mode === 'poki' ? [forPoki()] : [],
   build: {
