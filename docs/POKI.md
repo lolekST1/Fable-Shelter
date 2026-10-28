@@ -32,7 +32,7 @@ Przeczytane 21.10.2026 w przewodniku dla twórców (developers.poki.com). Liczby
 - **Komputer 16:9:** zrobione. W poziomym oknie kamera stoi dalej (`camDist` 12,5 zamiast 10), a cienie słońca obejmują szerszy kadr. Na niskich oknach (do 500 px wysokości, czyli też najmniejsze okno Poki 640×360) przyciski i liczniki są o 28% mniejsze, a album ma 5 kolumn. Sterowanie myszą działało już wcześniej: przeciąganie to joystick, kliknięcie wysyła opiekuna. Strzałki, spacja i kółko myszy nie przewijają strony Poki.
 - **Wczytywanie:** pasek wczytywania widać od pierwszej chwili (jest w `index.html`), a gra go wypełnia i chowa, gdy obóz jest gotowy. Wtedy też idzie `gameLoadingFinished`. Na start schodzi około 3 MB modeli i 0,3 MB kodu (po kompresji). Modele zostają w base64: serwery kompresują tekst, a zwykłe pliki `.glb` byłyby mniejsze tylko wtedy, gdy serwer kompresuje też pliki binarne (pomiar w kodzie przy `loadModel`).
 - **Paczka:** `npm run build:poki` buduje folder `dist-poki/` (74 MB, z czego 67 MB to modele, które dociągają się dopiero, gdy pojawią się w grze). Ta wersja zawsze ładuje SDK Poki, nie ma service workera, pliku PWA ani napisu „prototype”. Sprawdzone lokalnie: SDK się wczytuje, `gameLoadingFinished` po wczytaniu, `gameplayStart` przy pierwszym dotknięciu, `rewardedBreak` za booster (Poki puszcza wtedy reklamę zastępczą), `measure` dla liczników.
-- **Miniaturka:** `docs/poki/miniaturka.png` (1024×1024, ilustracja z Z-Image Turbo, prompt w `docs/PROMPTY.md`). Wersja animowana `docs/poki/miniaturka-animowana.mp4` (1080×1080, 60 kl./s, 5 s, powolne przybliżenie tej samej ilustracji). Poki chce animowanej dopiero przy miękkiej premierze i lepiej, żeby była nagrana z gry na prawdziwym telefonie.
+- **Miniaturka:** `docs/poki/miniaturka.png` (1024×1024, ilustracja z Z-Image Turbo, prompt w `docs/PROMPTY.md`). Wersja animowana `docs/poki/miniaturka-animowana.mp4` (1080×1080, 60 kl./s, 5 s): nagranie z gry, opiekun w zagrodzie między stworkami (wybór Karola 28.10.2026; nagrane w Chrome na RTX 4060 przez ffmpeg ddagrab, z `?cam=10` i schowanymi przyciskami).
 
 ## Jak zgłosić grę (krok po kroku)
 1. Załóż konto w Poki for Developers (https://developers.poki.com) i dodaj grę.
@@ -41,7 +41,7 @@ Przeczytane 21.10.2026 w przewodniku dla twórców (developers.poki.com). Liczby
 4. Dodaj miniaturkę `docs/poki/miniaturka.png` i poproś o pierwszy playtest.
 
 ## Co dalej
-1. Nagrać animowaną miniaturkę z gry na telefonie (przed globalną premierą).
+1. (zrobione) Animowana miniaturka z gry.
 2. Po wynikach playtestu i testu na około 10 000 graczy: poprawki samouczka i pierwszych minut.
 3. Klawisze (WASD/strzałki) celowo nie sterują opiekunem. Gra sterowana klawiaturą musi według Poki mieć pauzę pod ESC lub spacją, a mysz i dotyk w zupełności wystarczają.
 
