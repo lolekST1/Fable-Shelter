@@ -99,7 +99,9 @@ for (let i = 1; i < buys.length - 1; i++) {
 }
 for (const b of buys) if (b.max - b.min >= 4) obs.push(`zakup ${b.i}: rozrzut ${b.min.toFixed(1)}–${b.max.toFixed(1)} min między przebiegami`);
 if (summary.heartWaitS > 30) obs.push(`serduszka blokowały zakupy przez ${summary.heartWaitS} s (mediana)`);
-if (summary.stucks.some((s) => s > 5)) obs.push(`automat się zacinał: ${summary.stucks.join(', ')} razy`);
+// „zacięcia” to każde ominięcie przeszkody przez automat (zwykle ok. 100 na przebieg), więc liczy się tylko wzrost
+const stuckNow = med(summary.stucks), stuckOld = base?.stucks ? med(base.stucks) : null;
+if (stuckOld !== null && stuckNow > stuckOld * 1.5 && stuckNow - stuckOld > 30) obs.push(`automat częściej utyka: ${stuckNow} razy na przebieg (było ${stuckOld}), sprawdź trasy i kolizje`);
 if (obs.length) { console.log('\nObserwacje:'); for (const o of obs) console.log('  - ' + o); }
 
 if (process.env.SAVE) {
