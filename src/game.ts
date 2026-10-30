@@ -333,13 +333,13 @@ const SPOTS: SpotDef[] = [
   { icon: 'lilybed', price: 700, at: POND_BEDS[2], apply: (g, i) => { g.addBed(i, 'pond'); g.unlock('wodnik'); } },
   { icon: 'helper', price: 780, at: [WORKER_HOME.pond.x, WORKER_HOME.pond.z], apply: (g, i) => void g.addWorker('pond', i) },
   // the heather glade through the hedge
-  { icon: 'gate', price: 850, hearts: 50, at: [Math.cos(GLADE_A) * 9.3, Math.sin(GLADE_A) * 9.3], apply: (g, i) => g.openGlade(i) },
+  { icon: 'gate', price: 850, hearts: 60, at: [Math.cos(GLADE_A) * 9.3, Math.sin(GLADE_A) * 9.3], apply: (g, i) => g.openGlade(i) },
   { icon: 'mossbed', price: 950, at: GLADE_BEDS[1], apply: (g, i) => { g.addBed(i, 'glade'); g.unlock('wilkolaczek'); } },
   { icon: 'mushroom', price: 1100, hearts: 70, at: [18.6, -0.4], apply: (g, i) => { g.addMushroom(18.6, -0.4, i); g.unlock('skrzat'); } },
   { icon: 'mossbed', price: 1250, at: GLADE_BEDS[2], apply: (g, i) => { g.addBed(i, 'glade'); g.unlock('sowka'); } },
   { icon: 'helper', price: 1400, at: [WORKER_HOME.glade.x, WORKER_HOME.glade.z], apply: (g, i) => void g.addWorker('glade', i) },
   // the snowy hill through the snowdrift
-  { icon: 'shovel', price: 1600, hearts: 90, at: [Math.cos(SNOW_A) * 9.3, Math.sin(SNOW_A) * 9.3], apply: (g, i) => g.openSnow(i) },
+  { icon: 'shovel', price: 1600, hearts: 134, at: [Math.cos(SNOW_A) * 9.3, Math.sin(SNOW_A) * 9.3], apply: (g, i) => g.openSnow(i) },
   { icon: 'snowbed', price: 1800, at: SNOW_BEDS[1], apply: (g, i) => { g.addBed(i, 'snow'); g.unlock('renifer'); } },
   { icon: 'bonfire', price: 2000, hearts: 110, at: SNOW_FIRE, apply: (g, i) => { g.addBonfire(SNOW_FIRE[0], SNOW_FIRE[1], i); g.unlock('balwanek'); } },
   { icon: 'snowbed', price: 2300, at: SNOW_BEDS[2], apply: (g, i) => { g.addBed(i, 'snow'); g.unlock('pingwinek'); } },
@@ -356,7 +356,7 @@ const SPOTS: SpotDef[] = [
   { icon: 'shellbed', price: 3200, at: SEA_BEDS[2], apply: (g, i) => { g.addBed(i, 'sea'); g.unlock('syrenka'); } },
   { icon: 'helper', price: 3500, at: [WORKER_HOME.sea.x, WORKER_HOME.sea.z], apply: (g, i) => void g.addWorker('sea', i) },
   // the crystal cave through the rocks
-  { icon: 'pickaxe', price: 3800, hearts: 190, at: [Math.cos(CAVE_A) * 9.3, Math.sin(CAVE_A) * 9.3], apply: (g, i) => g.openCave(i) },
+  { icon: 'pickaxe', price: 3800, hearts: 415, at: [Math.cos(CAVE_A) * 9.3, Math.sin(CAVE_A) * 9.3], apply: (g, i) => g.openCave(i) },
   { icon: 'stonebed', price: 3900, at: CAVE_BEDS[1], apply: (g, i) => { g.addBed(i, 'cave'); g.unlock('kret'); } },
   { icon: 'crystallamp', price: 4100, hearts: 210, at: CAVE_LAMP, apply: (g, i) => { g.addCrystalLamp(CAVE_LAMP[0], CAVE_LAMP[1], i); g.unlock('zuczek'); } },
   { icon: 'stonebed', price: 4300, at: CAVE_BEDS[2], apply: (g, i) => { g.addBed(i, 'cave'); g.unlock('golemik'); } },
