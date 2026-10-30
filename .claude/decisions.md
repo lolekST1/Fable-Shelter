@@ -15,3 +15,6 @@ data | decyzja | uzasadnienie | jak cofnąć
 2026-10-28 | Od razu 12 języków (z rosyjskim, chińskim, japońskim, koreańskim), zgodnie z prośbą Karola | Test Poki na ~10 000 graczy z całego świata, a gra ma tylko ~100 krótkich napisów | Usunąć kolumny i kody z `LANGS`/`COLS` w `i18n.ts`
 2026-10-28 | Tłumaczenia robi Claude, bez rodzimych użytkowników | Krótkie podpisy, mały koszt pomyłki; warto poprawić po opiniach graczy | Poprawić wiersze tabeli `T` w `i18n.ts`
 2026-10-28 | Gra czeka na SDK Poki przed zbudowaniem obozu | Napisy w menu powstają przy starcie, więc język musi być znany wcześniej; `ready` kończy się też przy błędzie SDK | `await platformReady()` w `main.ts`
+2026-10-30 | Hook zrzutu przypomina tylko raz na paczkę zmian i nie blokuje na stałe | Przypominanie przy każdym zakończeniu zaśmiecałoby rozmowę, a nie każda zmiana w `src/` jest widoczna | `.claude/hooks/zrzut.mjs`, wpis `Stop` w `.claude/settings.json`
+2026-10-30 | Narzędzia pracy (hooki, agent, skill) w Node, nie w bashu | Na Windowsie heredoc i ścieżki w bashu psuły się po cichu, a Node działa tak samo wszędzie | `.claude/hooks/*.mjs`
+2026-10-30 | Agent `ekonomista` na Sonnecie | Przejścia gry trwają długo i są mechaniczne; wnioski i tak przechodzą przez główną sesję | Pole `model` w `.claude/agents/ekonomista.md`

@@ -2095,6 +2095,8 @@ export class Game {
       }
       if (a.state === 'come') {
         if (!this.residents.includes(r)) { a.state = 'go'; a.path = this.route(pos, HOUSE_DOOR); continue; }
+        // the resident may have moved after the adopter reached the last point: without a fresh path the line below threw and froze the game loop
+        if (!a.path.length) a.path = this.route(pos, r.c.root.position);
         a.path[a.path.length - 1].copy(r.c.root.position);
         this.follow(c, a.path, 1.8, dt);
         if (pos.distanceTo(r.c.root.position) < 0.9) {
