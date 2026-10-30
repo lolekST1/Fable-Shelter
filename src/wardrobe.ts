@@ -15,15 +15,15 @@ export const ITEMS: Item[] = [
   { id: 'flower', slot: 'head', price: 150 },
   { id: 'feather', slot: 'head', price: 350 },
   { id: 'ears', slot: 'head', price: 700 },
-  { id: 'crown', slot: 'head', price: 1500 },
+  { id: 'crown', slot: 'head', price: 4000 },
   { id: 'witch', slot: 'head', price: 600, seasonal: true },
   { id: 'scarf', slot: 'neck', price: 200 },
   { id: 'stripes', slot: 'neck', price: 450 },
   { id: 'bow', slot: 'neck', price: 800 },
   { id: 'lei', slot: 'neck', price: 1200 },
   { id: 'hearts', slot: 'trail', price: 900 },
-  { id: 'bubbles', slot: 'trail', price: 1300 },
-  { id: 'stars', slot: 'trail', price: 2500 },
+  { id: 'bubbles', slot: 'trail', price: 3500 },
+  { id: 'stars', slot: 'trail', price: 8000 },
   { id: 'embers', slot: 'trail', price: 1100, seasonal: true },
 ];
 export interface WardrobeState { owned: string[]; worn: Partial<Record<Slot, string>> }
