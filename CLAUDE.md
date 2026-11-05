@@ -9,6 +9,10 @@ Gra idle-arcade na telefon (pionowo, 390×844): schronisko dla bajkowych stwork�
 - Grafiki generuje użytkownik: ComfyUI z Z-Image Turbo, potem 3D w Hunyuan3D 3.0 albo lokalnie w Pixal3D. Claude też może to zrobić przez MCP `comfy-mcp`, używając zapisanych workflow `image_z_image_turbo-tworzenie obrazów.json` i `3d_pixal3d_trellis2_image_to_model-….json` z `D:\ComfyUI\ComfyUI (1)\ComfyUI\user\default\workflows`. Kopiuje je wtedy do scratchpadu i ustawia sloty: Z-Image `57.text`, `57.seed`, `57/13.batch_size`, `9.filename_prefix`. Pixal: `122.image` (najpierw `upload_file`), `322.filename_prefix`, `186.target_face_count=25000`. Na 8 GB VRAM duże kształty (np. kapelusz wodnika) dają OOM w DecimateMesh i wtedy pomaga `241.resolution=512`. Przed Pixal3D wołaj `free_memory`. Pliki trafiają do `D:\ComfyUI-Shared\output\FS`. Claude wybiera najlepszy, oznacza go `WYBRANY` w nazwie, a resztę przenosi do `Archiwum`.
 - Wszystkie prompty do grafik są w `docs/PROMPTY.md`, a kopia leży w `D:\ComfyUI-Shared\output\FS\PROMPTY.md`. Nowe prompty dopisuj tam.
 
+## Zakres zmian w kodzie
+- Nie projektuj pod rzadkie ani przyszłe przypadki, o które nikt nie prosił. Kod obsługuje to, co gra robi dziś, bez parametrów i zabezpieczeń na zapas.
+- Prawdziwe błędy poprawiaj. Zgłoszenia reviewera z niskim iloczynem częstości i wagi (poniżej 5) zapisz na liście odłożonych i nie ruszaj kodu.
+
 ## Uruchomienie i wdrożenie
 ```
 npm install
