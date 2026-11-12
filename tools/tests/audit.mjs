@@ -45,6 +45,14 @@ const ready = (p) => p.waitForFunction(() => window.__G?.()?.stations?.length, n
   check(!s.here.includes('smok') && s.saved.some((r) => r.name === 'smok' && r.hearts === 2 && r.v === 1), `A4: wczytujący się smok jest w zapisie (${JSON.stringify(s.saved)})`);
   const rocks = await p.evaluate(() => { const g = window.__G(), cs = g.circles(); return g.rocks.filter((h) => h.parent).map((h) => cs.some((c) => Math.hypot(c[0] - h.position.x, c[1] - h.position.z) < 0.01)); });
   check(rocks.length === 4 && rocks.every(Boolean), `A6: skały przy wejściu do jaskini mają kolizję (${rocks.length} skał)`);
+  // strzałka do czegoś daleko na północnym zachodzie ląduje w lewym górnym rogu: ma się zsunąć pod liczniki
+  const clear = await p.evaluate(() => {
+    const g = window.__G();
+    g.placeEdge(g.d.keeper.root.position.clone().set(-30, 0, -30), 1, g.guideEdge);
+    const x = parseFloat(g.guideEdge.style.left), y = parseFloat(g.guideEdge.style.top);
+    return [...document.querySelectorAll('#coins, #hearts, #daily')].every((e) => { const r = e.getBoundingClientRect(); return !(x > r.left - 20 && x < r.right + 20 && y > r.top - 20 && y < r.bottom + 20); });
+  });
+  check(clear, 'strzałka przy krawędzi ekranu nie zachodzi na licznik monet, serduszek ani kartę „Dziś”');
   await c.close();
 }
 

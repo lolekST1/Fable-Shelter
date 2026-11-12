@@ -490,6 +490,8 @@ export class Game {
   private saveT = 0;
   private strayT = 1;
   private tmp = new THREE.Vector3();
+  private topBar: DOMRect[] = [];
+  private topBarT = -9;
   private tmpColor = new THREE.Color();
   private album: Album;
   /** the request of the day (see daily.ts) */
@@ -2838,8 +2840,17 @@ export class Game {
     const W = window.innerWidth / 2, H = window.innerHeight / 2, m = 44;
     const sx = dx * W, sy = dy * H;
     const t = Math.min((W - m) / Math.max(1e-3, Math.abs(sx)), (H - m) / Math.max(1e-3, Math.abs(sy)));
-    el.style.left = `${W + sx * t}px`;
-    el.style.top = `${H + sy * t}px`;
+    // the counters and buttons in the top corners stay readable: an arrow that would land on one slides down below it
+    // (their places are looked up once a second; top to bottom, so it slides past a whole column of them)
+    if (this.t - this.topBarT > 1) {
+      this.topBarT = this.t;
+      this.topBar = [...document.querySelectorAll('#coins, #hearts, #daily, #mute, #albumBtn, #boostBtn')].map((e) => e.getBoundingClientRect()).filter((r) => r.width).sort((a, b) => a.top - b.top);
+    }
+    const x = W + sx * t, r = 26; // the arrow's round icon and a little air
+    let y = H + sy * t;
+    for (const b of this.topBar) if (x > b.left - r && x < b.right + r && y > b.top - r && y < b.bottom + r) y = b.bottom + r;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
     (el.firstChild as SVGElement).style.transform = `rotate(${Math.atan2(sy, sx)}rad)`;
     el.classList.add('on');
   }
