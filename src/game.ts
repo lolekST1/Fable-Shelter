@@ -341,14 +341,14 @@ const SPOTS: SpotDef[] = [
   // the snowy hill through the snowdrift
   { icon: 'shovel', price: 1600, hearts: 134, at: [Math.cos(SNOW_A) * 9.3, Math.sin(SNOW_A) * 9.3], apply: (g, i) => g.openSnow(i) },
   { icon: 'snowbed', price: 1800, at: SNOW_BEDS[1], apply: (g, i) => { g.addBed(i, 'snow'); g.unlock('renifer'); } },
-  { icon: 'bonfire', price: 2000, hearts: 110, at: SNOW_FIRE, apply: (g, i) => { g.addBonfire(SNOW_FIRE[0], SNOW_FIRE[1], i); g.unlock('balwanek'); } },
+  { icon: 'bonfire', price: 2000, at: SNOW_FIRE, apply: (g, i) => { g.addBonfire(SNOW_FIRE[0], SNOW_FIRE[1], i); g.unlock('balwanek'); } },
   { icon: 'snowbed', price: 2300, at: SNOW_BEDS[2], apply: (g, i) => { g.addBed(i, 'snow'); g.unlock('pingwinek'); } },
   { icon: 'helper', price: 2600, at: [WORKER_HOME.snow.x, WORKER_HOME.snow.z], apply: (g, i) => void g.addWorker('snow', i) },
   // after the last area: decorations for the camp, each one makes every cure pay DECOR_BONUS more
   { icon: 'swing', price: 1800, at: [7.0, 6.2], apply: (g, i) => g.addDecor('swing', 7.0, 6.2, i) },
   { icon: 'fountain', price: 2100, at: [3.6, 9.2], apply: (g, i) => g.addDecor('fountain', 3.6, 9.2, i) },
   { icon: 'carousel', price: 2400, at: [7.4, -4.6], apply: (g, i) => g.addDecor('carousel', 7.4, -4.6, i) },
-  { icon: 'statue', price: 2700, hearts: 130, at: [-2.2, 9.6], apply: (g, i) => g.addDecor('statue', -2.2, 9.6, i) },
+  { icon: 'statue', price: 2700, at: [-2.2, 9.6], apply: (g, i) => g.addDecor('statue', -2.2, 9.6, i) },
   // the bay over the dune
   { icon: 'boardwalk', price: 2800, hearts: 150, at: [Math.cos(SEA_A) * 9.3, Math.sin(SEA_A) * 9.3], apply: (g, i) => g.openSea(i) },
   { icon: 'shellbed', price: 2900, at: SEA_BEDS[1], apply: (g, i) => { g.addBed(i, 'sea'); g.unlock('foczka'); } },
@@ -358,7 +358,7 @@ const SPOTS: SpotDef[] = [
   // the crystal cave through the rocks
   { icon: 'pickaxe', price: 3800, hearts: 415, at: [Math.cos(CAVE_A) * 9.3, Math.sin(CAVE_A) * 9.3], apply: (g, i) => g.openCave(i) },
   { icon: 'stonebed', price: 3900, at: CAVE_BEDS[1], apply: (g, i) => { g.addBed(i, 'cave'); g.unlock('kret'); } },
-  { icon: 'crystallamp', price: 4100, hearts: 210, at: CAVE_LAMP, apply: (g, i) => { g.addCrystalLamp(CAVE_LAMP[0], CAVE_LAMP[1], i); g.unlock('zuczek'); } },
+  { icon: 'crystallamp', price: 4100, at: CAVE_LAMP, apply: (g, i) => { g.addCrystalLamp(CAVE_LAMP[0], CAVE_LAMP[1], i); g.unlock('zuczek'); } },
   { icon: 'stonebed', price: 4300, at: CAVE_BEDS[2], apply: (g, i) => { g.addBed(i, 'cave'); g.unlock('golemik'); } },
   { icon: 'helper', price: 4600, at: [WORKER_HOME.cave.x, WORKER_HOME.cave.z], apply: (g, i) => void g.addWorker('cave', i) },
 ];
