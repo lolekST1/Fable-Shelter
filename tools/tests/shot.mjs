@@ -22,7 +22,7 @@ const errors = [];
 p.on('pageerror', (e) => errors.push(e.message));
 p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 if (SAVE === 'pelny') {
-  await p.addInitScript(() => localStorage.setItem('fable-shelter-save-v3', JSON.stringify({ ver: 2, coins: 500, bought: 99, hearts: 200, residents: [{ name: 'chmurnik', hearts: 1 }, { name: 'smok', hearts: 2 }, { name: 'yeti', hearts: 1 }, { name: 'syrenka', hearts: 1 }] })));
+  await p.addInitScript(() => localStorage.setItem('fable-shelter-save-v3', JSON.stringify({ ver: 2, coins: 500, bought: 99, hearts: 200, residents: [{ name: 'chmurnik', hearts: 1 }, { name: 'smok', hearts: 2 }, { name: 'yeti', hearts: 1 }, { name: 'syrenka', hearts: 1 }], album: { smok: 1 } })));
 }
 const params = [SAVE === 'pelny' ? '' : 'reset=1', 'dtmax=0.4', Q].filter(Boolean).join('&');
 await p.goto(BASE + '?' + params);
