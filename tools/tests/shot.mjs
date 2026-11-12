@@ -29,8 +29,10 @@ await p.goto(BASE + '?' + params);
 await p.waitForFunction(() => window.__G?.()?.stations?.length, null, { timeout: 120000 }).catch(() => errors.push('gra nie wystartowała w 120 s'));
 await p.waitForTimeout(WAIT);
 if (AT) {
-  await p.evaluate(([x, z]) => window.__walk(x, z), AT);
-  await p.waitForTimeout(9000);
+  await p.evaluate(([x, z]) => window.__go(x, z), AT);
+  // idzie tak, jak po dotknięciu ekranu (przez bramy), a nie prosto na płot; zrzut, gdy dojdzie
+  await p.waitForFunction(([x, z]) => { const k = window.__keeper(); return Math.hypot(k[0] - x, k[1] - z) < 0.9; }, AT, { timeout: 40000 }).catch(() => {});
+  await p.waitForTimeout(3000);
 }
 const file = `out/shot_${NAME}.png`;
 await p.screenshot({ path: file, timeout: 150000 });

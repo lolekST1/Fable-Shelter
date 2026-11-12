@@ -14,8 +14,10 @@ await p.waitForFunction(() => window.__G?.()?.stations?.length, null, { timeout:
 await p.waitForTimeout(15000);
 const places = [['oboz', -3.5, 5], ['dom', -7, 0.5], ['staw', 0, -13], ['polana', 15, 1.5], ['snieg', -12.5, 6], ['zatoczka', -13, -4.5]];
 for (const [name, x, z] of places) {
-  await p.evaluate(([x, z]) => window.__walk(x, z), [x, z]);
-  await p.waitForTimeout(9000);
+  await p.evaluate(([x, z]) => window.__go(x, z), [x, z]);
+  // idzie tak, jak po dotknięciu ekranu (przez bramy), a nie prosto na płot; zrzut, gdy dojdzie
+  await p.waitForFunction(([x, z]) => { const k = window.__keeper(); return Math.hypot(k[0] - x, k[1] - z) < 0.9; }, [x, z], { timeout: 40000 }).catch(() => {});
+  await p.waitForTimeout(3000);
   await p.screenshot({ path: `out/looks_${name}_${TAG}.png`, timeout: 150000 });
 }
 console.log('ok', TAG);
