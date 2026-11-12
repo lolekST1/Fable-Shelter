@@ -429,6 +429,8 @@ export class Game {
   stations: Station[] = [];
   patients: Patient[] = [];
   residents: Resident[] = [];
+  /** residents from the save whose models are still loading (see spawnResident) */
+  private loading: { name: string; hearts: number; v?: number }[] = [];
   /** hired helpers, one per area: they run the area on their own so the keeper can move on */
   workers: Worker[] = [];
   adopters: Adopter[] = [];
@@ -718,7 +720,7 @@ export class Game {
       coins: this.coins + this.spots.reduce((n, s) => n + s.paid, 0),
       bought: this.bought,
       hearts: this.hearts,
-      residents: this.residents.filter((r) => r.state !== 'leaving').map((r) => ({ name: r.name, hearts: r.hearts, ...(r.variant ? { v: 1 } : {}) })),
+      residents: [...this.residents.filter((r) => r.state !== 'leaving').map((r) => ({ name: r.name, hearts: r.hearts, ...(r.variant ? { v: 1 } : {}) })), ...this.loading],
       // added later; older saves just start with an empty album
       album: this.album.counts,
       albumPaid: this.album.paid,
@@ -1864,7 +1866,13 @@ export class Game {
     const bed = this.freeBed(SPECIES[name].zone);
     if (!bed) return;
     bed.owner = {} as Resident; // reserve while loading
-    const c = await this.d.spawnCreature(SPECIES[name].model ?? name, SPECIES[name].height);
+    // until its model is here it stays in the save through `loading`: a game closed meanwhile used to lose it
+    const saved = { name, hearts, ...(variant ? { v: 1 } : {}) };
+    this.loading.push(saved);
+    let c: Creature;
+    try { c = await this.d.spawnCreature(SPECIES[name].model ?? name, SPECIES[name].height); }
+    catch { return; } // no model (offline): it keeps its bed and its place in the save, and comes back next visit
+    this.loading.splice(this.loading.indexOf(saved), 1);
     c.setTint(variant ? variantTint(name) : SPECIES[name].base ?? null);
     c.root.position.copy(bed.pos).add(new THREE.Vector3(0, 0, 0.75));
     this.d.scene.add(c.root);
