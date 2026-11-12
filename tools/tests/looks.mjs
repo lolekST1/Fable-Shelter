@@ -1,6 +1,7 @@
 // Same views of a fully built world, for before/after comparisons of models (e.g. simpler meshes):
 //   TAG=before node tests/looks.mjs   ...change models, rebuild...   TAG=after node tests/looks.mjs
 // Writes out/looks_<place>_<TAG>.png. Full quality, no cards, the same save every time.
+// The save has a sticker in the album: with an empty one the first adoption opens the album over the view (about 100 s in).
 import { chromium } from 'playwright';
 const BASE = process.env.GAME_URL ?? 'http://localhost:4173/';
 const TAG = process.env.TAG ?? 'now';
@@ -8,7 +9,7 @@ import fs from 'fs'; fs.mkdirSync('out', { recursive: true });
 const b = await chromium.launch({ executablePath: process.env.CHROME_PATH, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const p = await b.newPage({ viewport: { width: 390, height: 844 } });
 p.on('pageerror', (e) => console.log('ERR ' + e.message));
-await p.addInitScript(() => localStorage.setItem('fable-shelter-save-v3', JSON.stringify({ ver: 2, coins: 0, bought: 99, hearts: 200, residents: [{ name: 'chmurnik', hearts: 1 }, { name: 'smok', hearts: 2 }, { name: 'yeti', hearts: 1 }, { name: 'syrenka', hearts: 1 }] })));
+await p.addInitScript(() => localStorage.setItem('fable-shelter-save-v3', JSON.stringify({ ver: 2, coins: 0, bought: 99, hearts: 200, residents: [{ name: 'chmurnik', hearts: 1 }, { name: 'smok', hearts: 2 }, { name: 'yeti', hearts: 1 }, { name: 'syrenka', hearts: 1 }], album: { smok: 1 } })));
 await p.goto(BASE + '?quality=0&nostory&dtmax=0.4');
 await p.waitForFunction(() => window.__G?.()?.stations?.length, null, { timeout: 120000 });
 await p.waitForTimeout(15000);
