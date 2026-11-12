@@ -196,6 +196,7 @@ export class Creature {
   /** standing height in world units (top of the head) */
   height = 1;
   private skin!: THREE.MeshPhysicalMaterial;
+  private mesh!: THREE.Mesh;
   /** walking speed as a fraction of full speed (0 = standing); drives the waddle */
   walk = 0;
   private stepPhase = 0;
@@ -224,6 +225,7 @@ export class Creature {
       mesh.scale.set(1, 1, 1);
     }
     mesh.castShadow = true;
+    this.mesh = mesh;
     this.skin = mesh.material as THREE.MeshPhysicalMaterial;
     this.height = height;
     mesh.geometry.computeBoundingBox();
@@ -262,6 +264,18 @@ export class Creature {
     this.shadow.position.y = 0.01;
     this.shadow.renderOrder = -1;
     this.root.add(this.shadow);
+  }
+
+  /** free what this creature holds on the graphics card, once it has left the scene for good: every copy of a model
+   *  has its own mesh and textures, and three.js keeps them until told (a long game used to pile up hundreds).
+   *  Things attached to it (carried items, wardrobe) are not touched: they share their meshes with others. */
+  dispose() {
+    this.mesh.geometry.dispose();
+    for (const t of [this.skin.map, this.skin.normalMap, this.skin.roughnessMap]) t?.dispose();
+    this.skin.dispose();
+    for (const l of this.paintedLids) { l.mesh.geometry.dispose(); (l.mesh.material as THREE.Material).dispose(); }
+    this.shadow.geometry.dispose();
+    (this.shadow.material as THREE.Material).dispose(); // its texture is shared by every shadow: it stays
   }
 
   /** carry something on the body (it turns, bobs and squashes with the creature) */

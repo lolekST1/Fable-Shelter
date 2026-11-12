@@ -113,8 +113,15 @@ const leafGeo = (() => {
   return new THREE.ShapeGeometry(s, 6);
 })();
 
-/** one portion of medicine, ~0.25 tall, standing on its own origin */
+/** one portion of medicine, ~0.25 tall, standing on its own origin. Built once per kind and copied after that: the
+ *  copies share the meshes, so the thousands made in a long game cost the graphics card nothing more */
+const vials = new Map<Medicine, THREE.Group>();
 export function medicineMesh(kind: Medicine): THREE.Group {
+  if (!vials.has(kind)) vials.set(kind, buildMedicine(kind));
+  return vials.get(kind)!.clone();
+}
+
+function buildMedicine(kind: Medicine): THREE.Group {
   const g = new THREE.Group();
   if (kind === 'pink' || kind === 'purple') {
     // warm brew (pink) or lily nectar (purple) in a round flask

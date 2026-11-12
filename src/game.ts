@@ -1801,7 +1801,10 @@ export class Game {
     p.c.root.rotation.z = 0; // a tangled one stops wriggling
     p.c.root.visible = true; // a fading ghost stays
     p.c.setTint(p.variant ? variantTint(p.name) : p.sp.base ?? null);
+    // its own picture goes now (if it waits in a guest tent, the bubble comes back with the shared bed picture)
     this.d.scene.remove(p.bubble);
+    p.bubble.material.map?.dispose();
+    p.bubble.material.dispose();
     p.edge.remove();
     p.c.hop();
     this.d.sfx.heal();
@@ -1849,6 +1852,7 @@ export class Game {
     if (!p.tent) return;
     this.fx.emit('dust', p.tent.position.clone().setY(0.4), 10, { speed: 1, up: 1, g: 2, life: 0.6 });
     this.d.scene.remove(p.tent, p.bubble);
+    p.bubble.material.dispose(); // the bed picture on it is shared by all tents: it stays
     const i = this.props.indexOf(p.tent);
     if (i >= 0) this.props.splice(i, 1);
     p.tent = undefined;
@@ -2134,6 +2138,7 @@ export class Game {
         // home through the shelter house door
         this.fx.emit('dust', pos.clone().setY(0.4), 8, { speed: 0.8, up: 0.8, g: 2, life: 0.5 });
         this.d.scene.remove(c.root);
+        c.dispose();
         this.adopters.splice(i, 1);
       }
     }
@@ -2310,6 +2315,9 @@ export class Game {
         if (Math.random() < dt * 4) this.fx.emit('heart', pos.clone().setY(c.height * 0.8), 1, { speed: 0.3, up: 0.6, g: -0.2, life: 1.2, size: 1.3 });
         if (this.follow(c, r.path, 2.0, dt)) {
           this.d.scene.remove(c.root, r.bubble);
+          c.dispose();
+          r.tex.dispose();
+          r.bubble.material.dispose();
           r.edge.remove();
           this.residents.splice(i, 1);
           continue;
@@ -2439,6 +2447,7 @@ export class Game {
         if (this.walk(p.c, p.state === 'arriving' ? p.seat : p.exit, p.state === 'arriving' ? 1.7 : 2.2, dt)) {
           if (p.state === 'leaving') {
             this.d.scene.remove(p.c.root);
+            p.c.dispose();
             this.patients.splice(i, 1);
             continue;
           }
@@ -2564,6 +2573,9 @@ export class Game {
         this.drawSpot(s);
         if (s.paid >= s.def.price) {
           this.d.scene.remove(s.mesh);
+          s.tex.dispose();
+          s.mesh.geometry.dispose();
+          (s.mesh.material as THREE.Material).dispose();
           this.spots.splice(i, 1);
           this.bought++;
           track('build', `${this.bought}-${s.def.icon}`, 'complete');
@@ -2685,6 +2697,7 @@ export class Game {
       this.dropWork(w);
       this.fx.emit('star', w.c.root.position.clone().setY(0.8), 24, { speed: 2.4, up: 2, life: 0.9 });
       this.d.scene.remove(w.c.root);
+      w.c.dispose();
       this.workers.splice(this.workers.indexOf(w), 1);
     }
     for (const w of this.workers) {
