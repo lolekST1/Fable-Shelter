@@ -570,12 +570,7 @@ export class Station {
     }
   }
 
-  /** world position of a tray slot, for flights */
-  slotWorld(i: number) {
-    return this.slots[i].clone().add(this.pos);
-  }
-
-  /** fills the tray instantly (used when restoring a saved game) */
+  /** brews: a new vial pops onto the tray every brewTime (faster while boosted) until the tray is full */
   update(dt: number) {
     this.t += dt;
     for (const a of this.anim) a(this.t);
