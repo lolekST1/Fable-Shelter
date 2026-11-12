@@ -853,7 +853,7 @@ export class Game {
     for (const w of [...this.workers, ...this.adopters]) out.push([w.c.root.position.x, w.c.root.position.z, 0.35]);
     for (const o of this.props) out.push([o.position.x, o.position.z, o.userData.r ?? 0.25]);
     out.push([this.basket.position.x, this.basket.position.z, 0.42], [HOUSE.x, HOUSE.z, 1.45]);
-    for (const h of [...this.hedge, ...this.drift, ...this.dune]) if (h.parent) out.push([h.position.x, h.position.z, 0.55]);
+    for (const h of [...this.hedge, ...this.drift, ...this.dune, ...this.rocks]) if (h.parent) out.push([h.position.x, h.position.z, 0.55]);
     return out;
   }
 
