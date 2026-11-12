@@ -19,9 +19,11 @@ Pracujesz samodzielnie: puszczasz testy, liczysz, proponujesz. Odpowiadasz po po
 
 ## Jak mierzysz
 1. Gra musi być zbudowana i podana: w katalogu głównym `npm run build`, potem `npx vite preview --port 4173` w tle.
-2. W `tools/`: `RUNS=3 CAREFUL=1 MAXMIN=200 node tests/playthrough.mjs` (w chmurze dodaj
+2. W `tools/`: `RUNS=3 CAREFUL=1 SPEED=20 MAXMIN=200 node tests/playthrough.mjs` (w chmurze dodaj
    `CHROME_PATH=/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`, u użytkownika ścieżkę z `CLAUDE.md`).
    Jedno przejście trwa kilkanaście minut, więc puszczaj w tle i sprawdzaj log.
+   Standard pomiaru (`docs/TEMPO.md`, 12.11.2026): jeden proces naraz, `SPEED=20`, nic innego w tle. Przy `SPEED=60` albo
+   zajętym procesorze pacjentów przychodzi mniej i wynik jest zaniżony, więc takich przebiegów nie porównuj z `docs/tempo.json`.
 3. `node tests/tempo.mjs` porównuje mediany z `docs/tempo.json`. Nigdy nie wyciągaj wniosków z jednego przebiegu:
    rozrzut między przebiegami bywa kilkunastominutowy (patrz „Otwarte sprawy” w `CLAUDE.md`).
 4. Przy porównaniu dwóch wersji zapisz pliki pierwszej pod inną nazwą (np. `out/przed_1.json`) i użyj `FILES=`.

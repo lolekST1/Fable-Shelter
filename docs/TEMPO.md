@@ -22,3 +22,15 @@ Przed poprawką drugi przebieg zamarzł w 81. minucie: osoba adoptująca doszła
 
 ## Tempo gry (balans serduszek, monet i legowisk, 30.10.2026, 3 przejścia, nowy `docs/tempo.json`)
 Zmienione: próg serduszek furtki 50 → 60, łopaty 90 → 134, kilofa 190 → 415 oraz ceny w szafie: korona 1500 → 4000, bańki 1300 → 3500, gwiazdki 2500 → 8000. Trzy przejścia `CAREFUL=1`: wszystkie 39 zakupów w 120 minut (było 119), mediana tempa zakupów bez zmian (±0,5 min). Serduszka blokowały automat łącznie 78, 15 i 0 s (wcześniej 0), mediana 15 s. Szafa kosztuje teraz ok. 21 000 monet zamiast 12 000 (ok. 21 minut nadwyżki zamiast 12); automat szafy nie kupuje, więc monet/min po ostatnim zakupie nadal ok. 1000. Odesłani pacjenci: 796 (było 813), to nie błąd (patrz `.claude/decisions.md`).
+
+## Standard pomiaru tempa (12.11.2026)
+Tempo mierzymy zawsze tak samo: przejścia jedno po drugim (`RUNS=N` w jednym procesie), `CAREFUL=1 SPEED=20`, nic w tle (ComfyUI, inne testy, budowanie, drugi `playthrough`). Przebiegów zrobionych inaczej nie porównuj z `docs/tempo.json`.
+Powód: kolejny pacjent nie przyjdzie, dopóki nie wczyta się model poprzedniego (`spawning` w `spawnPatient`). Wczytanie trwa w czasie rzeczywistym, a test przewija grę, więc im szybsze przewijanie i im bardziej zajęty procesor, tym mniej pacjentów na minutę gry. Widać to po odesłanych: w obciążonych przebiegach było ich 25–47 na 200 minut, w punkcie odniesienia ok. 800 na 120.
+Pomiar z 12.11.2026 na wersji sprzed audytu (`db1ffdc`), zakupy do 60. minuty gry i minuta zakupu 13. / 20.:
+- punkt odniesienia z 30.10 (`docs/tempo.json`): 24, 20 / 44;
+- jeden przebieg, `SPEED=20`, nic w tle: 24, 21 / 43;
+- jeden przebieg, `SPEED=60` (u użytkownika, na `audit/a8-a12`): 22, 22 / 48;
+- dwa przebiegi naraz, `SPEED=60`: 21, 24 / 51 (z wymuszonym `?halloween`: 22, 21 / 48, czyli wydarzenie nie ma wpływu);
+- trzy przebiegi naraz i kilka przeglądarek testowych, `SPEED=60`: 18–20, 23–27 / 57–70.
+Punkt odniesienia z 30.10 odpowiada więc warunkom standardu (sprawdzone na pierwszych 70 minutach gry; nie zapisano, jak go wtedy puszczano).
+Przy tych samych warunkach wersja sprzed audytu, `main` (`588345c`) i `audit/a8-a12` wyszły tak samo (po 2 przejścia `MAXMIN=200` naraz: 31–34, 31–35 i 32–37 zakupów), więc poprawki z audytu tempa nie zmieniły. Wolny przebieg użytkownika z 12.11 (38 zakupów w 150 minut) to skutek `SPEED=60`.

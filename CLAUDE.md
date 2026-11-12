@@ -84,7 +84,7 @@ Skrypty Playwright na Chromium z swiftshader. Robią zrzuty do `tools/out/`.
 ```
 npm run build && npx vite preview --port 4173     # w katalogu głównym
 cd tools && node tests/care.mjs                   # też: pond, prog, lids, helpers, vials, glade, snow, workers, water, adoption, album, decor, collide, variant, daily, play, daynight, sea, wardrobe, music, perf, offline, newplayer (gracz idzie tylko za strzałką), quality (tryb oszczędny), tutorial (poprawki po testerze, zrzuty tut1–9), looks (`TAG=before`/`after`: te same widoki do porównań), halloween (zrzuty hw1–6), cave (zrzuty cave0–4), tent (namiot dla gościa), boosters (kopia zapisu, liczniki, pomoc przy ścieleniu, boostery, skrzynka), lang (napisy po polsku i angielsku na 320 px), gate (ze środka zagrody do kociołka przez bramę, `RUNS=N`), audit (poprawki z audytu 12.11.2026: środek zagrody, wpłacone monety i wczytujący się mieszkańcy w zapisie, nieudane pobranie modelu, skały jaskini, pamięć grafiki po pacjentach, którzy odeszli; trwa kilka minut)
-RUNS=2 CAREFUL=1 node tests/playthrough.mjs       # cała gra od zera, kilka minut na przejście; bez CAREFUL gracz idzie prosto przez krzaki
+RUNS=2 CAREFUL=1 SPEED=20 node tests/playthrough.mjs   # cała gra od zera, kilka minut na przejście; bez CAREFUL gracz idzie prosto przez krzaki
 ```
 W środowisku chmurowym Claude Chromium leży w `/opt/pw-browsers`, a Playwright jest przypięty do 1.56.0. Od 30.10.2026 jest tam tylko `chromium-1243`, więc testy potrzebują `CHROME_PATH=/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`. Lokalnie może być potrzebne `npx playwright install chromium`.
 - Windows (u użytkownika): pobieranie `chromium-1194` urwało się bez `chrome.exe`. Kompletny jest `chromium-1243`, więc wszystkie skrypty przyjmują `CHROME_PATH` (`%LOCALAPPDATA%\ms-playwright\chromium-1243\chrome-win64\chrome.exe`).
@@ -95,6 +95,7 @@ W środowisku chmurowym Claude Chromium leży w `/opt/pw-browsers`, a Playwright
 
 ## Tempo gry
 Wyniki testów całej gry od 15.10.2026: `docs/TEMPO.md`. Aktualny punkt odniesienia to `docs/tempo.json` (skill `/balans`). Rozrzut między przebiegami jest duży, więc pojedynczy przebieg nie wystarcza do porównań.
+- Standard pomiaru tempa (od 12.11.2026): przejścia jedno po drugim (`RUNS=N` w jednym procesie, nigdy kilka procesów naraz), `CAREFUL=1 SPEED=20`, nic w tle (ComfyUI, inne testy, budowanie). Powód: kolejny pacjent czeka na wczytanie modelu poprzedniego, a to trwa w czasie rzeczywistym, więc przy `SPEED=60` albo zajętym procesorze pacjentów przychodzi mniej i gra wygląda na wolniejszą (18–22 zakupy do 60. minuty zamiast 24). Punkt odniesienia z 30.10 (`docs/tempo.json`) odpowiada tym warunkom. Szczegóły: `docs/TEMPO.md`.
 
 ## Otwarte sprawy
 - Fiolki „chodzące same”: nie udało się odtworzyć. `tests/vials.mjs` sprawdza fiolki klatka po klatce (`__items()`) przez 100 rund w pełnym obozie i niczego nie znalazł. Podejrzenie: to fiolka niesiona na głowie przez pomagającego mieszkańca. Usunięto też martwy kod starego wynajętego krakena-pomocnika. Nadal potrzebny zrzut ekranu od użytkownika. Noc 20/21.10.2026: 150 rund, jedyny alarm to zwykły lot perły z tacy do rąk, który przeglądarka testowa (ok. 1,3 klatki na sekundę) przeskoczyła między dwiema klatkami. Kod pomocników wygląda poprawnie: niesiona fiolka jest przypięta do głowy, a przy przerwanej pracy znika z kurzem.
