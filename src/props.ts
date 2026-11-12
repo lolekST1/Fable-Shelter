@@ -257,7 +257,7 @@ export class Station {
   tray: THREE.Group[] = [];
   private slots: THREE.Vector3[] = [];
   private brew = 0;
-  /** seconds of doubled brewing left, given by a resident helping out */
+  /** seconds of doubled brewing left (rain fills the spring faster) */
   boost = 0;
   private anim: ((t: number) => void)[] = [];
   private t = Math.random() * 5;
@@ -1334,7 +1334,6 @@ export function shellBedMesh(): THREE.Group {
   return g;
 }
 
-/** a little striped lighthouse: more patients find their way to the bay (its lamp glows at night) */
 /** a little striped guest tent: a cured patient waits in it for a free bed */
 let tentParts: {
   cloth: THREE.Material[]; panels: THREE.BufferGeometry[]; door: THREE.BufferGeometry; doorMat: THREE.Material;
@@ -1377,6 +1376,7 @@ export function tentMesh(): THREE.Group {
   return g;
 }
 
+/** a little striped lighthouse: more patients find their way to the bay (its lamp glows at night) */
 export function lighthouseMesh(): THREE.Group {
   const g = new THREE.Group();
   const red = new THREE.MeshStandardMaterial({ color: 0xe8435a, roughness: 0.6 });

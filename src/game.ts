@@ -46,7 +46,8 @@ const PROP_MODEL: Record<string, [string, number, number?]> = {
 };
 
 /** how a resident helps around the camp once it feels at home (has at least one heart):
- *  boost a station (it brews twice as fast for a while) or carry things for the keeper */
+ *  boost: plumps up a sleepy neighbour's bed (the medicine named only picks how that looks; it used to speed up
+ *  that station, which did nothing); carry: brings cures or berries for the keeper */
 type Skill = { boost: Medicine } | { carry: 'cure' | 'berry' };
 type Zone = 'camp' | 'pond' | 'glade' | 'snow' | 'sea' | 'cave';
 interface Species {
@@ -57,7 +58,7 @@ interface Species {
   model?: string; base?: number;
 }
 
-/** every species has its own ailment; the three medicines each cure a few of them */
+/** every species has its own ailment; each medicine cures a few of them */
 export const SPECIES: Record<string, Species> = {
   chmurnik: { height: 1.05, ailment: 'snow', cure: 'pink', tint: 0xcfe0ff, coins: 5, skill: { boost: 'berry' } },
   feniks: { height: 1.0, ailment: 'smoke', cure: 'pink', tint: 0xd8d8d8, coins: 5, skill: { boost: 'pink' } },
@@ -77,15 +78,15 @@ export const SPECIES: Record<string, Species> = {
   skrzat: { height: 0.95, ailment: 'shrink', cure: 'green', tint: 0xd8f0c0, coins: 12, skill: { boost: 'gold' }, zone: 'glade' },
   sowka: { height: 1.0, ailment: 'dizzy', cure: 'gold', tint: 0xe8d8ff, coins: 12, skill: { carry: 'cure' }, zone: 'glade' },
   bazyliszek: { height: 1.0, ailment: 'stone', cure: 'green', tint: 0xbfc4c8, coins: 8, skill: { carry: 'berry' } },
-  // snowy hill creatures (
+  // snowy hill creatures
   yeti: { height: 1.2, ailment: 'snowball', cure: 'cocoa', tint: 0xc8dcff, coins: 13, skill: { boost: 'cocoa' }, zone: 'snow' },
   renifer: { height: 1.2, ailment: 'nose', cure: 'cocoa', tint: 0xffd0c0, coins: 13, skill: { carry: 'berry' }, zone: 'snow' },
   balwanek: { height: 1.1, ailment: 'melt', cure: 'blue', tint: 0xd8f0ff, coins: 14, skill: { boost: 'blue' }, zone: 'snow' },
   pingwinek: { height: 0.95, ailment: 'slide', cure: 'cocoa', tint: 0xc0d0ff, coins: 14, skill: { carry: 'cure' }, zone: 'snow' },
-  // the bay creatures
   // Halloween only (see halloween.ts): camp patients while the event lasts
   dyniak: { height: 1.0, ailment: 'seeds', cure: 'pink', tint: 0xfff0e0, coins: 9, skill: { boost: 'pink' } },
   duszek: { height: 1.0, ailment: 'fade', cure: 'blue', tint: 0xf4f6ff, coins: 9, skill: { carry: 'cure' } },
+  // the bay creatures
   krabik: { height: 0.95, ailment: 'pinch', cure: 'pearl', tint: 0xffd0c0, coins: 15, skill: { boost: 'pearl' }, zone: 'sea' },
   foczka: { height: 1.0, ailment: 'sand', cure: 'blue', tint: 0xfff0d0, coins: 15, skill: { carry: 'berry' }, zone: 'sea' },
   zolwik: { height: 1.0, ailment: 'hide', cure: 'pearl', tint: 0xd0ffe8, coins: 16, skill: { carry: 'cure' }, zone: 'sea' },
@@ -117,11 +118,10 @@ const POND_C = new THREE.Vector3(0.6, 0, -14.6);
 /** the pond water is 2.6 across from its middle; creatures keep to the shore just outside it */
 const POND_SHORE = 2.9;
 
-/** bed places inside the pen, in the order they are added */
-
 /** lily-pad beds around the pond */
 const POND_BEDS: [number, number][] = [[3.9, -12.4], [4.3, -15.8], [-2.7, -16.8]];
 
+/** bed places inside the pen, in the order they are added */
 const BEDS: [number, number][] = [[-1.1, -2.1], [1.1, -2.1], [-2.4, -0.9], [2.4, -0.9], [-1.15, -0.35], [1.15, -0.35]];
 
 /** the heather glade east of the camp: a circle that overlaps the meadow edge (r 11) in a ~6 m wide gap */
@@ -192,8 +192,8 @@ const ROCKS: [number, number][] = Array.from({ length: 9 }, (_, i) => {
   return [Math.cos(a) * 10.6, Math.sin(a) * 10.6];
 });
 const ZONE_BEDS: Record<Zone, [number, number][]> = { camp: BEDS, pond: POND_BEDS, glade: GLADE_BEDS, snow: SNOW_BEDS, sea: SEA_BEDS, cave: CAVE_BEDS };
-/** the open areas beyond the meadow edge (glade, snowy hill): middle, radius, the angle of the way in */
-/** w: half the angle of the way in once it is open (the hedge, drift and dune keep standing on both sides of it) */
+/** the open areas beyond the meadow edge (glade, snowy hill, bay, cave): middle, radius, the angle of the way in;
+ *  w: half the angle of the way in once it is open (the hedge, drift, dune and rocks keep standing on both sides of it) */
 const RIMS = [
   { zone: 'glade' as const, c: GLADE_C, r: GLADE_R, a: GLADE_A, gap: GAP, w: 0.19 },
   { zone: 'snow' as const, c: SNOW_C, r: SNOW_R, a: SNOW_A, gap: SNOW_GAP, w: 0.19 },
@@ -212,14 +212,14 @@ function progressRing(r0: number, r1: number, color: number) {
   return m;
 }
 
-/** the shelter house at the west edge of the camp, its door facing the camp (south-east): adopters come out of it */
 /** seconds of standing on a bed to plump it up (a green ring fills meanwhile) */
 const FLUFF_TIME = 1.6;
 /** seconds of standing at the basket before it starts taking things */
 const BASKET_WAIT = 1.0;
 /** seconds of standing at the house door before the wardrobe opens (walking past must not open it) */
 const DOOR_WAIT = 1.2;
-const HOUSE = new THREE.Vector3(-9.2, 0, -1.4);
+/** the shelter house at the west edge of the camp, its door facing the camp (south-east): adopters come out of it */
+const HOUSE =new THREE.Vector3(-9.2, 0, -1.4);
 const HOUSE_FACING = Math.PI / 4;
 /** the way round the house on the camp side, south of the door (route() goes through it) */
 const HOUSE_FRONT = new THREE.Vector3(HOUSE.x + 1.9, 0, HOUSE.z - 1.45);
@@ -1411,9 +1411,8 @@ export class Game {
 
   private async spawnPatient() {
     this.spawning = true;
-    // usually someone the keeper already carries the cure for, so a full pile is rarely useless;
-    // otherwise favour the newest species so a fresh station gets used
-    // every open area beyond the camp (pond, glade) keeps one patient of its own
+    // every open area beyond the camp keeps one patient of its own; otherwise it is usually someone the keeper
+    // already carries the cure for (a full pile is rarely useless), or else the newest species, so a fresh station gets used
     const open: Zone[] = ['camp', ...(this.pondOpen ? ['pond' as const] : []), ...(this.gladeOpen ? ['glade' as const] : []), ...(this.snowOpen ? ['snow' as const] : []), ...(this.seaOpen ? ['sea' as const] : []), ...(this.caveOpen ? ['cave' as const] : [])];
     const zoneOf = (n: string) => SPECIES[n].zone ?? 'camp';
     const lonely = open.find((z) => z !== 'camp' && !this.patients.some((p) => (p.sp.zone ?? 'camp') === z && p.state !== 'cured' && p.state !== 'guest' && p.state !== 'leaving'));
