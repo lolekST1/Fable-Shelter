@@ -23,4 +23,6 @@ Cel: odpowiedzieć liczbami, jak zmiana wpływa na tempo gry, zanim trafi do gra
 ## Uwagi
 - Pojedynczy przebieg nie wystarcza do porównań. Mniej niż 3 przebiegi tylko wtedy, gdy chodzi o szybkie
   sprawdzenie, czy gra w ogóle przechodzi się do końca (zacięcia, blokady).
-- Testy przy obciążonym procesorze nie zmieniają minut gry (liczą się kroki gry, nie czas rzeczywisty), ale trwają dłużej.
+- Standard pomiaru (`docs/TEMPO.md`, 12.11.2026): jeden proces `playthrough` naraz, `CAREFUL=1 SPEED=20`, nic w tle.
+  Obciążony procesor albo `SPEED=60` zaniżają wynik: kolejny pacjent czeka na wczytanie modelu poprzedniego, a to trwa
+  w czasie rzeczywistym. Przebiegów zrobionych inaczej nie porównuj z `docs/tempo.json`.
