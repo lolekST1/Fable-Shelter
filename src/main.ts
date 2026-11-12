@@ -4,7 +4,9 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { Creature, type LidData } from './creature';
 import lidJson from './lids.json';
 const lidData = lidJson as Record<string, LidData[]>;
-const eyesParam = new URLSearchParams(location.search).get('eyes');
+/** the page address switches (?quality, ?cam, ?gltest...), read once */
+const params = new URLSearchParams(location.search);
+const eyesParam = params.get('eyes');
 if (eyesParam) Creature.forceShut = eyesParam === 'half' ? 0.5 : 1;
 import { blobShadowTexture, buildGround, buildSky, Rain, RainPuff, tintSky } from './world';
 import { Sfx } from './sfx';
@@ -26,7 +28,7 @@ window.addEventListener('wheel', (e) => {
 
 // ?gltest=nofacing / mediump / noaa (see ?glinfo below): on the Adreno 308 tablet every lit material came out black,
 // even with only an ambient light; unlit ones were fine. Known Adreno 3xx suspects: gl_FrontFacing and highp.
-const GLT = (new URLSearchParams(location.search).get('gltest') ?? '').split(',');
+const GLT = (params.get('gltest') ?? '').split(',');
 if (GLT.includes('nofacing')) THREE.ShaderChunk.normal_fragment_begin = THREE.ShaderChunk.normal_fragment_begin.replace('gl_FrontFacing ? 1.0 : - 1.0', '1.0');
 // Found by ?gltest on the Huawei MediaPad T3 10 (Adreno 308, WebGL 1 only): it reports highp, but with highp every lit
 // material comes out black; with mediump the scene is right. So devices without WebGL 2 get mediump (?gltest=highp to try).
@@ -48,9 +50,8 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 // WebGL 1 (old tablets, e.g. Adreno 308): the scene came out black there. Start safe: no environment reflections
 // (their half-float maps are often missing on such GPUs) and no shadows (see the quality levels). ?env and ?quality=N
 // turn them back on to test, ?glinfo shows what the GPU can do and any shader errors.
-const URLQ = new URLSearchParams(location.search);
 const WEBGL1 = !renderer.capabilities.isWebGL2;
-const ENV = !(WEBGL1 || URLQ.has('noenv')) || URLQ.has('env');
+const ENV = !(WEBGL1 || params.has('noenv')) || params.has('env');
 if (ENV) scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 // three.js r162 (the last one that runs on WebGL 1, e.g. Adreno 308 tablets) has no scene.environmentIntensity:
 // the same dimming goes on each lit material's envMapIntensity, refreshed when it changes or new things appear
@@ -84,7 +85,7 @@ function frameCamera() {
   // a landscape window (Poki on a computer is 16:9) sees the meadow from a little further, and the sun's shadow
   // area grows with it, or the edges of the wider view would have no shadows
   const wide = window.innerHeight <= window.innerWidth;
-  camDist = +(new URLSearchParams(location.search).get('cam') ?? 0) || (wide ? 12.5 : 15); // ?cam=N: recordings
+  camDist = +(params.get('cam') ?? 0) || (wide ? 12.5 : 15); // ?cam=N: recordings
   const s = wide ? 8 : 6;
   Object.assign(sun.shadow.camera, { left: -s, right: s, top: s, bottom: -s });
   sun.shadow.camera.updateProjectionMatrix();
@@ -374,7 +375,6 @@ resize();
 
 // Saving mode for slow phones: every 2 s under 40 fps drops one quality level (sharpness first, then simpler shadows,
 // then none) and remembers it for the next visit. Phones with few cores start a step lower. Never goes back up, so it can't flicker. ?fps shows a counter, ?quality=N forces a level.
-const params0 = new URLSearchParams(location.search);
 const QUALITY_KEY = 'fable-shelter-quality';
 const LEVELS = [Math.min(window.devicePixelRatio, 2), 1.5, 1.25, 1];
 const MAX_Q = LEVELS.length + 1; // shadows off from here
@@ -382,12 +382,12 @@ const MAX_Q = LEVELS.length + 1; // shadows off from here
 const LOW = [0.6, 0.5];
 const TOP_Q = MAX_Q + LOW.length;
 // ?quality=N fixes the level for this visit (measurements, screenshots): no automatic drops
-const QUALITY_LOCKED = new URLSearchParams(location.search).has('quality');
+const QUALITY_LOCKED = params.has('quality');
 let quality = 0;
 function setQuality(q: number) {
   quality = Math.min(TOP_Q, Math.max(0, q));
   // devices without WebGL 2 (old tablets) draw at 0.7 of the screen's pixels: the Adreno 308 stuttered badly at 1
-  renderer.setPixelRatio(Math.min(LEVELS[0], LEVELS[Math.min(quality, LEVELS.length - 1)], NO_WEBGL2 ? +(params0.get('ratio') ?? 0.7) : 9, quality > MAX_Q ? LOW[quality - MAX_Q - 1] : 9));
+  renderer.setPixelRatio(Math.min(LEVELS[0], LEVELS[Math.min(quality, LEVELS.length - 1)], NO_WEBGL2 ? +(params.get('ratio') ?? 0.7) : 9, quality > MAX_Q ? LOW[quality - MAX_Q - 1] : 9));
   renderer.shadowMap.type = quality >= LEVELS.length ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
   renderer.shadowMap.enabled = quality < MAX_Q;
   resize();
@@ -396,13 +396,13 @@ function setQuality(q: number) {
 {
   let saved = 0;
   try { saved = +(localStorage.getItem(QUALITY_KEY) ?? 0) || 0; } catch { /* ignore */ }
-  const forced = new URLSearchParams(location.search).get('quality');
+  const forced = params.get('quality');
   const few = (navigator.hardwareConcurrency || 8) <= 4;
   if (forced !== null) setQuality(+forced);
   else if (WEBGL1) setQuality(MAX_Q); // no shadows: old GPUs are slow, and shadows are a suspect for the black scene
   else if (saved || few) setQuality(saved || 1);
 }
-const fpsBox = new URLSearchParams(location.search).has('fps') ? document.body.appendChild(document.createElement('div')) : null;
+const fpsBox = params.has('fps') ? document.body.appendChild(document.createElement('div')) : null;
 if (fpsBox) fpsBox.style.cssText = 'position:fixed;left:8px;bottom:calc(8px + env(safe-area-inset-bottom));font:12px system-ui;color:#234;background:rgba(255,255,255,.7);padding:2px 6px;border-radius:6px;pointer-events:none';
 let fpsFrames = 0, fpsFrom = performance.now(), fpsWarm = performance.now() + 4000; // models are still loading at first
 function watchFps() {
@@ -418,9 +418,6 @@ function watchFps() {
 }
 (window as unknown as { __quality: () => number }).__quality = () => quality;
 (window as unknown as { __audio: () => string }).__audio = () => (sfx as unknown as { ctx: AudioContext | null }).ctx?.state ?? 'none'; // tests: is the sound running
-
-// ?dtmax= lets slow test browsers run game time at a normal pace
-const params = new URLSearchParams(location.search);
 
 // ?glinfo: what the GPU offers and what went wrong, for devices we cannot debug from here (photo of the screen)
 if (params.has('glinfo') || params.has('gltest')) { // gltest alone shows the overlay too
@@ -466,6 +463,7 @@ if (params.has('glinfo') || params.has('gltest')) { // gltest alone shows the ov
     box.textContent = `${fixed}\ngltest ${T.join(',') || '-'}\nquality ${(window as unknown as { __quality: () => number }).__quality?.()} shadows ${renderer.shadowMap.enabled} calls ${renderer.info.render.calls} programs ${renderer.info.programs?.length}\nerrors (${errs.length}):\n${errs.slice(0, 6).join('\n')}`;
   }, 1000);
 }
+// ?dtmax= lets slow test browsers run game time at a normal pace
 const DT_MAX = +(params.get('dtmax') ?? 0.05);
 // balance tests: ?speed=N runs N fixed game steps per frame, ?norender draws only every 30th frame,
 // and window.__tick (if a test sets it) is called before each step, e.g. to steer the keeper
