@@ -714,7 +714,8 @@ export class Game {
       ver: 2,
       savedAt: Date.now(),
       chest: this.chestCoins || undefined,
-      coins: this.coins,
+      // coins already paid into a build spot not finished yet go back to the purse: the spot starts over after a reload
+      coins: this.coins + this.spots.reduce((n, s) => n + s.paid, 0),
       bought: this.bought,
       hearts: this.hearts,
       residents: this.residents.filter((r) => r.state !== 'leaving').map((r) => ({ name: r.name, hearts: r.hearts, ...(r.variant ? { v: 1 } : {}) })),
