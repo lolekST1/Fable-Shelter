@@ -453,6 +453,9 @@ export class Game {
   private spots: ActiveSpot[] = [];
   private slots: THREE.Object3D[] = [];
   private props: THREE.Object3D[] = [];
+  /** whole-area scenery that only animates: not in `props`, whose places are obstacles (these sit at the world origin,
+   *  so the keeper used to bump into an unseen post in the middle of the pen) */
+  private scenery: THREE.Object3D[] = [];
   /** the guest-tent bubble texture, drawn once and shared by all tents */
   private guestTex: THREE.CanvasTexture | null = null;
   private tentTracked = false;
@@ -557,13 +560,13 @@ export class Game {
     this.drift = driftMounds(DRIFT);
     const sea = seaScenery(SEA_C.x, SEA_C.z, SEA_R, SEA_A);
     d.scene.add(sea);
-    this.props.push(sea); // for its foam animation (userData.tick)
+    this.scenery.push(sea); // for its foam animation (userData.tick)
     this.dune = duneMounds(DUNE);
     d.scene.add(...this.dune);
     d.scene.add(...this.drift);
     const cave = caveScenery(CAVE_C.x, CAVE_C.z, CAVE_R, CAVE_A, CAVE_MOUTH);
     d.scene.add(cave);
-    this.props.push(cave); // its crystals pulse (userData.tick)
+    this.scenery.push(cave); // its crystals pulse (userData.tick)
     this.cave = cave;
     this.rocks = rockMounds(ROCKS);
     d.scene.add(...this.rocks);
@@ -2333,6 +2336,7 @@ export class Game {
     this.fx.update(dt);
     for (const s of this.stations) s.update(dt);
     for (const o of this.props) o.userData.tick?.(this.t);
+    for (const o of this.scenery) o.userData.tick(this.t);
     this.updateSky(dt);
     for (const o of this.d.scene.children) {
       if (o.userData.pop === undefined) continue;
