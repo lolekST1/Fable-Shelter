@@ -22,9 +22,9 @@ let fail = 0;
 const check = (ok, what) => { console.log(ok ? 'OK  ' : 'FAIL', what); if (!ok) fail++; };
 
 // 1. everything up to the bay helper bought: the rocks stop the keeper; the next spot is the pickaxe
-await run({ ver: 2, coins: 0, bought: 34, hearts: 185 }, async (p) => {
+await run({ ver: 2, coins: 0, bought: 34, hearts: 410 }, async (p) => {
   const sp = await p.evaluate(() => window.__spots());
-  check(sp.total === 39 && sp.spots[0]?.[0] === 34 && sp.spots[0][4] === 190 && sp.spots[0][3] === 3800, `pickaxe spot next, 190 hearts (${JSON.stringify(sp.spots[0])})`);
+  check(sp.total === 39 && sp.spots[0]?.[0] === 34 && sp.spots[0][4] === 415 && sp.spots[0][3] === 3800, `pickaxe spot next, 415 hearts (${JSON.stringify(sp.spots[0])})`);
   await walk(p, CX, CZ, 9000);
   const k = await K(p);
   check(Math.hypot(k[0], k[1]) < 11.2, `the rocks block the keeper (at ${k.map((v) => v.toFixed(1))})`);
