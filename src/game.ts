@@ -716,8 +716,9 @@ export class Game {
       ver: 2,
       savedAt: Date.now(),
       chest: this.chestCoins || undefined,
-      // coins already paid into a build spot not finished yet go back to the purse: the spot starts over after a reload
-      coins: this.coins + this.spots.reduce((n, s) => n + s.paid, 0),
+      // coins already paid into a build spot not finished yet go back to the purse: the spot starts over after a reload;
+      // coins still lying on the ground or flying to the keeper count as picked up, or closing the game would lose them
+      coins: this.coins + this.spots.reduce((n, s) => n + s.paid, 0) + this.ground.reduce((n, c) => n + c.value, 0),
       bought: this.bought,
       hearts: this.hearts,
       residents: [...this.residents.filter((r) => r.state !== 'leaving').map((r) => ({ name: r.name, hearts: r.hearts, ...(r.variant ? { v: 1 } : {}) })), ...this.loading],

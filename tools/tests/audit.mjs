@@ -1,4 +1,4 @@
-// Poprawki z audytu 12.11.2026 (A2-A6): środek zagrody bez niewidzialnej przeszkody, wpłacone monety i wczytujący się
+// Poprawki z audytu 12.11.2026 (A2-A6, B1): środek zagrody bez niewidzialnej przeszkody, wpłacone monety i wczytujący się
 // mieszkańcy zostają w zapisie, pacjenci przychodzą mimo nieudanego pobrania modelu, skały jaskini mają kolizję.
 //   node tests/audit.mjs
 import { chromium } from 'playwright';
@@ -25,6 +25,10 @@ const ready = (p) => p.waitForFunction(() => window.__G?.()?.stations?.length, n
   await p.waitForFunction(() => window.__spots().spots[0][5] === 20, null, { timeout: 60000 }).catch(() => {});
   const s = await p.evaluate(() => ({ paid: window.__spots().spots[0][5], coins: window.__G().coins, saved: JSON.parse(window.__G().saveData()).coins }));
   check(s.paid === 20 && s.coins === 0 && s.saved === 20, `A3: wpłacone 20 monet zostaje w zapisie (wpłata ${s.paid}, w ręku ${s.coins}, w zapisie ${s.saved})`);
+  // B1: monety leżące na ziemi po wyleczeniu też są w zapisie
+  await p.evaluate(() => { const g = window.__G(); g.cure(g.patients[0]); });
+  const m = await p.evaluate(() => { const g = window.__G(); return { ground: g.ground.reduce((n, c) => n + c.value, 0), coins: g.coins, saved: JSON.parse(g.saveData()).coins }; });
+  check(m.ground > 0 && m.saved === m.coins + 20 + m.ground, `B1: monety na ziemi są w zapisie (na ziemi ${m.ground}, w zapisie ${m.saved})`);
   await p.close();
 }
 
