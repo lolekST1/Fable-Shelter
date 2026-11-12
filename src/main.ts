@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { Creature, type CreatureData, type LidData } from './creature';
+import { Creature, type LidData } from './creature';
 import lidJson from './lids.json';
 const lidData = lidJson as Record<string, LidData[]>;
 const eyesParam = new URLSearchParams(location.search).get('eyes');
@@ -10,7 +10,6 @@ import { blobShadowTexture, buildGround, buildSky, Rain, RainPuff, tintSky } fro
 import { Sfx } from './sfx';
 import { Joystick } from './joystick';
 import { CAVE_C, CAVE_R, Game, SEA_C, SEA_R, SNOW_C, SNOW_R } from './game';
-import chmurnikData from './chmurnik.json';
 import { firstInput, initPlatform, loadingFinished, platformReady, sessionStart } from './platform';
 
 initPlatform();
@@ -119,22 +118,6 @@ const DAY_HEMI = new THREE.Color(0xdff3ff), NIGHT_HEMI = new THREE.Color(0x8ea4e
 const sfx = new Sfx();
 
 const hint = document.getElementById('hint')!;
-const dataFiles = import.meta.glob('./cast/*.json', { eager: true, import: 'default' }) as Record<string, CreatureData>;
-const castData: Record<string, CreatureData> = { chmurnik: chmurnikData as CreatureData };
-for (const [path, d] of Object.entries(dataFiles)) castData[path.split('/').pop()!.replace('.json', '')] = d;
-
-// the shelter starts empty: only the keeper; creatures arrive as patients over time
-const CAST: [string, number, number, number][] = [['opiekun', 0, 2.4, 1.4]];
-
-// models generated with their own textures (Hunyuan3D 3.0)
-const TEXTURED = new Set(['feniks', 'bazyliszek', 'gryf', 'grzybolak', 'jednorozec', 'smok', 'opiekun', 'kraken', 'chmurnik']);
-
-const texLoader = new THREE.TextureLoader();
-function tex(url: string) {
-  const t = texLoader.load(url);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
 const binCache = new Map<string, Promise<Uint8Array>>();
 // the loading bar (index.html): models asked for and arrived while the camp is being set up
 const loadBar = document.getElementById('load');
@@ -167,7 +150,7 @@ async function loadModel(name: string) {
   return new GLTFLoader().parseAsync(bin.slice().buffer, '');
 }
 async function spawnCreature(name: string, height: number) {
-  return new Creature(await loadModel(name), null, null, null, height, shadowTex, lidData[name] ?? []);
+  return new Creature(await loadModel(name), height, shadowTex, lidData[name] ?? []);
 }
 /** album portraits: the model drawn once in a small offscreen renderer of its own, three-quarter view */
 let snap: { r: THREE.WebGLRenderer; scene: THREE.Scene; cam: THREE.PerspectiveCamera } | null = null;
@@ -207,37 +190,24 @@ async function drawPortrait(model: string, tint: number | null) {
 }
 let game: Game | null = null;
 
-const creatures: Creature[] = [];
-let sheep: Creature | null = null;
+// the shelter starts empty: only the keeper; creatures arrive as patients over time
 let keeper: Creature | null = null;
-Promise.all(
-  CAST.map(async ([name, x, z, h]) => {
-    const painted = TEXTURED.has(name);
-    const d = painted ? null : castData[name];
-    if (!painted && !d) return;
-    const gltf = await loadModel(name);
-    const front = painted ? null : name === 'chmurnik' ? tex('textures/chmurnik.jpg') : tex(`textures/${name}_front.jpg`);
-    const back = painted || name === 'chmurnik' ? null : tex(`textures/${name}_back.jpg`);
-    const c = new Creature(gltf, front, back, d, h, shadowTex, painted ? lidData[name] ?? [] : []);
-    c.root.position.set(x, 0, z);
-    c.lookAt(camera.position.x, camera.position.z);
-    scene.add(c.root);
-    creatures.push(c);
-    if (name === 'opiekun') keeper = c;
-  }),
-).then(async () => {
+spawnCreature('opiekun', 1.4).then(async (c) => {
+  c.root.position.set(0, 0, 2.4);
+  c.lookAt(camera.position.x, camera.position.z);
+  scene.add(c.root);
+  keeper = c;
   // compile every shader up front (including the hidden rain cloud) so the first tap does not stall
   rain.group.visible = true;
   renderer.compile(scene, camera);
   rain.group.visible = false;
   // on Poki the language comes from the SDK: wait for it (it settles even when the SDK fails) before the cards and menus
   await platformReady();
-  if (keeper)
-    game = new Game({
-      scene, camera, keeper, sfx, shadowTex, spawnCreature, portrait, loadProp: async (name) => (await loadModel(name)).scene,
-    });
-  if (game) game.onFirstPickup = () => hint.classList.add('hidden');
-  if (game?.restored) hint.classList.add('hidden');
+  game = new Game({
+    scene, camera, keeper: c, sfx, shadowTex, spawnCreature, portrait, loadProp: async (name) => (await loadModel(name)).scene,
+  });
+  game.onFirstPickup = () => hint.classList.add('hidden');
+  if (game.restored) hint.classList.add('hidden');
   // playable now: the bar goes; the camp's props (cauldron, beds, house...) pop in over their simple stand-ins
   loadDone();
 }).catch((err) => {
@@ -304,10 +274,10 @@ joy.onStart = () => {
   hint.classList.add('hidden');
 };
 joy.onTap = (cx, cy) => {
-  if (!creatures.length) return;
+  if (!keeper) return;
   ndc.set((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
   ray.setFromCamera(ndc, camera);
-  const all = [...creatures, ...(game?.tappables() ?? [])];
+  const all = [keeper, ...(game?.tappables() ?? [])];
   const hits = ray.intersectObjects(all.map((c) => c.root), true);
   const hitRoot = hits.length ? all.find((c) => { let o: THREE.Object3D | null = hits[0].object; while (o) { if (o === c.root) return true; o = o.parent; } return false; }) : undefined;
   if (hitRoot) {
@@ -371,12 +341,11 @@ function moveKeeper(dt: number) {
   k.x += move.x * sp * dt;
   k.z += move.z * sp * dt;
   keeper.lookAt(k.x + move.x, k.z + move.z);
-  // collisions: creatures and bushes are circles, the fence is an arc, the meadow has an edge
+  // collisions: bushes and props are circles, the fence is an arc, the meadow has an edge
   const push = (cx: number, cz: number, r: number) => {
     const dx = k.x - cx, dz = k.z - cz, d = Math.hypot(dx, dz), min = r + KEEPER_R;
     if (d < min && d > 1e-4) { k.x = cx + (dx / d) * min; k.z = cz + (dz / d) * min; }
   };
-  for (const c of creatures) if (c !== keeper) push(c.root.position.x, c.root.position.z, 0.42);
   for (const [x, z, r] of obstacles.circles) push(x, z, r);
   if (game) for (const [x, z, r] of game.circles()) push(x, z, r);
   const fr = Math.hypot(k.x, k.z), fa = Math.atan2(k.x, -k.z);
@@ -391,11 +360,6 @@ function moveKeeper(dt: number) {
   else {
     const wr = Math.hypot(k.x, k.z);
     if (wr > WORLD_R) { k.x *= WORLD_R / wr; k.z *= WORLD_R / wr; }
-  }
-  // nearby creatures turn to watch the keeper go by
-  for (const c of creatures) {
-    if (c === keeper) continue;
-    if (c.root.position.distanceTo(k) < 2.2) c.lookAt(k.x, k.z);
   }
 }
 
@@ -517,12 +481,11 @@ renderer.setAnimationLoop(() => {
   for (let s = 0; s < STEPS; s++) {
     (window as unknown as { __tick?: (dt: number) => void }).__tick?.(dt);
     clouds.rotation.y += dt * 0.006;
-    for (const c of creatures) c.update(dt);
+    keeper?.update(dt);
     rain.update(dt, 1.1);
     moveKeeper(dt);
     game?.update(dt);
   }
-  void sheep;
   if (keeper) {
     const k = game?.focus ?? keeper.root.position; // the first adoption takes the camera for a moment
     const f = Math.min(1, dt * (game?.focus ? 2 : 4));

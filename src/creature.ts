@@ -1,98 +1,6 @@
 import * as THREE from 'three';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-export interface CreatureData {
-  bounds: number[][];
-  /** front projection frame: centre x, centre y, scale (texture units per model unit) */
-  proj: number[];
-  eyes: { pos: number[]; normal: number[] }[];
-  eyeRadius: number;
-  /** optional ear ellipsoid, mirrored on x: centre xyz + radii xyz */
-  ear?: number[];
-  legY: number;
-}
-
-/**
- * Plush material: physical material with sheen (fabric fuzz), colour projected
- * from the concept image onto front-facing surfaces, white wool elsewhere,
- * skin colour on the legs. Lighting stays fully dynamic.
- */
-function plushMaterial(tex: THREE.Texture, back: THREE.Texture | null, d: CreatureData): THREE.MeshPhysicalMaterial {
-  const [cx, cy, k] = d.proj;
-  const mat = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff,
-    roughness: 0.95,
-    sheen: 1.0,
-    sheenRoughness: 0.45,
-    sheenColor: new THREE.Color(0xffffff),
-  });
-  mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uConcept = { value: tex };
-    shader.uniforms.uBack = { value: back ?? tex };
-    shader.uniforms.uHasBack = { value: back ? 1 : 0 };
-    shader.uniforms.uProj = { value: new THREE.Vector3(cx, cy, k) };
-    const ear = d.ear ?? [0, -99, 0, 0.01, 0.01, 0.01];
-    shader.uniforms.uEar = { value: new THREE.Vector3(ear[0], ear[1], ear[2]) };
-    shader.uniforms.uEarR = { value: new THREE.Vector3(ear[3], ear[4], ear[5]) };
-    shader.uniforms.uLegY = { value: d.legY };
-    shader.uniforms.uWool = { value: new THREE.Color(0xf6f4f2) };
-    shader.uniforms.uSkin = { value: new THREE.Color(0xf6c9b4) };
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vObjPos;\nvarying vec3 vObjNrm;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvObjPos = position;\nvObjNrm = normal;');
-    shader.fragmentShader = shader.fragmentShader
-      .replace(
-        '#include <common>',
-        `#include <common>
-uniform sampler2D uConcept; uniform sampler2D uBack; uniform float uHasBack; uniform vec3 uProj; uniform float uLegY; uniform vec3 uEar; uniform vec3 uEarR;
-uniform vec3 uWool; uniform vec3 uSkin;
-varying vec3 vObjPos; varying vec3 vObjNrm;`,
-      )
-      .replace(
-        '#include <color_fragment>',
-        `#include <color_fragment>
-{
-  // the paint map is drawn in the model's own front view, so it lines up with the sculpted face
-  vec2 uv = vec2((vObjPos.x - uProj.x) * uProj.z + 0.5, (vObjPos.y - uProj.y) * uProj.z + 0.5);
-  vec3 proj = texture2D(uConcept, uv).rgb;
-  float front = smoothstep(-0.05, 0.3, normalize(vObjNrm).z);
-  // sides and back take the body colours with the face detail washed out
-  vec3 rear = uHasBack > 0.5 ? texture2D(uBack, uv).rgb : uWool;
-  vec3 col = mix(rear, proj, front);
-  col = mix(col, uSkin, smoothstep(uLegY + 0.03, uLegY - 0.03, vObjPos.y));
-  // ear flaps: a soft ellipsoid on each side of the head
-  vec3 e = (vec3(abs(vObjPos.x), vObjPos.y, vObjPos.z) - uEar) / uEarR;
-  col = mix(col, uSkin, 1.0 - smoothstep(0.8, 1.0, length(e)));
-  diffuseColor.rgb *= col;
-}`,
-      );
-  };
-  return mat;
-}
-
-function makeEye(radius: number): { group: THREE.Group; lid: THREE.Object3D } {
-  const group = new THREE.Group();
-  const lid = new THREE.Group();
-  const ball = new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 24, 16),
-    new THREE.MeshPhysicalMaterial({ color: 0x1d1416, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.05 }),
-  );
-  ball.scale.set(1, 1.08, 0.55);
-  const shine = new THREE.Mesh(
-    new THREE.SphereGeometry(radius * 0.32, 12, 8),
-    new THREE.MeshBasicMaterial({ color: 0xffffff }),
-  );
-  shine.position.set(radius * 0.32, radius * 0.38, radius * 0.42);
-  const shine2 = new THREE.Mesh(
-    new THREE.SphereGeometry(radius * 0.14, 8, 6),
-    new THREE.MeshBasicMaterial({ color: 0xffffff }),
-  );
-  shine2.position.set(-radius * 0.3, -radius * 0.3, radius * 0.45);
-  lid.add(ball, shine, shine2);
-  group.add(lid);
-  return { group, lid };
-}
-
 /** a painted eye on a textured model, with the face surface sampled around it (see lids.json) */
 export interface LidData {
   r: number;
@@ -183,7 +91,6 @@ export class Creature {
   eyesShut: number | undefined;
   root = new THREE.Group();
   private body = new THREE.Group();
-  private lids: THREE.Object3D[] = [];
   private paintedLids: PaintedLid[] = [];
   private shadow: THREE.Mesh;
   private t = Math.random() * 10;
@@ -202,50 +109,32 @@ export class Creature {
   private stepPhase = 0;
   private peaked = false;
 
-  constructor(gltf: GLTF, tex: THREE.Texture | null, back: THREE.Texture | null, d: CreatureData | null, height: number, shadowTex: THREE.Texture, lidData: LidData[] = []) {
+  constructor(gltf: GLTF, height: number, shadowTex: THREE.Texture, lidData: LidData[] = []) {
     const mesh = gltf.scene.getObjectByProperty('type', 'Mesh') as THREE.Mesh;
-    if (tex && d) {
-      mesh.geometry.computeVertexNormals();
-      mesh.material = plushMaterial(tex, back, d);
-    } else {
-      // model arrived with its own painted texture: keep it, add a soft fabric sheen
-      const m = mesh.material as THREE.MeshStandardMaterial;
-      const plush = new THREE.MeshPhysicalMaterial({
-        map: m.map, normalMap: m.normalMap, roughnessMap: m.roughnessMap,
-        roughness: 0.85, metalness: 0, sheen: 0.6, sheenRoughness: 0.5, sheenColor: new THREE.Color(0xffffff),
-        // Pixal3D meshes can have thin open spots (tentacle tips); keep the file's double-sided flag so they don't show holes
-        side: m.side,
-      });
-      mesh.material = plush;
-      // bake the node transforms from the file into the geometry so size and floor line are right
-      gltf.scene.updateMatrixWorld(true);
-      mesh.geometry.applyMatrix4(mesh.matrixWorld);
-      mesh.position.set(0, 0, 0);
-      mesh.rotation.set(0, 0, 0);
-      mesh.scale.set(1, 1, 1);
-    }
+    // the model comes with its own painted texture: keep it, add a soft fabric sheen
+    const m = mesh.material as THREE.MeshStandardMaterial;
+    this.skin = new THREE.MeshPhysicalMaterial({
+      map: m.map, normalMap: m.normalMap, roughnessMap: m.roughnessMap,
+      roughness: 0.85, metalness: 0, sheen: 0.6, sheenRoughness: 0.5, sheenColor: new THREE.Color(0xffffff),
+      // Pixal3D meshes can have thin open spots (tentacle tips); keep the file's double-sided flag so they don't show holes
+      side: m.side,
+    });
+    mesh.material = this.skin;
+    // bake the node transforms from the file into the geometry so size and floor line are right
+    gltf.scene.updateMatrixWorld(true);
+    mesh.geometry.applyMatrix4(mesh.matrixWorld);
+    mesh.position.set(0, 0, 0);
+    mesh.rotation.set(0, 0, 0);
+    mesh.scale.set(1, 1, 1);
     mesh.castShadow = true;
     this.mesh = mesh;
-    this.skin = mesh.material as THREE.MeshPhysicalMaterial;
     this.height = height;
     mesh.geometry.computeBoundingBox();
     const bb = mesh.geometry.boundingBox!;
-    const y0 = d ? d.bounds[0][1] : bb.min.y;
-    const y1 = d ? d.bounds[1][1] : bb.max.y;
-    const scale = height / (y1 - y0);
+    const y0 = bb.min.y;
+    const scale = height / (bb.max.y - y0);
     const model = new THREE.Group();
     model.add(mesh);
-    for (const e of d?.eyes ?? []) {
-      const { group, lid } = makeEye(d!.eyeRadius * 0.82);
-      const p = new THREE.Vector3(...(e.pos as [number, number, number]));
-      const n = new THREE.Vector3(...(e.normal as [number, number, number]))
-        .lerp(new THREE.Vector3(0, 0, 1), 1)
-        .normalize();
-      group.position.copy(p).addScaledVector(n, 0.02);
-      group.lookAt(p.clone().add(n));
-      model.add(group);
-      this.lids.push(lid);
-    }
     for (const l of lidData) {
       const lid = makeLid(l);
       model.add(lid.mesh);
@@ -387,8 +276,7 @@ export class Creature {
       lid = k < 1 ? Math.max(0.08, Math.abs(1 - 2 * k)) : 1;
       if (k >= 1) this.blinkT = -1;
     }
-    for (const l of this.lids) l.scale.y = lid;
-    // painted eyes: the lid covers the eye as much as the 3D eyes would squash
+    // painted eyes: the lid covers the eye for the length of the blink
     const shut = Creature.forceShut ?? this.eyesShut ?? Math.min(1, (1 - lid) / 0.92);
     for (const l of this.paintedLids) {
       l.mesh.visible = shut > 0.02;
