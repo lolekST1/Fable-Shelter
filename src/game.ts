@@ -670,7 +670,8 @@ export class Game {
     return m;
   }
 
-  /** a menu (album, wardrobe) opened or closed: gameplay pauses; closing it is a natural break for an ad on Poki */
+  /** a menu (album, wardrobe) opened or closed: the camp goes on living under it (patients come, adoptions happen),
+   *  only Poki is told the player is not playing; closing it is a natural break for an ad there */
   private menuToggle(open: boolean) {
     if (open) playing(false);
     else void pauseBreak((h) => this.d.sfx.hush(h));
