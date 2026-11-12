@@ -3,3 +3,5 @@ dist
 .vercel
 dist-poki
 .claude/stan.md
+# Claude Code: lokalne zgody na polecenia, moga zawierac sekrety
+.claude/settings.local.json
