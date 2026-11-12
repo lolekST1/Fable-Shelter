@@ -2426,7 +2426,8 @@ export class Game {
     const active = this.patients.filter((p) => p.state !== 'cured' && p.state !== 'guest' && p.state !== 'leaving').length;
     if (!this.spawning && active < this.maxPatients + (this.pondOpen ? 1 : 0) + (this.gladeOpen ? 1 : 0) + (this.snowOpen ? 1 : 0) + (this.seaOpen ? 1 : 0) + (this.caveOpen ? 1 : 0) && this.spawnT <= 0) {
       this.spawnT = 3.5;
-      void this.spawnPatient();
+      // its model did not arrive (no network): try again with the next one, or no patient would ever come again
+      void this.spawnPatient().catch(() => { this.spawning = false; });
     }
     for (let i = this.patients.length - 1; i >= 0; i--) {
       const p = this.patients[i];

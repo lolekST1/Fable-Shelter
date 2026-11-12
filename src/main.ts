@@ -159,7 +159,9 @@ async function loadModel(name: string) {
   if (!binCache.has(name)) {
     modelsAsked++;
     showLoad();
-    binCache.set(name, fetch(`models/${name}.glb.txt`).then(async (r) => Uint8Array.from(atob((await r.text()).trim()), (c) => c.charCodeAt(0))).finally(() => { modelsIn++; showLoad(); }));
+    binCache.set(name, fetch(`models/${name}.glb.txt`).then(async (r) => Uint8Array.from(atob((await r.text()).trim()), (c) => c.charCodeAt(0)))
+      .catch((e) => { binCache.delete(name); throw e; }) // a failed download is not remembered: the next ask fetches again
+      .finally(() => { modelsIn++; showLoad(); }));
   }
   const bin = await binCache.get(name)!;
   return new GLTFLoader().parseAsync(bin.slice().buffer, '');
