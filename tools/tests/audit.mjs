@@ -1,4 +1,4 @@
-// Poprawki z audytu 12.11.2026 (A2-A6, B1): środek zagrody bez niewidzialnej przeszkody, wpłacone monety i wczytujący się
+// Poprawki z audytu 12.11.2026 (A1-A7, B1): środek zagrody bez niewidzialnej przeszkody, wpłacone monety i wczytujący się
 // mieszkańcy zostają w zapisie, pacjenci przychodzą mimo nieudanego pobrania modelu, skały jaskini mają kolizję.
 //   node tests/audit.mjs
 import { chromium } from 'playwright';
@@ -46,6 +46,37 @@ const ready = (p) => p.waitForFunction(() => window.__G?.()?.stations?.length, n
   const rocks = await p.evaluate(() => { const g = window.__G(), cs = g.circles(); return g.rocks.filter((h) => h.parent).map((h) => cs.some((c) => Math.hypot(c[0] - h.position.x, c[1] - h.position.z) < 0.01)); });
   check(rocks.length === 4 && rocks.every(Boolean), `A6: skały przy wejściu do jaskini mają kolizję (${rocks.length} skał)`);
   await c.close();
+}
+
+// A1, A7: pamięć grafiki nie rośnie z każdym pacjentem, który odszedł (cały obóz w kadrze, żeby wszystko było rysowane)
+{
+  const p = await b.newPage({ viewport: { width: 390, height: 844 } });
+  p.on('pageerror', (e) => check(false, 'błąd strony: ' + e.message));
+  await p.goto(BASE + '?reset=1&nostory&dtmax=0.4&quality=5&day=2026-06-01&cam=45');
+  await ready(p);
+  await p.evaluate(() => {
+    const g = window.__G();
+    g.maxPatients = 4;
+    window.__gone = 0;
+    let before = 0;
+    // wyleczony bez wolnego legowiska odchodzi; liczymy tych, którzy zniknęli
+    window.__tick = () => {
+      for (const q of g.patients) if (q.state === 'waiting' && q.stateT > 6) g.cure(q);
+      const left = g.patients.filter((q) => q.state === 'leaving').length;
+      if (left < before) window.__gone += before - left;
+      before = left;
+    };
+  });
+  const mem = () => p.evaluate(() => { const m = window.__renderer.info.memory; return { geometries: m.geometries, textures: m.textures, gone: window.__gone }; });
+  await p.waitForFunction(() => window.__gone >= 4, null, { timeout: 200000 });
+  const m0 = await mem();
+  await p.waitForFunction((n) => window.__gone >= n + 10, m0.gone, { timeout: 300000 });
+  const m1 = await mem();
+  check(m1.textures - m0.textures < 12 && m1.geometries - m0.geometries < 12, `A1: po ${m1.gone - m0.gone} kolejnych pacjentach pamięć nie rośnie (tekstury ${m0.textures} -> ${m1.textures}, siatki ${m0.geometries} -> ${m1.geometries})`);
+  const shared = await p.evaluate(() => { const t = window.__G().stations[0].tray; return t.length > 1 && t[0].children[0].geometry === t[1].children[0].geometry; });
+  check(shared, 'A1: fiolki z jednej tacy mają wspólną siatkę');
+  check(await p.evaluate(() => { const d = window.__G().d; return d.portrait('chmurnik', null) === d.portrait('chmurnik', null); }), 'A7: portret tego samego stworka rysuje się raz');
+  await p.close();
 }
 await b.close();
 console.log(bad ? `NIE PRZESZŁO: ${bad}` : 'wszystko ok');

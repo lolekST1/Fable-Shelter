@@ -171,7 +171,14 @@ async function spawnCreature(name: string, height: number) {
 }
 /** album portraits: the model drawn once in a small offscreen renderer of its own, three-quarter view */
 let snap: { r: THREE.WebGLRenderer; scene: THREE.Scene; cam: THREE.PerspectiveCamera } | null = null;
-async function portrait(model: string, tint: number | null) {
+const portraits = new Map<string, Promise<string>>();
+/** drawn once per model and colour: the request of the day asks again at every step of its task */
+function portrait(model: string, tint: number | null) {
+  const key = `${model}|${tint}`;
+  if (!portraits.has(key)) portraits.set(key, drawPortrait(model, tint).catch((e) => { portraits.delete(key); throw e; }));
+  return portraits.get(key)!;
+}
+async function drawPortrait(model: string, tint: number | null) {
   const c = await spawnCreature(model, 1);
   if (tint !== null) c.setTint(tint);
   if (!snap) {
@@ -194,7 +201,9 @@ async function portrait(model: string, tint: number | null) {
   snap.scene.add(c.root);
   snap.r.render(snap.scene, snap.cam);
   snap.scene.remove(c.root);
-  return snap.r.domElement.toDataURL('image/png');
+  const url = snap.r.domElement.toDataURL('image/png');
+  c.dispose(); // the picture is all that is kept: the model leaves the portrait renderer's memory
+  return url;
 }
 let game: Game | null = null;
 
