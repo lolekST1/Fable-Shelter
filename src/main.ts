@@ -137,7 +137,7 @@ function loadDone() {
   window.setTimeout(() => loadBar.remove(), 600);
 }
 async function loadModel(name: string) {
-  // models ship as base64 text so the page can be served from any static host; decoded once, parsed per copy.
+  // models ship as base64 text so the page can be served from any static host; decoded once (creatures are then parsed once per species, see spawnCreature).
   // Binary .glb would not be smaller on the way: hosts brotli the text (keeper and camp props: 3.0 MB as text with
   // brotli, 3.4 MB as plain binary, 2.4 MB only if the host compresses binary too, measured 28.10.2026)
   if (!binCache.has(name)) {
@@ -150,8 +150,37 @@ async function loadModel(name: string) {
   const bin = await binCache.get(name)!;
   return new GLTFLoader().parseAsync(bin.slice().buffer, '');
 }
+type Parsed = Awaited<ReturnType<typeof loadModel>>;
+/** a creature model's mesh and textures, freed from every renderer that drew them */
+function freeModel(g: Parsed) {
+  const src = g.scene.getObjectByProperty('type', 'Mesh') as THREE.Mesh;
+  const sm = src.material as THREE.MeshStandardMaterial;
+  src.geometry.dispose();
+  for (const t of [sm.map, sm.normalMap, sm.roughnessMap]) t?.dispose();
+}
+/** one parse per species, shared by every living copy (parsing each copy took 56–77 ms and held its own textures:
+ *  a full camp had 575–750 MB of them, measured 14.11.2026); freed with the last copy, so a long game does not keep
+ *  every species it has ever seen */
+const parsed = new Map<string, { p: Promise<Parsed>; n: number }>();
+function release(name: string, e: { p: Promise<Parsed>; n: number }) {
+  if (--e.n > 0) return;
+  if (parsed.get(name) === e) parsed.delete(name);
+  e.p.then(freeModel, () => {});
+}
 async function spawnCreature(name: string, height: number) {
-  return new Creature(await loadModel(name), height, shadowTex, lidData[name] ?? []);
+  let e = parsed.get(name);
+  if (!e) parsed.set(name, (e = { p: loadModel(name), n: 0 }));
+  const entry = e;
+  entry.n++;
+  let c: Creature;
+  try {
+    c = new Creature(await entry.p, height, shadowTex, lidData[name] ?? []);
+  } catch (err) {
+    release(name, entry); // a failed download is not kept: the next ask fetches again
+    throw err;
+  }
+  c.onDispose = () => release(name, entry);
+  return c;
 }
 /** album portraits: the model drawn once in a small offscreen renderer of its own, three-quarter view */
 let snap: { r: THREE.WebGLRenderer; scene: THREE.Scene; cam: THREE.PerspectiveCamera } | null = null;
@@ -163,7 +192,9 @@ function portrait(model: string, tint: number | null) {
   return portraits.get(key)!;
 }
 async function drawPortrait(model: string, tint: number | null) {
-  const c = await spawnCreature(model, 1);
+  // a parse of its own: the portrait renderer is another context, and the model leaves it right after the picture
+  const g = await loadModel(model);
+  const c = new Creature(g, 1, shadowTex, lidData[model] ?? []);
   if (tint !== null) c.setTint(tint);
   if (!snap) {
     const r = new THREE.WebGLRenderer({ antialias: !NO_WEBGL2, alpha: true, preserveDrawingBuffer: true, ...(MEDIUMP ? { precision: 'mediump' as const } : {}) });
@@ -186,7 +217,8 @@ async function drawPortrait(model: string, tint: number | null) {
   snap.r.render(snap.scene, snap.cam);
   snap.scene.remove(c.root);
   const url = snap.r.domElement.toDataURL('image/png');
-  c.dispose(); // the picture is all that is kept: the model leaves the portrait renderer's memory
+  c.dispose();
+  freeModel(g); // the picture is all that is kept: the model leaves the portrait renderer's memory
   return url;
 }
 let game: Game | null = null;

@@ -56,7 +56,7 @@ const ready = (p) => p.waitForFunction(() => window.__G?.()?.stations?.length, n
   await c.close();
 }
 
-// A1, A7: pamięć grafiki nie rośnie z każdym pacjentem, który odszedł (cały obóz w kadrze, żeby wszystko było rysowane)
+// A1, A7, B3: pamięć grafiki nie rośnie z każdym pacjentem, który odszedł (cały obóz w kadrze, żeby wszystko było rysowane)
 {
   const p = await b.newPage({ viewport: { width: 390, height: 844 } });
   p.on('pageerror', (e) => check(false, 'błąd strony: ' + e.message));
@@ -84,6 +84,23 @@ const ready = (p) => p.waitForFunction(() => window.__G?.()?.stations?.length, n
   const shared = await p.evaluate(() => { const t = window.__G().stations[0].tray; return t.length > 1 && t[0].children[0].geometry === t[1].children[0].geometry; });
   check(shared, 'A1: fiolki z jednej tacy mają wspólną siatkę');
   check(await p.evaluate(() => { const d = window.__G().d; return d.portrait('chmurnik', null) === d.portrait('chmurnik', null); }), 'A7: portret tego samego stworka rysuje się raz');
+  // B3: kopie gatunku mają wspólny model; podwójne dispose() jednej kopii nie zwalnia go innym, ostatnia kopia go zwalnia
+  // (smok: w nowej grze go nie ma, więc żadna inna kopia nie trzyma modelu)
+  const b3 = await p.evaluate(async () => {
+    const d = window.__G().d;
+    const [x, y, z] = [await d.spawnCreature('smok', 1), await d.spawnCreature('smok', 1), await d.spawnCreature('smok', 1)];
+    const shared = x.mesh.geometry === y.mesh.geometry && x.skin.map === y.skin.map && x.skin !== y.skin;
+    let freed = 0;
+    y.skin.map.addEventListener('dispose', () => freed++);
+    x.dispose(); x.dispose();
+    const afterDouble = freed;
+    y.dispose(); z.dispose();
+    await new Promise((r) => setTimeout(r, 50)); // the shared model is freed once its parse promise settles
+    return { shared, afterDouble, afterLast: freed };
+  });
+  check(b3.shared, 'B3: kopie gatunku mają wspólną siatkę i tekstury, a własny materiał');
+  check(b3.afterDouble === 0, `B3: podwójne dispose() jednej kopii nie zwalnia tekstur pozostałym (zwolnień: ${b3.afterDouble})`);
+  check(b3.afterLast === 1, `B3: ostatnia kopia zwalnia wspólne tekstury (zwolnień: ${b3.afterLast})`);
   await p.close();
 }
 await b.close();

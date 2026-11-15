@@ -108,28 +108,32 @@ export class Creature {
   walk = 0;
   private stepPhase = 0;
   private peaked = false;
+  private disposed = false;
 
   constructor(gltf: GLTF, height: number, shadowTex: THREE.Texture, lidData: LidData[] = []) {
-    const mesh = gltf.scene.getObjectByProperty('type', 'Mesh') as THREE.Mesh;
+    // one parse is shared by every copy of the species (spawnCreature in main.ts): the file's mesh stays untouched,
+    // each copy gets its own mesh and material over the shared geometry and textures
+    const src = gltf.scene.getObjectByProperty('type', 'Mesh') as THREE.Mesh;
+    if (!src.userData.baked) {
+      // bake the node transforms from the file into the geometry so size and floor line are right; once per parse,
+      // a second bake would scale the shared geometry again
+      gltf.scene.updateMatrixWorld(true);
+      src.geometry.applyMatrix4(src.matrixWorld);
+      src.geometry.computeBoundingBox();
+      src.userData.baked = true;
+    }
     // the model comes with its own painted texture: keep it, add a soft fabric sheen
-    const m = mesh.material as THREE.MeshStandardMaterial;
+    const m = src.material as THREE.MeshStandardMaterial;
     this.skin = new THREE.MeshPhysicalMaterial({
       map: m.map, normalMap: m.normalMap, roughnessMap: m.roughnessMap,
       roughness: 0.85, metalness: 0, sheen: 0.6, sheenRoughness: 0.5, sheenColor: new THREE.Color(0xffffff),
       // Pixal3D meshes can have thin open spots (tentacle tips); keep the file's double-sided flag so they don't show holes
       side: m.side,
     });
-    mesh.material = this.skin;
-    // bake the node transforms from the file into the geometry so size and floor line are right
-    gltf.scene.updateMatrixWorld(true);
-    mesh.geometry.applyMatrix4(mesh.matrixWorld);
-    mesh.position.set(0, 0, 0);
-    mesh.rotation.set(0, 0, 0);
-    mesh.scale.set(1, 1, 1);
+    const mesh = new THREE.Mesh(src.geometry, this.skin);
     mesh.castShadow = true;
     this.mesh = mesh;
     this.height = height;
-    mesh.geometry.computeBoundingBox();
     const bb = mesh.geometry.boundingBox!;
     const y0 = bb.min.y;
     const scale = height / (bb.max.y - y0);
@@ -155,17 +159,21 @@ export class Creature {
     this.root.add(this.shadow);
   }
 
-  /** free what this creature holds on the graphics card, once it has left the scene for good: every copy of a model
-   *  has its own mesh and textures, and three.js keeps them until told (a long game used to pile up hundreds).
-   *  Things attached to it (carried items, wardrobe) are not touched: they share their meshes with others. */
+  /** free what this copy holds on the graphics card, once it has left the scene for good (three.js keeps it until
+   *  told). The geometry and textures are shared by the species: spawnCreature in main.ts frees them with the last copy.
+   *  Things attached to it (carried items, wardrobe) are not touched: they share their meshes with others.
+   *  A second call does nothing, so it never counts the same copy out of its species twice. */
   dispose() {
-    this.mesh.geometry.dispose();
-    for (const t of [this.skin.map, this.skin.normalMap, this.skin.roughnessMap]) t?.dispose();
+    if (this.disposed) return;
+    this.disposed = true;
     this.skin.dispose();
     for (const l of this.paintedLids) { l.mesh.geometry.dispose(); (l.mesh.material as THREE.Material).dispose(); }
     this.shadow.geometry.dispose();
     (this.shadow.material as THREE.Material).dispose(); // its texture is shared by every shadow: it stays
+    this.onDispose?.();
   }
+  /** set by spawnCreature: counts this copy out of its species' shared model */
+  onDispose?: () => void;
 
   /** carry something on the body (it turns, bobs and squashes with the creature) */
   attach(o: THREE.Object3D) {
