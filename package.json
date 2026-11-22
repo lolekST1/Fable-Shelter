@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "build": "tsc --noEmit && vite build",
-    "build:poki": "tsc --noEmit && vite build --mode poki",
-    "preview": "vite preview --host"
+    "build": "node tools/zasady.mjs && tsc --noEmit && vite build",
+    "build:poki": "node tools/zasady.mjs && tsc --noEmit && vite build --mode poki",
+    "preview": "vite preview --host",
+    "zasady": "node tools/zasady.mjs && tsc --noEmit"
   },
   "dependencies": {
     "three": "0.162.0"

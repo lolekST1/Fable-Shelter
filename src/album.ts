@@ -1,4 +1,4 @@
-import { t } from './i18n';
+import { t, type Tekst } from './i18n';
 import { type Ailment, drawAilment, drawCoin, drawHeart, drawSpotIcon, type SpotIcon } from './icons';
 
 /**
@@ -14,7 +14,7 @@ export interface AlbumSpecies { name: string; ailment: Ailment; page: number; ra
 export interface AlbumPage { icon: SpotIcon; reward: number; hidden?: () => boolean }
 
 /** names under the cards (a rare variant, `name*`, shows its species' name) */
-export const NAMES: Record<string, string> = {
+export const NAMES: Record<string, Tekst> = {
   chmurnik: 'Chmurnik', feniks: 'Feniks', smok: 'Smok', gryf: 'Gryf', grzybolak: 'Grzybołak', kraken: 'Kraken', jednorozec: 'Jednorożec',
   bazyliszek: 'Bazyliszek', zabiksiaze: 'Żabi książę', nessie: 'Nessie', swietlik: 'Świetlik', wodnik: 'Wodnik', leszy: 'Leszy',
   wilkolaczek: 'Wilkołaczek', skrzat: 'Skrzat', sowka: 'Sówka', yeti: 'Yeti', renifer: 'Renifer', balwanek: 'Bałwanek',
@@ -198,7 +198,8 @@ export class Album {
           ail.className = 'ail';
           const nm = document.createElement('div');
           nm.className = 'nm';
-          nm.textContent = t(NAMES[s.name.replace('*', '')] ?? s.name);
+          const pl = NAMES[s.name.replace('*', '')];
+          nm.textContent = pl ? t(pl) : s.name;
           card.append(img, nm, ail);
           if (n) {
             const c = document.createElement('div');

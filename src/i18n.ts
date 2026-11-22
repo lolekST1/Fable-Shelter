@@ -30,7 +30,7 @@ export function setLanguage(code: string | null | undefined) {
 }
 
 type Row = [en: string, fr: string, it: string, de: string, es: string, tr: string, pt: string, ru: string, zh: string, ja: string, ko: string];
-const T: Record<string, Row> = {
+const T = {
   // goal and hearts cards
   'Schronisko dla bajkowych stworków': ['Fairy-Tale Critter Shelter', 'Refuge des créatures féeriques', 'Rifugio delle creature fatate', 'Fabelwesen-Tierheim', 'Refugio de criaturas mágicas', 'Masal Yaratıkları Barınağı', 'Abrigo das Criaturas Mágicas', 'Приют сказочных зверушек', '童话小动物收容所', 'おとぎの生きもの保護施設', '동화 동물 보호소'],
   'Wylecz': ['Cure', 'Soigne', 'Cura', 'Heile', 'Cura', 'İyileştir', 'Cure', 'Вылечи', '治疗', 'なおす', '치료'],
@@ -45,6 +45,7 @@ const T: Record<string, Row> = {
   'Halloween w schronisku!': ['Halloween at the shelter!', 'Halloween au refuge !', 'Halloween al rifugio!', 'Halloween im Tierheim!', '¡Halloween en el refugio!', 'Barınakta Cadılar Bayramı!', 'Halloween no abrigo!', 'Хэллоуин в приюте!', '收容所的万圣节！', '保護施設でハロウィン！', '보호소의 핼러윈!'],
   'Nowa strona albumu': ['New album page', "Nouvelle page d'album", "Nuova pagina dell'album", 'Neue Albumseite', 'Nueva página del álbum', 'Yeni albüm sayfası', 'Nova página do álbum', 'Новая страница альбома', '新的相册页', 'アルバムに新ページ', '새 앨범 페이지'],
   'Kapelusz w szafie': ['Hat in the wardrobe', "Chapeau dans l'armoire", "Cappello nell'armadio", 'Hut im Schrank', 'Sombrero en el armario', 'Dolapta şapka', 'Chapéu no armário', 'Шляпа в шкафу', '衣柜里的帽子', 'クローゼットに帽子', '옷장 속 모자'],
+  '+1': ['+1', '+1', '+1', '+1', '+1', '+1', '+1', '+1', '+1', '+1', '+1'], // the same everywhere; a row so it can be a card label
   // species (album cards, new patient cards)
   'Chmurnik': ['Cloudlet', 'Nuageon', 'Nuvoletto', 'Wölkchen', 'Nubecín', 'Bulutçuk', 'Nuvinho', 'Тучка', '云宝', 'くもっち', '구름이'],
   'Feniks': ['Phoenix', 'Phénix', 'Fenice', 'Phönix', 'Fénix', 'Anka', 'Fênix', 'Феникс', '凤凰', 'フェニックス', '불사조'],
@@ -136,7 +137,10 @@ const T: Record<string, Row> = {
   'Zaznacz i skopiuj': ['Select and copy', 'Sélectionne et copie', 'Seleziona e copia', 'Markieren und kopieren', 'Selecciona y copia', 'Seç ve kopyala', 'Selecione e copie', 'Выдели и скопируй', '选中并复制', '選んでコピー', '선택해서 복사'],
   'To nie jest cały kod kopii': ['That is not a whole backup code', "Ce code n'est pas complet", 'Il codice non è completo', 'Der Code ist nicht vollständig', 'El código no está completo', 'Bu kod eksik', 'O código está incompleto', 'Код неполный', '代码不完整', 'コードが不完全です', '코드가 완전하지 않아요'],
   'Na pewno? Obecny postęp zniknie': ['Sure? Your current progress will be lost', 'Sûr ? Ta partie actuelle sera perdue', 'Sicuro? I progressi attuali andranno persi', 'Sicher? Dein aktueller Fortschritt geht verloren', '¿Seguro? Perderás tu progreso actual', 'Emin misin? Mevcut ilerlemen silinecek', 'Tem certeza? Seu progresso atual será perdido', 'Точно? Текущий прогресс пропадёт', '确定吗？当前进度会丢失', '本当に？今の進みが消えます', '정말요? 지금 진행이 사라져요'],
-};
+} satisfies Record<string, Row>;
 
-/** the Polish text, or its translation in the game's language (unknown texts stay as they are) */
-export const t = (pl: string) => (lang === 'pl' ? pl : T[pl]?.[COLS.indexOf(lang)] ?? pl);
+/** every Polish text that has a row above; t() takes only these, so a label without translations fails `tsc` instead of showing Polish to foreign players */
+export type Tekst = keyof typeof T;
+
+/** the Polish text, or its translation in the game's language */
+export const t = (pl: Tekst) => (lang === 'pl' ? pl : T[pl][COLS.indexOf(lang)]);

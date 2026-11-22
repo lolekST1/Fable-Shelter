@@ -34,7 +34,9 @@ if (GLT.includes('nofacing')) THREE.ShaderChunk.normal_fragment_begin = THREE.Sh
 // material comes out black; with mediump the scene is right. So devices without WebGL 2 get mediump (?gltest=highp to try).
 const NO_WEBGL2 = !document.createElement('canvas').getContext('webgl2');
 const MEDIUMP = GLT.includes('mediump') || (NO_WEBGL2 && !GLT.includes('highp'));
-const renderer = new THREE.WebGLRenderer({ antialias: !GLT.includes('noaa') && !NO_WEBGL2, powerPreference: 'high-performance', ...(MEDIUMP ? { precision: 'mediump' as const } : {}) });
+/** every renderer in the game is made here, so none can miss mediump (the album portraits once did and came out black); tools/zasady.mjs checks it */
+const makeRenderer = (o: THREE.WebGLRendererParameters) => new THREE.WebGLRenderer({ ...o, ...(MEDIUMP ? { precision: 'mediump' as const } : {}) });
+const renderer = makeRenderer({ antialias: !GLT.includes('noaa') && !NO_WEBGL2, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -197,7 +199,7 @@ async function drawPortrait(model: string, tint: number | null) {
   const c = new Creature(g, 1, shadowTex, lidData[model] ?? []);
   if (tint !== null) c.setTint(tint);
   if (!snap) {
-    const r = new THREE.WebGLRenderer({ antialias: !NO_WEBGL2, alpha: true, preserveDrawingBuffer: true, ...(MEDIUMP ? { precision: 'mediump' as const } : {}) });
+    const r = makeRenderer({ antialias: !NO_WEBGL2, alpha: true, preserveDrawingBuffer: true });
     r.setSize(192, 192, false);
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.toneMapping = THREE.NeutralToneMapping;

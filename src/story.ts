@@ -1,7 +1,7 @@
 import { type Ailment, type Medicine, drawAilment, drawBerry, drawBridge, drawHeart, drawMedicine, drawMoon, drawPumpkin, drawVial } from './icons';
 import { NAMES } from './album';
 import { drawHomeDoor } from './daily';
-import { t } from './i18n';
+import { t, type Tekst } from './i18n';
 
 /**
  * Short picture cards that say what the game is about: the goal at the very first start (cure, care, 4 hearts,
@@ -11,7 +11,7 @@ import { t } from './i18n';
 
 type Draw = (g: CanvasRenderingContext2D) => void;
 /** a picture: drawn on a canvas, or an image (a creature's portrait) */
-interface Panel { draw?: Draw; img?: Promise<string>; label: string }
+interface Panel { draw?: Draw; img?: Promise<string>; label: Tekst }
 
 const css = `
   #story { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(40,70,60,.5); padding: 16px; }
@@ -42,7 +42,7 @@ export function nextCard(show: () => Promise<void>) {
 }
 
 /** show a card with rows of pictures; resolves when it is closed */
-export function story(title: string, rows: Panel[][], low = false, joint = '➜'): Promise<void> {
+export function story(title: Tekst, rows: Panel[][], low = false, joint = '➜'): Promise<void> {
   if (!document.getElementById('storyCss')) {
     const s = document.createElement('style');
     s.id = 'storyCss';
@@ -111,7 +111,7 @@ export const introStory = () => story('Schronisko dla bajkowych stworków', [
 ]);
 
 /** what each illness looks like, in a few words */
-const AILMENT_TEXT: Record<Ailment, string> = {
+const AILMENT_TEXT: Record<Ailment, Tekst> = {
   snow: 'Sypie śniegiem', smoke: 'Zgasł mu płomień', sparks: 'Kicha iskrami', feathers: 'Gubi pióra', spores: 'Pyli zarodnikami',
   bubbles: 'Czka bańkami', confetti: 'Kicha konfetti', crown: 'Kicha, aż spada korona', fountain: 'Tryska wodą', drip: 'Cieknie mu z kapelusza',
   flicker: 'Gaśnie mu światełko', stone: 'Kamienieje', leaves: 'Gubi liście', howl: 'Wyje do księżyca', shrink: 'Kurczy się',
@@ -120,16 +120,16 @@ const AILMENT_TEXT: Record<Ailment, string> = {
   seeds: 'Kicha pestkami', fade: 'Znika co chwilę', echo: 'Czka echem', dig: 'Zakopuje się w ziemi', glitter: 'Mieni się kolorami',
   pebbles: 'Sypie się kamyczkami',
 };
-const CURE_TEXT: Record<Medicine, string> = {
+const CURE_TEXT: Record<Medicine, Tekst> = {
   pink: 'Eliksir z kociołka', blue: 'Woda ze źródełka', green: 'Zioła', purple: 'Nektar z lilii', gold: 'Złoty miód',
   cocoa: 'Kakao z ogniska', pearl: 'Perła z muszli', crystal: 'Kryształ z groty', berry: 'Jagody',
 };
 
 /** the first time a species turns up: who it is, what is wrong with it and what helps */
-export const meetStory = (name: string, ailment: Ailment, cure: Medicine, portrait: Promise<string>) => story(NAMES[name] ?? name, [
+export const meetStory = (name: string, ailment: Ailment, cure: Medicine, portrait: Promise<string>) => story(NAMES[name] ?? 'Nowy pacjent', [
   [{ img: portrait, label: 'Nowy pacjent' }],
   [
-    { draw: (g) => drawAilment(g, ailment, 34, 34, 26), label: AILMENT_TEXT[ailment] ?? '' },
+    { draw: (g) => drawAilment(g, ailment, 34, 34, 26), label: AILMENT_TEXT[ailment] },
     { draw: (g) => drawMedicine(g, cure, 34, 36, 22), label: CURE_TEXT[cure] },
   ],
 ], true);

@@ -5,7 +5,7 @@
  * button is not green and carries the 🎬 sign; no timers until the next ad, no nagging (the player opens the menu).
  */
 import { drawCoin } from './icons';
-import { t } from './i18n';
+import { t, type Tekst } from './i18n';
 
 export type Booster = 'gold' | 'volunteer';
 export const BOOST_TIME = 180; // seconds a booster lasts
@@ -103,7 +103,7 @@ export class Boosters {
 
   private open() {
     this.body.innerHTML = `<h2>${t('Pomoc dla schroniska')}</h2>`;
-    const offer = (b: Booster, img: HTMLCanvasElement, text: string) => {
+    const offer = (b: Booster, img: HTMLCanvasElement, text: Tekst) => {
       const row = document.createElement('div');
       row.className = 'offer' + (this.active(b) ? ' off' : '');
       const label = document.createElement('span');
